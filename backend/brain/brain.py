@@ -1,6 +1,8 @@
 from brain.intent import IntentEngine
 from brain.router import Router
 
+from memory.memory import Memory
+
 from providers.gemini import GeminiProvider
 
 
@@ -8,24 +10,54 @@ class Brain:
 
     def __init__(self):
 
-        self.intent_engine = IntentEngine()
+        self.intent = IntentEngine()
 
         self.router = Router()
+
+        self.memory = Memory()
 
         self.ai = GeminiProvider()
 
     def process(self, user_input: str):
 
-        command = self.intent_engine.detect(user_input)
+        # Save user message
+        self.memory.conversation.add(
+            "user",
+            user_input
+        )
 
-        print(command)
+        command = self.intent.detect(
+            user_input
+        )
 
-        response = self.router.route(command)
+        response = self.router.route(
+            command
+        )
 
+        # Router handled the request
         if response.get("success"):
 
-            if response.get("action"):
+            message = response.get("message")
 
-                return response
+            if message:
 
-        return self.ai.chat(user_input)
+                self.memory.conversation.add(
+                    "assistant",
+                    message
+                )
+
+            return response
+
+        # Send to AI
+        ai_response = self.ai.chat(
+            user_input
+        )
+
+        if ai_response.get("success"):
+
+            self.memory.conversation.add(
+                "assistant",
+                ai_response["response"]
+            )
+
+        return ai_response
