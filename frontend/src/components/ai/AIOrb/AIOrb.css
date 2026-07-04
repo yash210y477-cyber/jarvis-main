@@ -1,0 +1,33 @@
+.orb{
+
+width:650px;
+
+height:650px;
+
+position:relative;
+
+animation:orbFloat 6s ease-in-out infinite;
+
+}
+
+@keyframes orbFloat{
+
+0%{
+
+transform:translateY(0);
+
+}
+
+50%{
+
+transform:translateY(-12px);
+
+}
+
+100%{
+
+transform:translateY(0);
+
+}
+
+}
