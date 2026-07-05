@@ -1,8 +1,9 @@
 import "./ChatPanel.css";
-import { Bot, SendHorizontal, User } from "lucide-react";
+import { Bot, SendHorizontal, User, Mic } from "lucide-react";
 import { useState } from "react";
 
-import { sendMessage as chatAPI } from "../../../services/api/chatApi";
+import { sendChatMessage } from "../../../services/api/chatService";
+import { startVoice } from "../../../services/voice/voiceService";
 import { executeAction } from "../../../services/actions/actionExecutor";
 
 export default function ChatPanel() {
@@ -19,12 +20,10 @@ export default function ChatPanel() {
 
   const [input, setInput] = useState("");
 
-  const [loading, setLoading] = useState(false);
+  const handleSend = async () => {
+    if (!input.trim()) return;
 
-  async function sendMessage() {
-    if (!input.trim() || loading) return;
-
-    const userMessage = input;
+    const userMessage = input.trim();
 
     setMessages((prev) => [
       ...prev,
@@ -36,26 +35,16 @@ export default function ChatPanel() {
 
     setInput("");
 
-    setLoading(true);
-
     try {
-      const response = await chatAPI(userMessage);
+      const response = await sendChatMessage(userMessage);
 
       executeAction(response);
-
-      let reply = "";
-
-      if (response.provider === "gemini") {
-        reply = response.response;
-      } else {
-        reply = response.message;
-      }
 
       setMessages((prev) => [
         ...prev,
         {
           type: "bot",
-          text: reply,
+          text: response.message || response.response || "Done",
         },
       ]);
     } catch (error) {
@@ -65,13 +54,41 @@ export default function ChatPanel() {
         ...prev,
         {
           type: "bot",
-          text: "Sorry, I couldn't process your request.",
+          text: "Unable to connect to Jarvis Backend.",
         },
       ]);
     }
+  };
 
-    setLoading(false);
-  }
+  const handleVoice = async () => {
+    try {
+      const response = await startVoice();
+
+      executeAction(response);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          type: "user",
+          text: response.heard,
+        },
+        {
+          type: "bot",
+          text: response.message,
+        },
+      ]);
+    } catch (error) {
+      console.error(error);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          type: "bot",
+          text: "Voice recognition failed.",
+        },
+      ]);
+    }
+  };
 
   return (
     <div className="chatContainer">
@@ -90,11 +107,7 @@ export default function ChatPanel() {
         {messages.map((msg, index) => (
           <div
             key={index}
-            className={
-              msg.type === "user"
-                ? "message user"
-                : "message bot"
-            }
+            className={msg.type === "user" ? "message user" : "message bot"}
           >
             <div className="avatar">
               {msg.type === "user" ? (
@@ -104,23 +117,9 @@ export default function ChatPanel() {
               )}
             </div>
 
-            <div className="bubble">
-              {msg.text}
-            </div>
+            <div className="bubble">{msg.text}</div>
           </div>
         ))}
-
-        {loading && (
-          <div className="message bot">
-            <div className="avatar">
-              <Bot size={18} />
-            </div>
-
-            <div className="bubble">
-              Thinking...
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="chatInput">
@@ -130,15 +129,16 @@ export default function ChatPanel() {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
-              sendMessage();
+              handleSend();
             }
           }}
         />
 
-        <button
-          onClick={sendMessage}
-          disabled={loading}
-        >
+        <button onClick={handleVoice}>
+          <Mic size={20} />
+        </button>
+
+        <button onClick={handleSend}>
           <SendHorizontal size={20} />
         </button>
       </div>

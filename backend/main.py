@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from brain.brain import Brain
+from api.voice import router as voice_router
 
 app = FastAPI(
     title="JARVIS AI",
@@ -18,10 +19,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Voice API
+app.include_router(voice_router)
+
 
 @app.get("/")
 def home():
-
     return {
         "assistant": "JARVIS",
         "status": "Running"
@@ -30,7 +33,6 @@ def home():
 
 @app.post("/chat")
 def chat(data: dict):
-
     message = data.get("message", "")
 
     response = brain.process(message)

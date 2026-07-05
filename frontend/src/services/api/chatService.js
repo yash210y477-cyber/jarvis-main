@@ -4,7 +4,7 @@ const api = axios.create({
   baseURL: "http://127.0.0.1:8000",
 });
 
-export async function sendMessage(message) {
+export async function sendChatMessage(message) {
   const response = await api.post("/chat", {
     message,
   });
