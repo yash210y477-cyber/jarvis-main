@@ -1,13 +1,11 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("electron", {
-  openChrome: () => ipcRenderer.invoke("open-chrome"),
+  // Universal App Launcher
+  openApplication: (appName) =>
+    ipcRenderer.invoke("open-application", appName),
 
-  openVSCode: () => ipcRenderer.invoke("open-vscode"),
-
-  openExplorer: () => ipcRenderer.invoke("open-explorer"),
-
-  openTerminal: () => ipcRenderer.invoke("open-terminal"),
-
-  getSystemInfo: () => ipcRenderer.invoke("system-info"),
+  // System Information
+  getSystemInfo: () =>
+    ipcRenderer.invoke("system-info"),
 });

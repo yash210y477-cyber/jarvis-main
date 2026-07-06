@@ -1,8 +1,12 @@
 import { app, BrowserWindow, ipcMain } from "electron";
-import { exec } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
 import si from "systeminformation";
+
+import { APP_COMMANDS } from "./apps.js";
+import {
+  openApplication,
+} from "./appDiscovery.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,10 +33,27 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow();
 
-  ipcMain.handle("open-chrome", () => exec("start chrome"));
-  ipcMain.handle("open-vscode", () => exec("code"));
-  ipcMain.handle("open-explorer", () => exec("explorer"));
-  ipcMain.handle("open-terminal", () => exec("start cmd"));
+  // ===========================
+  // Universal App Launcher
+  // ===========================
+
+  ipcMain.handle("open-application", async (_, appName) => {
+    if (!appName) return false;
+
+    const command =
+      APP_COMMANDS[appName.toLowerCase().trim()];
+
+    if (!command) {
+      console.log(`Unknown application: ${appName}`);
+      return false;
+    }
+
+    return await openApplication(appName, APP_COMMANDS);
+  });
+
+  // ===========================
+  // System Information
+  // ===========================
 
   ipcMain.handle("system-info", async () => {
     const cpu = await si.currentLoad();
@@ -52,9 +73,27 @@ app.whenReady().then(() => {
           ? Math.round(disks[0].use)
           : 0,
 
-      network: network.some((n) => n.operstate === "up")
+      network: network.some(
+        (n) => n.operstate === "up"
+      )
         ? "Online"
         : "Offline",
     };
   });
 });
+
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") {
+    app.quit();
+  }
+});
+
+app.on("activate", () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
+  }
+});
+
+console.log(await searchInPath("chrome"));
+console.log(await searchInPath("python"));
+console.log(await searchInPath("git"));

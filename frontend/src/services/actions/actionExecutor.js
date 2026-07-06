@@ -1,36 +1,12 @@
-import {
-  openChrome,
-  openVSCode,
-  openExplorer,
-  openTerminal,
-} from "../electron/electron";
+import { openApplication } from "../electron/electron";
 
 export function executeAction(response) {
   if (!response?.success) return;
 
   switch (response.action) {
     case "open_app":
-      switch (response.target) {
-        case "chrome":
-          openChrome();
-          return;
-
-        case "vscode":
-          openVSCode();
-          return;
-
-        case "explorer":
-          openExplorer();
-          return;
-
-        case "terminal":
-          openTerminal();
-          return;
-
-        default:
-          console.log("Unknown app:", response.target);
-          return;
-      }
+      openApplication(response.target);
+      return;
 
     case "google_search":
       window.open(response.url, "_blank");

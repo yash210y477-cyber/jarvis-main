@@ -11,12 +11,7 @@ import {
   Settings,
 } from "lucide-react";
 
-import {
-  openChrome,
-  openVSCode,
-  openExplorer,
-  openTerminal,
-} from "../../../services/electron/electron";
+import { openApplication } from "../../../services/electron/electron";
 
 export default function QuickActions() {
   const actions = [
@@ -24,31 +19,31 @@ export default function QuickActions() {
       title: "Chrome",
       subtitle: "Browse Internet",
       icon: Globe,
-      action: openChrome,
+      action: () => openApplication("chrome"),
     },
     {
       title: "VS Code",
       subtitle: "Write Code",
       icon: Code2,
-      action: openVSCode,
+      action: () => openApplication("vscode"),
     },
     {
       title: "Explorer",
       subtitle: "Manage Files",
       icon: FolderOpen,
-      action: openExplorer,
+      action: () => openApplication("explorer"),
     },
     {
       title: "Terminal",
       subtitle: "Run Commands",
       icon: Terminal,
-      action: openTerminal,
+      action: () => openApplication("terminal"),
     },
     {
       title: "Calculator",
       subtitle: "Quick Math",
       icon: Calculator,
-      action: () => {},
+      action: () => openApplication("calculator"),
     },
     {
       title: "Monitor",
