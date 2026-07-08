@@ -5,6 +5,8 @@ from memory.memory import Memory
 
 from providers.manager import AIManager
 
+from context.builder import ContextBuilder
+
 
 class Brain:
 
@@ -15,6 +17,10 @@ class Brain:
         self.router = Router()
 
         self.memory = Memory()
+
+        self.context = ContextBuilder(
+            self.memory
+        )
 
         self.ai = AIManager()
 
@@ -45,6 +51,7 @@ class Brain:
             command
         )
 
+        # If router handled it
         if response.get("success"):
 
             message = response.get("message")
@@ -59,20 +66,34 @@ class Brain:
             return response
 
         # -----------------------------
+        # Build AI Context
+        # -----------------------------
+
+        prompt = self.context.build(
+            user_input
+        )
+
+        # -----------------------------
         # AI Manager
         # -----------------------------
 
         ai_response = self.ai.chat(
-            user_input
+            prompt
         )
+
+        # -----------------------------
+        # Save AI Response
+        # -----------------------------
 
         if ai_response.get("success"):
 
-            if ai_response.get("response"):
+            response_text = ai_response.get("response")
+
+            if response_text:
 
                 self.memory.conversation.add(
                     "assistant",
-                    ai_response["response"]
+                    response_text
                 )
 
         return ai_response
