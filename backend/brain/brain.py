@@ -3,8 +3,7 @@ from brain.router import Router
 
 from memory.memory import Memory
 
-from providers.gemini import GeminiProvider
-from providers.ollama import OllamaProvider
+from providers.manager import AIManager
 
 
 class Brain:
@@ -17,9 +16,7 @@ class Brain:
 
         self.memory = Memory()
 
-        self.ai = GeminiProvider()
-
-        self.local_ai = OllamaProvider()
+        self.ai = AIManager()
 
     def process(self, user_input: str):
 
@@ -48,8 +45,6 @@ class Brain:
             command
         )
 
-        # Router handled the request
-
         if response.get("success"):
 
             message = response.get("message")
@@ -64,7 +59,7 @@ class Brain:
             return response
 
         # -----------------------------
-        # Gemini AI
+        # AI Manager
         # -----------------------------
 
         ai_response = self.ai.chat(
@@ -73,46 +68,11 @@ class Brain:
 
         if ai_response.get("success"):
 
-            self.memory.conversation.add(
-                "assistant",
-                ai_response["response"]
-            )
+            if ai_response.get("response"):
 
-            return ai_response
+                self.memory.conversation.add(
+                    "assistant",
+                    ai_response["response"]
+                )
 
-        print("Gemini failed. Switching to Ollama...")
-
-        # -----------------------------
-        # Ollama Fallback
-        # -----------------------------
-
-        ollama_response = self.local_ai.chat(
-            user_input
-        )
-
-        if ollama_response.get("success"):
-
-            self.memory.conversation.add(
-                "assistant",
-                ollama_response["response"]
-            )
-
-            return ollama_response
-
-        # -----------------------------
-        # Both Failed
-        # -----------------------------
-
-        return {
-
-            "success": False,
-
-            "provider": "brain",
-
-            "message": "Unable to generate response.",
-
-            "gemini_error": ai_response.get("error"),
-
-            "ollama_error": ollama_response.get("error")
-
-        }
+        return ai_response
