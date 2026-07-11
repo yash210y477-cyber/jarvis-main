@@ -97,3 +97,15 @@ class Brain:
                 )
 
         return ai_response
+    
+    def set_mode(self, mode):
+        
+        self.context.set_mode(mode)
+        
+        return {
+            
+            "success": True,
+           
+            "mode": mode
+            
+            }

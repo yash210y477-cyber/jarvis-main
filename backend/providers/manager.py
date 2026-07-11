@@ -1,40 +1,38 @@
 from providers.gemini import GeminiProvider
-from providers.ollama import OllamaProvider
+from providers.openrouter import OpenRouterProvider
 
 
 class AIManager:
 
     def __init__(self):
 
-        self.gemini = GeminiProvider()
-        self.ollama = OllamaProvider()
+        self.providers = [
+
+            GeminiProvider(),
+
+            OpenRouterProvider()
+
+        ]
 
     def chat(self, prompt: str):
 
-        # -----------------------------
-        # Try Gemini
-        # -----------------------------
+        errors = []
 
-        gemini_response = self.gemini.chat(prompt)
+        for provider in self.providers:
 
-        if gemini_response.get("success"):
-            return gemini_response
+            result = provider.chat(prompt)
 
-        print(f"Gemini unavailable: {gemini_response.get('error')}")
-        print("Switching to Ollama...")
+            if result.get("success"):
 
-        # -----------------------------
-        # Try Ollama
-        # -----------------------------
+                return result
 
-        ollama_response = self.ollama.chat(prompt)
+            errors.append({
 
-        if ollama_response.get("success"):
-            return ollama_response
+                "provider": provider.name(),
 
-        # -----------------------------
-        # Both Failed
-        # -----------------------------
+                "error": result.get("error")
+
+            })
 
         return {
 
@@ -42,10 +40,8 @@ class AIManager:
 
             "provider": "manager",
 
-            "message": "Unable to generate response.",
+            "message": "All AI providers failed.",
 
-            "gemini_error": gemini_response.get("error"),
-
-            "ollama_error": ollama_response.get("error")
+            "errors": errors
 
         }

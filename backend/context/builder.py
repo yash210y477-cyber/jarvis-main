@@ -1,18 +1,27 @@
+from prompts.manager import PromptManager
+
+
 class ContextBuilder:
 
     def __init__(self, memory):
 
         self.memory = memory
 
-    def build(self, user_input: str):
+        self.prompts = PromptManager()
+
+    def set_mode(self, mode):
+
+        self.prompts.set_mode(mode)
+
+    def build(self, user_input):
 
         history = self.memory.conversation.last(10)
 
-        prompt = ""
+        prompt = self.prompts.get_prompt()
 
-        prompt += (
-            "You are JARVIS, an intelligent AI assistant.\n\n"
-        )
+        prompt += "\n\n"
+
+        prompt += "Conversation:\n\n"
 
         for message in history:
 
@@ -24,6 +33,6 @@ class ContextBuilder:
 
         prompt += f"\nUser: {user_input}\n"
 
-        prompt += "Assistant:"
+        prompt += "\nAssistant:"
 
-        return prompt 
+        return prompt
