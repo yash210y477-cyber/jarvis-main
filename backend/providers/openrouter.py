@@ -4,6 +4,7 @@ import requests
 from dotenv import load_dotenv
 
 from providers.base import BaseProvider
+from config.settings import settings
 
 
 load_dotenv()
@@ -17,9 +18,11 @@ class OpenRouterProvider(BaseProvider):
 
         self.api_key = os.getenv("OPENROUTER_API_KEY")
 
-        self.url = "https://openrouter.ai/api/v1/chat/completions"
+        self.url = settings.OPENROUTER_URL
 
-        self.model = "openrouter/auto"
+        self.model = settings.OPENROUTER_MODEL
+
+        self.timeout = settings.REQUEST_TIMEOUT
 
     def name(self) -> str:
 
@@ -83,7 +86,7 @@ class OpenRouterProvider(BaseProvider):
 
                 json=payload,
 
-                timeout=60
+                timeout=self.timeout
 
             )
 
