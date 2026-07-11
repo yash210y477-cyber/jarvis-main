@@ -1,53 +1,74 @@
-import uuid
+import re
 
-from datetime import datetime
-
-from memory.models import MemoryItem
-from memory.session import SessionMemory
+from memory.memory import Memory
 
 
 class MemoryManager:
 
     def __init__(self):
 
-        self.session = SessionMemory()
+        self.memory = Memory()
 
     def add_user_message(self, message: str):
 
-        memory = MemoryItem(
+        self.memory.conversation.add(
 
-            id=str(uuid.uuid4()),
+            "user",
 
-            role="user",
-
-            content=message,
-
-            timestamp=datetime.now()
+            message
 
         )
 
-        self.session.add(memory)
+        self.extract_profile(message)
 
     def add_assistant_message(self, message: str):
 
-        memory = MemoryItem(
+        self.memory.conversation.add(
 
-            id=str(uuid.uuid4()),
+            "assistant",
 
-            role="assistant",
-
-            content=message,
-
-            timestamp=datetime.now()
+            message
 
         )
 
-        self.session.add(memory)
-
     def get_messages(self):
 
-        return self.session.all()
+        return self.memory.conversation.last()
 
     def clear(self):
 
-        self.session.clear()
+        self.memory.reset()
+
+    def extract_profile(self, text: str):
+
+        text = text.strip()
+
+        patterns = [
+
+            r"my name is (.+)",
+
+            r"i am (.+)",
+
+            r"i'm (.+)"
+
+        ]
+
+        lower = text.lower()
+
+        for pattern in patterns:
+
+            match = re.search(pattern, lower)
+
+            if match:
+
+                name = match.group(1).strip().title()
+
+                self.memory.profile.update(
+
+                    "name",
+
+                    name
+
+                )
+
+                break

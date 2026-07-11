@@ -35,6 +35,6 @@ def home():
 def chat(data: dict):
     message = data.get("message", "")
 
-    response = brain.process(message)
+    response = brain.chat(message)
 
     return response

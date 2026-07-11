@@ -1,111 +1,67 @@
+from providers.manager import AIManager
+
 from brain.intent import IntentEngine
 from brain.router import Router
 
-from memory.memory import Memory
-
-from providers.manager import AIManager
-
-from context.builder import ContextBuilder
+from memory.manager import MemoryManager
+from memory.context import ContextBuilder
 
 
 class Brain:
 
     def __init__(self):
 
+        self.ai = AIManager()
+
         self.intent = IntentEngine()
 
         self.router = Router()
 
-        self.memory = Memory()
+        self.memory = MemoryManager()
 
-        self.context = ContextBuilder(
-            self.memory
-        )
+        self.context = ContextBuilder(self.memory)
 
-        self.ai = AIManager()
+    def chat(self, message: str):
 
-    def process(self, user_input: str):
+        # Save user message
+        self.memory.add_user_message(message)
 
-        # -----------------------------
-        # Save User Message
-        # -----------------------------
+        # Detect intent
+        command = self.intent.detect(message)
 
-        self.memory.conversation.add(
-            "user",
-            user_input
-        )
+        # Try router first
+        result = self.router.route(command)
 
-        # -----------------------------
-        # Detect Intent
-        # -----------------------------
+        if result.get("success"):
 
-        command = self.intent.detect(
-            user_input
-        )
+            reply = (
+                result.get("message")
+                or result.get("response")
+                or str(result)
+            )
 
-        # -----------------------------
-        # Router
-        # -----------------------------
+            self.memory.add_assistant_message(reply)
 
-        response = self.router.route(
-            command
-        )
+            return {
+                "success": True,
+                "provider": "router",
+                "response": reply,
+                "data": result
+            }
 
-        # If router handled it
-        if response.get("success"):
+        # Fallback to AI
+        prompt = self.context.build(message)
 
-            message = response.get("message")
-
-            if message:
-
-                self.memory.conversation.add(
-                    "assistant",
-                    message
-                )
-
-            return response
-
-        # -----------------------------
-        # Build AI Context
-        # -----------------------------
-
-        prompt = self.context.build(
-            user_input
-        )
-
-        # -----------------------------
-        # AI Manager
-        # -----------------------------
-
-        ai_response = self.ai.chat(
-            prompt
-        )
-
-        # -----------------------------
-        # Save AI Response
-        # -----------------------------
+        ai_response = self.ai.chat(prompt)
 
         if ai_response.get("success"):
 
-            response_text = ai_response.get("response")
-
-            if response_text:
-
-                self.memory.conversation.add(
-                    "assistant",
-                    response_text
-                )
+            self.memory.add_assistant_message(
+                ai_response["response"]
+            )
 
         return ai_response
-    
-    def set_mode(self, mode):
-        
-        self.context.set_mode(mode)
-        
-        return {
-            
-            "success": True,
-           
-            "mode": mode
-            
-            }
+
+    def clear_memory(self):
+
+        self.memory.clear()
