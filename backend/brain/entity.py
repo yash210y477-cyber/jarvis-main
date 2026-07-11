@@ -3,68 +3,23 @@ import re
 
 class EntityExtractor:
 
-    """
-    Extracts structured information
-    from user commands.
-    """
-
     def extract(self, text: str):
 
         text = text.strip()
 
-        result = {}
-
         patterns = [
 
-            (
-                r"remember my name is (.+)",
-                "name"
-            ),
+            (r"(?:remember\s+)?my name is\s+(.+)", "name"),
 
-            (
-                r"my name is (.+)",
-                "name"
-            ),
+            (r"(?:remember\s+)?i am\s+([a-zA-Z ]+)", "occupation"),
 
-            (
-                r"remember i live in (.+)",
-                "city"
-            ),
+            (r"(?:remember\s+)?i live in\s+(.+)", "city"),
 
-            (
-                r"i live in (.+)",
-                "city"
-            ),
+            (r"(?:remember\s+)?my email is\s+(.+)", "email"),
 
-            (
-                r"remember my email is (.+)",
-                "email"
-            ),
+            (r"(?:remember\s+)?my favourite editor is\s+(.+)", "editor"),
 
-            (
-                r"my email is (.+)",
-                "email"
-            ),
-
-            (
-                r"remember my occupation is (.+)",
-                "occupation"
-            ),
-
-            (
-                r"i am a[n]?\s+(.+)",
-                "occupation"
-            ),
-
-            (
-                r"my favourite editor is (.+)",
-                "editor"
-            ),
-
-            (
-                r"i use (.+)",
-                "editor"
-            )
+            (r"(?:remember\s+)?i use\s+(.+)", "editor")
 
         ]
 
@@ -78,10 +33,18 @@ class EntityExtractor:
 
             if match:
 
-                result["field"] = field
+                value = (
+                    match.group(1)
+                    .strip()
+                    .rstrip(".,!?")
+                )
 
-                result["value"] = match.group(1).strip()
+                return {
 
-                return result
+                    "field": field,
 
-        return result
+                    "value": value
+
+                }
+
+        return {}
