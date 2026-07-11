@@ -5,7 +5,7 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 
 from providers.base import BaseProvider
-
+from config.settings import settings
 
 load_dotenv()
 

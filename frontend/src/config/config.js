@@ -1,4 +1,3 @@
-export const LOCAL_AI="ollama";
 
 export const CLOUD_AI="gemini";
 

@@ -1,38 +1,111 @@
-import os
-
 from dotenv import load_dotenv
-
 
 load_dotenv()
 
 
 class Settings:
 
-    # Gemini
+    # ==========================================================
+    # APPLICATION
+    # ==========================================================
+
+    APP_NAME = "JARVIS"
+
+    APP_VERSION = "1.0.0"
+
+    DEBUG = True
+
+    # ==========================================================
+    # NETWORK
+    # ==========================================================
+
+    REQUEST_TIMEOUT = 60
+
+    MAX_RETRIES = 2
+
+    # ==========================================================
+    # GEMINI
+    # ==========================================================
 
     GEMINI_MODEL = "gemini-2.5-flash"
 
-    # OpenRouter
+    # ==========================================================
+    # OPENROUTER
+    # ==========================================================
 
     OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
     OPENROUTER_MODEL = "openrouter/auto"
 
-    # Network
+    # ==========================================================
+    # GROQ
+    # ==========================================================
 
-    REQUEST_TIMEOUT = 60
+    GROQ_MODEL = "llama-3.3-70b-versatile"
 
-    MAX_RETRIES = 1
+    # ==========================================================
+    # CEREBRAS
+    # ==========================================================
 
-    # Priority
+    CEREBRAS_MODEL = "gpt-oss-120b"
+
+    # ==========================================================
+    # DEEPSEEK
+    # ==========================================================
+
+    DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+
+    DEEPSEEK_MODEL = "deepseek-chat"
+
+    # ==========================================================
+    # OPENAI
+    # ==========================================================
+
+    OPENAI_MODEL = "gpt-4.1-mini"
+
+    # ==========================================================
+    # ENABLE / DISABLE PROVIDERS
+    # ==========================================================
+
+    ENABLE_GEMINI = True
+
+    ENABLE_OPENROUTER = True
+
+    ENABLE_GROQ = True
+
+    ENABLE_CEREBRAS = True
+
+    ENABLE_DEEPSEEK = True
+
+    ENABLE_OPENAI = True
+
+    # ==========================================================
+    # PROVIDER PRIORITY
+    # ==========================================================
 
     PROVIDER_PRIORITY = [
 
         "gemini",
 
-        "openrouter"
+        "openrouter",
+
+        "groq",
+
+        "cerebras",
+
+        "deepseek",
+
+        "openai"
 
     ]
+
+    # ==========================================================
+    # LOGGING
+    # ==========================================================
+
+    LOG_LEVEL = "INFO"
+
+    LOG_FORMAT = "%(asctime)s | %(levelname)s | %(message)s"
 
 
 settings = Settings()
