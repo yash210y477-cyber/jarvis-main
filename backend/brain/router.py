@@ -21,161 +21,251 @@ class Router:
 
         value = command.get("value")
 
-        # --------------------------------
+        text = command.get("text", "").lower()
+
+        # -----------------------------------
         # OPEN APP
-        # --------------------------------
+        # -----------------------------------
 
         if intent == "open_app":
 
             return apps.open_app(target)
 
-        # --------------------------------
+        # -----------------------------------
 
         if intent == "close_app":
 
             return apps.close_app(target)
 
-        # --------------------------------
+        # -----------------------------------
 
         if intent == "search_web":
 
             return browser.google_search(target)
 
-        # --------------------------------
+        # -----------------------------------
 
         if intent == "open_website":
 
             return browser.open_website(target)
 
-        # --------------------------------
+        # -----------------------------------
 
         if intent == "system_status":
 
             return system.system_status()
 
-        # --------------------------------
-        # MEMORY
-        # --------------------------------
+        # -----------------------------------
+        # REMEMBER
+        # -----------------------------------
 
         if intent == "remember":
 
-            if field and value:
-
-                if field in (
-
-                    "name",
-
-                    "email",
-
-                    "city",
-
-                    "occupation"
-
-                ):
-
-                    self.memory.profile.update(
-
-                        field,
-
-                        value
-
-                    )
-
-                elif field == "editor":
-
-                    data = self.memory.profile.storage.read()
-
-                    data["preferences"]["editor"] = value
-
-                    self.memory.profile.storage.write(data)
+            if not field or not value:
 
                 return {
 
-                    "success": True,
+                    "success": False,
 
-                    "message": f"I'll remember your {field}."
+                    "message": "Nothing to remember."
 
                 }
 
-            return {
+            result = self.memory.remember(
 
-                "success": False,
+                field,
 
-                "message": "Nothing to remember."
+                value
 
-            }
+            )
 
-        # --------------------------------
+            return result
+
+        # -----------------------------------
         # RECALL
-        # --------------------------------
+        # -----------------------------------
 
         if intent == "recall":
 
-            text = command["text"]
-
-            profile = self.memory.profile.get_profile()
-
             if "name" in text:
 
-                name = profile["name"]
+                value = self.memory.recall("name")
 
                 return {
 
                     "success": True,
 
-                    "message": f"Your name is {name}."
+                    "message":
 
-                    if name else
+                        f"Your name is {value}."
 
-                    "I don't know your name yet."
+                        if value else
+
+                        "I don't know your name."
 
                 }
 
             if "city" in text or "live" in text:
 
-                city = profile["city"]
+                value = self.memory.recall("city")
 
                 return {
 
                     "success": True,
 
-                    "message": f"You live in {city}."
+                    "message":
 
-                    if city else
+                        f"You live in {value}."
 
-                    "I don't know where you live."
+                        if value else
+
+                        "I don't know your city."
 
                 }
 
             if "email" in text:
 
-                email = profile["email"]
+                value = self.memory.recall("email")
 
                 return {
 
                     "success": True,
 
-                    "message": email
+                    "message":
 
-                    if email else
+                        value
 
-                    "I don't know your email."
+                        if value else
+
+                        "I don't know your email."
 
                 }
 
             if "occupation" in text:
 
-                job = profile["occupation"]
+                value = self.memory.recall("occupation")
 
                 return {
 
                     "success": True,
 
-                    "message": job
+                    "message":
 
-                    if job else
+                        value
 
-                    "I don't know your occupation."
+                        if value else
+
+                        "I don't know your occupation."
+
+                }
+
+            if "language" in text:
+
+                value = self.memory.recall(
+
+                    "favourite_language"
+
+                )
+
+                return {
+
+                    "success": True,
+
+                    "message":
+
+                        value
+
+                        if value else
+
+                        "I don't know your favourite language."
+
+                }
+
+            if "editor" in text:
+
+                value = self.memory.recall(
+
+                    "editor"
+
+                )
+
+                return {
+
+                    "success": True,
+
+                    "message":
+
+                        value
+
+                        if value else
+
+                        "I don't know your favourite editor."
+
+                }
+
+            if "bike" in text:
+
+                value = self.memory.recall(
+
+                    "bike"
+
+                )
+
+                return {
+
+                    "success": True,
+
+                    "message":
+
+                        value
+
+                        if value else
+
+                        "I don't know your bike."
+
+                }
+
+            if "phone" in text:
+
+                value = self.memory.recall(
+
+                    "phone"
+
+                )
+
+                return {
+
+                    "success": True,
+
+                    "message":
+
+                        value
+
+                        if value else
+
+                        "I don't know your phone."
+
+                }
+
+            if "laptop" in text:
+
+                value = self.memory.recall(
+
+                    "laptop"
+
+                )
+
+                return {
+
+                    "success": True,
+
+                    "message":
+
+                        value
+
+                        if value else
+
+                        "I don't know your laptop."
 
                 }
 
@@ -183,13 +273,15 @@ class Router:
 
                 "success": True,
 
-                "profile": profile
+                "profile":
+
+                    self.memory.profile.get_profile()
 
             }
 
-        # --------------------------------
+        # -----------------------------------
         # AI
-        # --------------------------------
+        # -----------------------------------
 
         return {
 

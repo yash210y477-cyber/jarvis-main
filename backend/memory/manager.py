@@ -1,5 +1,3 @@
-import re
-
 from memory.memory import Memory
 
 
@@ -9,9 +7,13 @@ class MemoryManager:
 
         self.memory = Memory()
 
+    # -----------------------------
+    # Conversation
+    # -----------------------------
+
     def add_user_message(self, message: str):
 
-        self.memory.conversation.add(
+        self.memory.remember_conversation(
 
             "user",
 
@@ -19,11 +21,9 @@ class MemoryManager:
 
         )
 
-        self.extract_profile(message)
-
     def add_assistant_message(self, message: str):
 
-        self.memory.conversation.add(
+        self.memory.remember_conversation(
 
             "assistant",
 
@@ -33,42 +33,50 @@ class MemoryManager:
 
     def get_messages(self):
 
-        return self.memory.conversation.last()
+        return self.memory.recent_conversation(
+
+            limit=100000
+
+        )
+
+    def clear_messages(self):
+
+        self.memory.conversation.clear()
+
+    # -----------------------------
+    # Profile
+    # -----------------------------
+
+    def remember(self, key: str, value: str):
+
+        return self.memory.remember(
+
+            key,
+
+            value
+
+        )
+
+    def recall(self, key: str):
+
+        return self.memory.recall(
+
+            key
+
+        )
+
+    def get_profile(self):
+
+        return self.memory.profile.get_profile()
+
+    # -----------------------------
+    # Utility
+    # -----------------------------
+
+    def stats(self):
+
+        return self.memory.stats()
 
     def clear(self):
 
         self.memory.reset()
-
-    def extract_profile(self, text: str):
-
-        text = text.strip()
-
-        patterns = [
-
-            r"my name is (.+)",
-
-            r"i am (.+)",
-
-            r"i'm (.+)"
-
-        ]
-
-        lower = text.lower()
-
-        for pattern in patterns:
-
-            match = re.search(pattern, lower)
-
-            if match:
-
-                name = match.group(1).strip().title()
-
-                self.memory.profile.update(
-
-                    "name",
-
-                    name
-
-                )
-
-                break
