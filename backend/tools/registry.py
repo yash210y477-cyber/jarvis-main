@@ -18,11 +18,15 @@ class ToolRegistry:
 
         permission="user",
 
-        category="general"
+        category="general",
+
+        examples=None
 
     ):
 
         self.tools[name] = {
+
+            "name": name,
 
             "handler": handler,
 
@@ -32,7 +36,9 @@ class ToolRegistry:
 
             "permission": permission,
 
-            "category": category
+            "category": category,
+
+            "examples": examples or []
 
         }
 
@@ -47,3 +53,27 @@ class ToolRegistry:
     def all(self):
 
         return self.tools
+
+    def metadata(self):
+
+        metadata = []
+
+        for tool in self.tools.values():
+
+            metadata.append({
+
+                "name": tool["name"],
+
+                "description": tool["description"],
+
+                "arguments": tool["arguments"],
+
+                "permission": tool["permission"],
+
+                "category": tool["category"],
+
+                "examples": tool["examples"]
+
+            })
+
+        return metadata
