@@ -1,5 +1,4 @@
 import os
-
 import google.generativeai as genai
 
 from dotenv import load_dotenv
@@ -18,17 +17,23 @@ class GeminiProvider(BaseProvider):
 
         self.model = None
 
-        api_key = os.getenv("GEMINI_API_KEY")
+        self.api_key = os.getenv("GEMINI_API_KEY")
 
-        if api_key:
+        if self.api_key:
 
-            genai.configure(
-                api_key=api_key
-            )
+            try:
 
-            self.model = genai.GenerativeModel(
-                "gemini-2.5-flash"
-            )
+                genai.configure(
+                    api_key=self.api_key
+                )
+
+                self.model = genai.GenerativeModel(
+                    settings.GEMINI_MODEL
+                )
+
+            except Exception:
+
+                self.model = None
 
     def name(self) -> str:
 
@@ -43,13 +48,9 @@ class GeminiProvider(BaseProvider):
         if not self.health():
 
             return {
-
                 "success": False,
-
                 "provider": self.name(),
-
-                "error": "Gemini API key not configured."
-
+                "error": "Gemini is not configured."
             }
 
         try:
@@ -58,24 +59,22 @@ class GeminiProvider(BaseProvider):
                 prompt
             )
 
+            text = ""
+
+            if hasattr(response, "text"):
+
+                text = response.text
+
             return {
-
                 "success": True,
-
                 "provider": self.name(),
-
-                "response": response.text
-
+                "response": text
             }
 
         except Exception as e:
 
             return {
-
                 "success": False,
-
                 "provider": self.name(),
-
                 "error": str(e)
-
             }
