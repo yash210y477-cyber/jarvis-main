@@ -1,12 +1,9 @@
 import os
 
 from openai import OpenAI
-from dotenv import load_dotenv
 
 from providers.base import BaseProvider
 from config.settings import settings
-
-load_dotenv()
 
 
 class DeepSeekProvider(BaseProvider):
@@ -43,15 +40,9 @@ class DeepSeekProvider(BaseProvider):
 
         if not self.health():
 
-            return {
-
-                "success": False,
-
-                "provider": self.name(),
-
-                "error": "DeepSeek API key not configured."
-
-            }
+            return self.failure(
+                "DeepSeek API key not configured."
+            )
 
         try:
 
@@ -60,37 +51,20 @@ class DeepSeekProvider(BaseProvider):
                 model=self.model,
 
                 messages=[
-
                     {
-
                         "role": "user",
-
                         "content": prompt
-
                     }
-
                 ]
 
             )
 
-            return {
+            return self.success(
 
-                "success": True,
+                response.choices[0].message.content
 
-                "provider": self.name(),
-
-                "response": response.choices[0].message.content
-
-            }
+            )
 
         except Exception as e:
 
-            return {
-
-                "success": False,
-
-                "provider": self.name(),
-
-                "error": str(e)
-
-            }
+            return self.failure(e)

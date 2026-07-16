@@ -1,13 +1,8 @@
 import os
 import requests
 
-from dotenv import load_dotenv
-
 from providers.base import BaseProvider
 from config.settings import settings
-
-
-load_dotenv()
 
 
 class OpenRouterProvider(BaseProvider):
@@ -36,15 +31,9 @@ class OpenRouterProvider(BaseProvider):
 
         if not self.health():
 
-            return {
-
-                "success": False,
-
-                "provider": self.name(),
-
-                "error": "OpenRouter API key not configured."
-
-            }
+            return self.failure(
+                "OpenRouter API key not configured."
+            )
 
         try:
 
@@ -65,15 +54,10 @@ class OpenRouterProvider(BaseProvider):
                 "model": self.model,
 
                 "messages": [
-
                     {
-
                         "role": "user",
-
                         "content": prompt
-
                     }
-
                 ]
 
             }
@@ -94,34 +78,14 @@ class OpenRouterProvider(BaseProvider):
 
             if response.status_code != 200:
 
-                return {
+                return self.failure(data)
 
-                    "success": False,
+            return self.success(
 
-                    "provider": self.name(),
+                data["choices"][0]["message"]["content"]
 
-                    "error": data
-
-                }
-
-            return {
-
-                "success": True,
-
-                "provider": self.name(),
-
-                "response": data["choices"][0]["message"]["content"]
-
-            }
+            )
 
         except Exception as e:
 
-            return {
-
-                "success": False,
-
-                "provider": self.name(),
-
-                "error": str(e)
-
-            }
+            return self.failure(e)

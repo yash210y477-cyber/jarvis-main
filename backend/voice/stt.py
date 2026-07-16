@@ -1,25 +1,45 @@
+import logging
+
 from faster_whisper import WhisperModel
+
+
+logger = logging.getLogger(__name__)
 
 
 class SpeechToText:
 
     def __init__(self):
 
-        print("Loading Whisper model...")
+        self.model = None
 
-        self.model = WhisperModel(
-            "base",
-            device="cpu",
-            compute_type="int8"
-        )
+    def load_model(self):
 
-        print("Whisper loaded.")
+        if self.model is None:
+
+            logger.info("Loading Whisper model...")
+
+            self.model = WhisperModel(
+
+                "base",
+
+                device="cpu",
+
+                compute_type="int8"
+
+            )
+
+            logger.info("Whisper loaded.")
 
     def transcribe(self, audio_file):
 
+        self.load_model()
+
         segments, info = self.model.transcribe(
+
             audio_file,
+
             beam_size=5
+
         )
 
         text = ""

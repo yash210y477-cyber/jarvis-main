@@ -11,7 +11,72 @@ class Router:
 
         self.memory = Memory()
 
+        self.recall_map = {
+
+            "name": (
+                "name",
+                "Your name is {}.",
+                "I don't know your name."
+            ),
+
+            "city": (
+                "city",
+                "You live in {}.",
+                "I don't know your city."
+            ),
+
+            "live": (
+                "city",
+                "You live in {}.",
+                "I don't know your city."
+            ),
+
+            "email": (
+                "email",
+                "{}",
+                "I don't know your email."
+            ),
+
+            "occupation": (
+                "occupation",
+                "{}",
+                "I don't know your occupation."
+            ),
+
+            "language": (
+                "favourite_language",
+                "{}",
+                "I don't know your favourite language."
+            ),
+
+            "editor": (
+                "editor",
+                "{}",
+                "I don't know your favourite editor."
+            ),
+
+            "bike": (
+                "bike",
+                "{}",
+                "I don't know your bike."
+            ),
+
+            "phone": (
+                "phone",
+                "{}",
+                "I don't know your phone."
+            ),
+
+            "laptop": (
+                "laptop",
+                "{}",
+                "I don't know your laptop."
+            )
+
+        }
+
     def route(self, command: dict):
+        
 
         intent = command.get("intent")
 
@@ -21,16 +86,19 @@ class Router:
 
         value = command.get("value")
 
-        text = command.get("text", "").lower()
+        text = str(command.get("text", "")).lower()
 
         # -----------------------------------
         # OPEN APP
         # -----------------------------------
 
         if intent == "open_app":
-
-            return apps.open_app(target)
-
+            
+            result = apps.open_app(target)
+            
+            return result
+        # -----------------------------------
+        # CLOSE APP
         # -----------------------------------
 
         if intent == "close_app":
@@ -38,11 +106,15 @@ class Router:
             return apps.close_app(target)
 
         # -----------------------------------
+        # SEARCH WEB
+        # -----------------------------------
 
         if intent == "search_web":
 
             return browser.google_search(target)
 
+        # -----------------------------------
+        # OPEN WEBSITE
         # -----------------------------------
 
         if intent == "open_website":
@@ -50,10 +122,13 @@ class Router:
             return browser.open_website(target)
 
         # -----------------------------------
+        # SYSTEM STATUS
+        # -----------------------------------
 
         if intent == "system_status":
 
             return system.system_status()
+        
 
         # -----------------------------------
         # REMEMBER
@@ -71,7 +146,7 @@ class Router:
 
                 }
 
-            result = self.memory.remember(
+            return self.memory.remember(
 
                 field,
 
@@ -79,195 +154,37 @@ class Router:
 
             )
 
-            return result
-
         # -----------------------------------
         # RECALL
         # -----------------------------------
 
         if intent == "recall":
 
-            if "name" in text:
+            for keyword, config in self.recall_map.items():
 
-                value = self.memory.recall("name")
+                if keyword in text:
 
-                return {
+                    memory_key, success_msg, fail_msg = config
 
-                    "success": True,
+                    stored = self.memory.recall(
 
-                    "message":
+                        memory_key
 
-                        f"Your name is {value}."
+                    )
 
-                        if value else
+                    return {
 
-                        "I don't know your name."
+                        "success": True,
 
-                }
+                        "message":
 
-            if "city" in text or "live" in text:
+                            success_msg.format(stored)
 
-                value = self.memory.recall("city")
+                            if stored else
 
-                return {
+                            fail_msg
 
-                    "success": True,
-
-                    "message":
-
-                        f"You live in {value}."
-
-                        if value else
-
-                        "I don't know your city."
-
-                }
-
-            if "email" in text:
-
-                value = self.memory.recall("email")
-
-                return {
-
-                    "success": True,
-
-                    "message":
-
-                        value
-
-                        if value else
-
-                        "I don't know your email."
-
-                }
-
-            if "occupation" in text:
-
-                value = self.memory.recall("occupation")
-
-                return {
-
-                    "success": True,
-
-                    "message":
-
-                        value
-
-                        if value else
-
-                        "I don't know your occupation."
-
-                }
-
-            if "language" in text:
-
-                value = self.memory.recall(
-
-                    "favourite_language"
-
-                )
-
-                return {
-
-                    "success": True,
-
-                    "message":
-
-                        value
-
-                        if value else
-
-                        "I don't know your favourite language."
-
-                }
-
-            if "editor" in text:
-
-                value = self.memory.recall(
-
-                    "editor"
-
-                )
-
-                return {
-
-                    "success": True,
-
-                    "message":
-
-                        value
-
-                        if value else
-
-                        "I don't know your favourite editor."
-
-                }
-
-            if "bike" in text:
-
-                value = self.memory.recall(
-
-                    "bike"
-
-                )
-
-                return {
-
-                    "success": True,
-
-                    "message":
-
-                        value
-
-                        if value else
-
-                        "I don't know your bike."
-
-                }
-
-            if "phone" in text:
-
-                value = self.memory.recall(
-
-                    "phone"
-
-                )
-
-                return {
-
-                    "success": True,
-
-                    "message":
-
-                        value
-
-                        if value else
-
-                        "I don't know your phone."
-
-                }
-
-            if "laptop" in text:
-
-                value = self.memory.recall(
-
-                    "laptop"
-
-                )
-
-                return {
-
-                    "success": True,
-
-                    "message":
-
-                        value
-
-                        if value else
-
-                        "I don't know your laptop."
-
-                }
+                    }
 
             return {
 
@@ -278,9 +195,9 @@ class Router:
                     self.memory.profile.get_profile()
 
             }
-
+        
         # -----------------------------------
-        # AI
+        # AI FALLBACK
         # -----------------------------------
 
         return {

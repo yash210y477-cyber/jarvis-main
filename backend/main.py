@@ -4,6 +4,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from brain.brain import Brain
 from api.voice import router as voice_router
 
+from config.logger import setup_logger
+
+setup_logger()
+
 app = FastAPI(
     title="JARVIS AI",
     version="1.0.0"

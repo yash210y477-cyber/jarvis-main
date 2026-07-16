@@ -5,7 +5,21 @@ from voice.tts import TextToSpeech
 
 class VoiceEngine:
 
+    _instance = None
+
+    def __new__(cls):
+
+        if cls._instance is None:
+
+            cls._instance = super().__new__(cls)
+
+        return cls._instance
+
     def __init__(self):
+
+        if hasattr(self, "_initialized"):
+
+            return
 
         self.recorder = Recorder()
 
@@ -13,13 +27,13 @@ class VoiceEngine:
 
         self.tts = TextToSpeech()
 
+        self._initialized = True
+
     def listen(self):
 
         audio = self.recorder.record()
 
-        text = self.stt.transcribe(audio)
-
-        return text
+        return self.stt.transcribe(audio)
 
     def speak(self, text):
 

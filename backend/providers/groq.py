@@ -1,12 +1,9 @@
 import os
 
 from groq import Groq
-from dotenv import load_dotenv
 
 from providers.base import BaseProvider
 from config.settings import settings
-
-load_dotenv()
 
 
 class GroqProvider(BaseProvider):
@@ -24,9 +21,7 @@ class GroqProvider(BaseProvider):
         if self.api_key:
 
             self.client = Groq(
-
                 api_key=self.api_key
-
             )
 
     def name(self) -> str:
@@ -41,15 +36,9 @@ class GroqProvider(BaseProvider):
 
         if not self.health():
 
-            return {
-
-                "success": False,
-
-                "provider": self.name(),
-
-                "error": "Groq API key not configured."
-
-            }
+            return self.failure(
+                "Groq API key not configured."
+            )
 
         try:
 
@@ -58,37 +47,20 @@ class GroqProvider(BaseProvider):
                 model=self.model,
 
                 messages=[
-
                     {
-
                         "role": "user",
-
                         "content": prompt
-
                     }
-
                 ]
 
             )
 
-            return {
+            return self.success(
 
-                "success": True,
+                response.choices[0].message.content
 
-                "provider": self.name(),
-
-                "response": response.choices[0].message.content
-
-            }
+            )
 
         except Exception as e:
 
-            return {
-
-                "success": False,
-
-                "provider": self.name(),
-
-                "error": str(e)
-
-            }
+            return self.failure(e)

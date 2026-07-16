@@ -1,7 +1,11 @@
+import logging
 import tempfile
 
 import sounddevice as sd
 from scipy.io.wavfile import write
+
+
+logger = logging.getLogger(__name__)
 
 
 class Recorder:
@@ -16,7 +20,7 @@ class Recorder:
 
     def record(self):
 
-        print("🎤 Listening...")
+        logger.info("🎤 Listening...")
 
         audio = sd.rec(
             int(self.duration * self.sample_rate),

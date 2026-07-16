@@ -8,6 +8,8 @@ from memory.manager import MemoryManager
 from memory.context import ContextBuilder
 
 
+
+
 class Brain:
 
     SUMMARY_THRESHOLD = 50
