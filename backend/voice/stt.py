@@ -2,7 +2,6 @@ import logging
 
 from faster_whisper import WhisperModel
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -10,42 +9,66 @@ class SpeechToText:
 
     def __init__(self):
 
-        self.model = None
+        logger.info("Loading Faster Whisper Model...")
 
-    def load_model(self):
+        self.model = WhisperModel(
+            model_size_or_path="base",
+            device="cpu",
+            compute_type="int8",
+            cpu_threads=4,
+            num_workers=2,
+        )
 
-        if self.model is None:
+        logger.info("Whisper Model Loaded Successfully.")
 
-            logger.info("Loading Whisper model...")
+        self.replacements = {
+            "hallo": "hello",
+            "helo": "hello",
+            "hellow": "hello",
+            "helloo": "hello",
 
-            self.model = WhisperModel(
+            "jervis": "jarvis",
+            "jarvice": "jarvis",
+            "jarvish": "jarvis",
+            "jar vis": "jarvis",
 
-                "base",
+            "vs cord": "vs code",
+            "vscode": "vs code",
+            "visual studio": "visual studio code",
 
-                device="cpu",
+            "good morning service": "good morning jarvis",
+            "good morning jervis": "good morning jarvis",
+        }
 
-                compute_type="int8"
+    def clean_text(self, text: str):
 
-            )
+        text = text.lower().strip()
 
-            logger.info("Whisper loaded.")
+        for wrong, correct in self.replacements.items():
+            text = text.replace(wrong, correct)
+
+        return text
 
     def transcribe(self, audio_file):
 
-        self.load_model()
+        logger.info("Transcribing Audio...")
 
         segments, info = self.model.transcribe(
-
             audio_file,
-
-            beam_size=5
-
+            beam_size=2,
+            language="en",
+            vad_filter=False,
+            condition_on_previous_text=False,
+            temperature=0,
         )
 
-        text = ""
+        text = " ".join(
+            segment.text.strip()
+            for segment in segments
+        )
 
-        for segment in segments:
+        text = self.clean_text(text)
 
-            text += segment.text + " "
+        logger.info(f"Recognized: {text}")
 
-        return text.strip()
+        return text

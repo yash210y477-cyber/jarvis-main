@@ -1,21 +1,47 @@
 from fastapi import APIRouter
+from controllers.voice_controller import VoiceController
 
-from controllers.command_controller import CommandController
-from voice.engine import VoiceEngine
+router = APIRouter(
+    prefix="/voice",
+    tags=["Voice"]
+)
 
-router = APIRouter()
-
-voice = VoiceEngine()
-command = CommandController()
+controller = VoiceController()
 
 
-@router.post("/voice")
-def voice_command():
+# -------------------------
+# Single Voice Command
+# -------------------------
+@router.post("")
+def voice():
 
-    text = voice.listen()
+    return controller.start()
 
-    response = command.execute(text)
 
-    response["heard"] = text
+# -------------------------
+# Continuous Voice Mode
+# -------------------------
+@router.post("/live")
+def start_live():
 
-    return response
+    return controller.start_continuous()
+
+
+# -------------------------
+# Stop Voice Mode
+# -------------------------
+@router.post("/stop")
+def stop_live():
+
+    return controller.stop()
+
+
+# -------------------------
+# Voice Status
+# -------------------------
+@router.get("/status")
+def status():
+
+    return {
+        "running": controller.running
+    }

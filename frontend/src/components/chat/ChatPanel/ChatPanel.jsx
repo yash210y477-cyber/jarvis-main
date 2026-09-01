@@ -1,147 +1,274 @@
 import "./ChatPanel.css";
-import { Bot, SendHorizontal, User, Mic } from "lucide-react";
-import { useState } from "react";
+import { Bot, SendHorizontal, User, Mic, MicOff } from "lucide-react";
+import { useState, useEffect } from "react";
 
 import { sendChatMessage } from "../../../services/api/chatService";
-import { startVoice } from "../../../services/voice/voiceService";
+import {
+    startLiveVoice,
+    stopVoice
+} from "../../../services/voice/voiceService";
+
 import { executeAction } from "../../../services/actions/actionExecutor";
 
 export default function ChatPanel() {
-  const [messages, setMessages] = useState([
-    {
-      type: "bot",
-      text: "Hello Yash 👋",
-    },
-    {
-      type: "bot",
-      text: "I'm JARVIS. How may I assist you today?",
-    },
-  ]);
 
-  const [input, setInput] = useState("");
-
-  const handleSend = async () => {
-    if (!input.trim()) return;
-
-    const userMessage = input.trim();
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        type: "user",
-        text: userMessage,
-      },
+    const [messages, setMessages] = useState([
+        {
+            type: "bot",
+            text: "Hello Yash 👋"
+        },
+        {
+            type: "bot",
+            text: "I'm JARVIS. How may I assist you today?"
+        }
     ]);
 
-    setInput("");
+    const [input, setInput] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [voiceRunning, setVoiceRunning] = useState(false);
 
-    try {
-      const response = await sendChatMessage(userMessage);
+    useEffect(() => {
 
-      executeAction(response);
+        return () => {
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          type: "bot",
-          text: response.message || response.response || "Done",
-        },
-      ]);
-    } catch (error) {
-      console.error(error);
+            stopVoice().catch(() => {});
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          type: "bot",
-          text: "Unable to connect to Jarvis Backend.",
-        },
-      ]);
-    }
-  };
+        };
 
-  const handleVoice = async () => {
-    try {
-      const response = await startVoice();
+    }, []);
 
-      executeAction(response);
+    //-----------------------------------
+    // Send Message
+    //-----------------------------------
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          type: "user",
-          text: response.heard,
-        },
-        {
-          type: "bot",
-          text: response.message,
-        },
-      ]);
-    } catch (error) {
-      console.error(error);
+    const handleSend = async () => {
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          type: "bot",
-          text: "Voice recognition failed.",
-        },
-      ]);
-    }
-  };
+        if (!input.trim() || loading) return;
 
-  return (
-    <div className="chatContainer">
-      <div className="chatHeader">
-        <div className="jarvisLogo">
-          <Bot size={24} />
-        </div>
+        const text = input.trim();
 
-        <div>
-          <h2>JARVIS</h2>
-          <span>AI Assistant Online</span>
-        </div>
-      </div>
+        setMessages(prev => [
+            ...prev,
+            {
+                type: "user",
+                text
+            }
+        ]);
 
-      <div className="chatBody">
-        {messages.map((msg, index) => (
-          <div
-            key={index}
-            className={msg.type === "user" ? "message user" : "message bot"}
-          >
-            <div className="avatar">
-              {msg.type === "user" ? (
-                <User size={18} />
-              ) : (
-                <Bot size={18} />
-              )}
+        setInput("");
+        setLoading(true);
+
+        try {
+
+            const response = await sendChatMessage(text);
+
+            executeAction(response);
+
+            const reply =
+                response.response ||
+                response.message ||
+                response.data?.response ||
+                response.data?.message ||
+                "Done";
+
+            setMessages(prev => [
+                ...prev,
+                {
+                    type: "bot",
+                    text: reply
+                }
+            ]);
+
+        } catch {
+
+            setMessages(prev => [
+                ...prev,
+                {
+                    type: "bot",
+                    text: "Unable to connect to Jarvis."
+                }
+            ]);
+
+        } finally {
+
+            setLoading(false);
+
+        }
+
+    };
+
+    //-----------------------------------
+    // Toggle Voice
+    //-----------------------------------
+
+    const handleVoice = async () => {
+
+        if (loading) return;
+
+        if (!voiceRunning) {
+
+            setVoiceRunning(true);
+
+            setMessages(prev => [
+                ...prev,
+                {
+                    type: "bot",
+                    text: "🎤 Voice Mode Started..."
+                }
+            ]);
+
+            try {
+
+                const response = await startLiveVoice();
+
+                console.log(response);
+
+            } catch {
+
+                setMessages(prev => [
+                    ...prev,
+                    {
+                        type: "bot",
+                        text: "Voice Error."
+                    }
+                ]);
+
+                setVoiceRunning(false);
+
+            }
+
+        } else {
+
+            try {
+
+                await stopVoice();
+
+            } catch (e) {
+
+                console.log(e);
+
+            }
+
+            setVoiceRunning(false);
+
+            setMessages(prev => [
+                ...prev,
+                {
+                    type: "bot",
+                    text: "🛑 Voice Mode Stopped."
+                }
+            ]);
+
+        }
+
+    };
+
+    //-----------------------------------
+    // UI
+    //-----------------------------------
+
+    return (
+
+        <div className="chatContainer">
+
+            <div className="chatHeader">
+
+                <div className="jarvisLogo">
+                    <Bot size={24}/>
+                </div>
+
+                <div>
+
+                    <h2>JARVIS</h2>
+
+                    <span>
+                        {
+                            voiceRunning
+                                ? "🎤 Listening..."
+                                : "AI Assistant Online"
+                        }
+                    </span>
+
+                </div>
+
             </div>
 
-            <div className="bubble">{msg.text}</div>
-          </div>
-        ))}
-      </div>
+            <div className="chatBody">
 
-      <div className="chatInput">
-        <input
-          placeholder="Ask Jarvis anything..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              handleSend();
-            }
-          }}
-        />
+                {
+                    messages.map((msg, index) => (
 
-        <button onClick={handleVoice}>
-          <Mic size={20} />
-        </button>
+                        <div
+                            key={index}
+                            className={
+                                msg.type === "user"
+                                    ? "message user"
+                                    : "message bot"
+                            }
+                        >
 
-        <button onClick={handleSend}>
-          <SendHorizontal size={20} />
-        </button>
-      </div>
-    </div>
-  );
+                            <div className="avatar">
+
+                                {
+                                    msg.type === "user"
+                                        ? <User size={18}/>
+                                        : <Bot size={18}/>
+                                }
+
+                            </div>
+
+                            <div className="bubble">
+                                {msg.text}
+                            </div>
+
+                        </div>
+
+                    ))
+                }
+
+            </div>
+
+            <div className="chatInput">
+
+                <input
+                    placeholder="Ask Jarvis anything..."
+                    value={input}
+                    disabled={voiceRunning}
+                    onChange={(e)=>setInput(e.target.value)}
+                    onKeyDown={(e)=>{
+
+                        if(e.key==="Enter"){
+
+                            handleSend();
+
+                        }
+
+                    }}
+                />
+
+                <button onClick={handleVoice}>
+
+                    {
+                        voiceRunning
+                            ? <MicOff size={20}/>
+                            : <Mic size={20}/>
+                    }
+
+                </button>
+
+                <button
+                    onClick={handleSend}
+                    disabled={voiceRunning}
+                >
+
+                    <SendHorizontal size={20}/>
+
+                </button>
+
+            </div>
+
+        </div>
+
+    );
+
 }
