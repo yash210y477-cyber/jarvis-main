@@ -53,7 +53,7 @@ class Profile:
 
             "success": True,
 
-            "message": f"I'll remember your {key}."
+            "message": f"Got it — I'll remember your {key} is {value}."
 
         }
 
@@ -91,7 +91,7 @@ class Profile:
 
             "success": True,
 
-            "message": f"I'll remember your {key}."
+            "message": f"Got it — I'll remember your {key} is {value}."
 
         }
 
@@ -110,6 +110,42 @@ class Profile:
                 return item["value"]
 
         return None
+
+    def get_facts(self):
+
+        data = self.storage.read()
+
+        return list(data.get("facts", []))
+
+    def delete_fact(self, key: str):
+
+        data = self.storage.read()
+
+        facts = data.get("facts", [])
+
+        remaining = [item for item in facts if item.get("key") != key]
+
+        if len(remaining) == len(facts):
+
+            return {
+
+                "success": False,
+
+                "message": f"I don't have anything saved for {key}."
+
+            }
+
+        data["facts"] = remaining
+
+        self.storage.write(data)
+
+        return {
+
+            "success": True,
+
+            "message": f"Forgot your {key.replace('_', ' ')}."
+
+        }
 
     def clear(self):
 

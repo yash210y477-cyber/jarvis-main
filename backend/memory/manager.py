@@ -69,6 +69,30 @@ class MemoryManager:
 
         return self.memory.profile.get_profile()
 
+    def all_facts(self):
+
+        return self.memory.all_facts()
+
+    def forget(self, key: str):
+
+        return self.memory.forget(key)
+
+    # -----------------------------
+    # Free-form notes
+    # -----------------------------
+
+    def add_note(self, text: str):
+
+        return self.memory.add_note(text)
+
+    def notes(self):
+
+        return self.memory.notes()
+
+    def delete_note(self, index: int):
+
+        return self.memory.delete_note(index)
+
     # -----------------------------
     # Utility
     # -----------------------------
