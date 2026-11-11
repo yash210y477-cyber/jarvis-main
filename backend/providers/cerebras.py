@@ -1,9 +1,13 @@
 import os
 
+from dotenv import load_dotenv
 from cerebras.cloud.sdk import Cerebras
 
 from providers.base import BaseProvider
 from config.settings import settings
+
+
+load_dotenv()
 
 
 class CerebrasProvider(BaseProvider):
@@ -38,9 +42,15 @@ class CerebrasProvider(BaseProvider):
 
         if not self.health():
 
-            return self.failure(
-                "Cerebras API key not configured."
-            )
+            return {
+
+                "success": False,
+
+                "provider": self.name(),
+
+                "error": "Cerebras API key not configured."
+
+            }
 
         try:
 
@@ -49,20 +59,37 @@ class CerebrasProvider(BaseProvider):
                 model=self.model,
 
                 messages=[
+
                     {
+
                         "role": "user",
+
                         "content": prompt
+
                     }
+
                 ]
 
             )
 
-            return self.success(
+            return {
 
-                response.choices[0].message.content
+                "success": True,
 
-            )
+                "provider": self.name(),
+
+                "response": response.choices[0].message.content
+
+            }
 
         except Exception as e:
 
-            return self.failure(e)
+            return {
+
+                "success": False,
+
+                "provider": self.name(),
+
+                "error": str(e)
+
+            }

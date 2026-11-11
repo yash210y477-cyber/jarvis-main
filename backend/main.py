@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from brain.brain import Brain
 from api.voice import router as voice_router
+from config.settings import settings
 
 app = FastAPI(
     title="JARVIS AI",
@@ -20,12 +21,7 @@ brain = Brain()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-    ],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

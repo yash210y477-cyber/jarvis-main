@@ -1,8 +1,12 @@
 import os
 import google.generativeai as genai
 
+from dotenv import load_dotenv
+
 from providers.base import BaseProvider
 from config.settings import settings
+
+load_dotenv()
 
 
 class GeminiProvider(BaseProvider):
@@ -43,9 +47,11 @@ class GeminiProvider(BaseProvider):
 
         if not self.health():
 
-            return self.failure(
-                "Gemini is not configured."
-            )
+            return {
+                "success": False,
+                "provider": self.name(),
+                "error": "Gemini is not configured."
+            }
 
         try:
 
@@ -59,8 +65,16 @@ class GeminiProvider(BaseProvider):
 
                 text = response.text
 
-            return self.success(text)
+            return {
+                "success": True,
+                "provider": self.name(),
+                "response": text
+            }
 
         except Exception as e:
 
-            return self.failure(e)
+            return {
+                "success": False,
+                "provider": self.name(),
+                "error": str(e)
+            }

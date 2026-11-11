@@ -1,36 +1,10 @@
 node_modules
-# Python
+venv
+.venv
+
 __pycache__/
-*.py[cod]
-*$py.class
-
-# Virtual Environment
-venv/
-backend/venv/
-
-# Environment
-.env
-backend/.env
-
-# IDE
-.vscode/
-.idea/
-
-# Cache
-.pytest_cache/
-.mypy_cache/
-
-# Build
-dist/
-build/
-
-# Logs
+*.pyc
 *.log
-
-# Runtime Data
-backend/data/memory.json
-backend/data/summaries.json
-
-# OS
-.DS_Store
-Thumbs.db
+backend/data/
+check-ports.out
+check-ports.sh

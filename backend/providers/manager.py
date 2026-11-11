@@ -12,24 +12,6 @@ from providers.openai import OpenAIProvider
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """
-You are JARVIS, an advanced AI assistant developed by Yash Yadav.
-
-Your identity is always JARVIS.
-
-Never say you are ChatGPT, OpenAI, Gemini, Claude, Groq, DeepSeek, Cerebras or any other AI model.
-
-If someone asks who developed you, reply:
-"I am JARVIS, developed by Yash Yadav."
-
-If someone asks who created you, reply:
-"I was created by Yash Yadav."
-
-If someone asks if you are ChatGPT or Gemini, reply:
-"I am JARVIS. I use advanced AI models internally, but my identity is JARVIS."
-
-Always answer as JARVIS.
-""" 
 
 class AIManager:
 
@@ -40,33 +22,51 @@ class AIManager:
         provider_map = {
 
             "gemini": (
+
                 settings.ENABLE_GEMINI,
+
                 GeminiProvider
+
             ),
 
             "openrouter": (
+
                 settings.ENABLE_OPENROUTER,
+
                 OpenRouterProvider
+
             ),
 
             "groq": (
+
                 settings.ENABLE_GROQ,
+
                 GroqProvider
+
             ),
 
             "cerebras": (
+
                 settings.ENABLE_CEREBRAS,
+
                 CerebrasProvider
+
             ),
 
             "deepseek": (
+
                 settings.ENABLE_DEEPSEEK,
+
                 DeepSeekProvider
+
             ),
 
             "openai": (
+
                 settings.ENABLE_OPENAI,
+
                 OpenAIProvider
+
             )
 
         }
@@ -75,23 +75,15 @@ class AIManager:
 
             if provider_name not in provider_map:
 
-                logger.warning(
-                    "Unknown provider: %s",
-                    provider_name
-                )
+                logger.warning(f"Unknown provider: {provider_name}")
 
                 continue
 
-            enabled, provider_class = provider_map[
-                provider_name
-            ]
+            enabled, provider_class = provider_map[provider_name]
 
             if not enabled:
 
-                logger.info(
-                    "%s disabled",
-                    provider_name
-                )
+                logger.info(f"{provider_name} disabled")
 
                 continue
 
@@ -99,41 +91,23 @@ class AIManager:
 
                 provider = provider_class()
 
-                if provider.health():
+                self.providers.append(provider)
 
-                    self.providers.append(
-                        provider
-                    )
+                logger.info(f"{provider.name()} loaded")
 
-                    logger.info(
-                        "%s loaded",
-                        provider.name()
-                    )
+            except Exception as e:
 
-                else:
+                logger.error(f"{provider_name} failed to initialize: {e}")
 
-                    logger.warning(
-                        "%s unavailable",
-                        provider.name()
-                    )
-
-            except Exception:
-
-                logger.exception(
-                    "%s failed to initialize",
-                    provider_name
-                )
-    
     def available_providers(self):
-        
-        return [
-           
-            provider.name()
-            
-            for provider in self.providers
-                
-        ]
 
+        return [
+
+            provider.name()
+
+            for provider in self.providers
+
+        ]
 
     def chat(self, prompt: str):
 
@@ -153,83 +127,56 @@ class AIManager:
 
         for provider in self.providers:
 
-            logger.info(
-
-                "Trying provider: %s",
-
-                provider.name()
-
-            )
+            logger.info(f"Trying {provider.name()}")
 
             try:
 
-                final_prompt = f"{SYSTEM_PROMPT}\n\nUser: {prompt}"
-
-                result = provider.chat(final_prompt)
+                result = provider.chat(prompt)
 
                 if result.get("success"):
 
-                    logger.info(
-
-                        "%s success",
-
-                        provider.name()
-
-                    )
+                    logger.info(f"{provider.name()} success")
 
                     return result
 
                 logger.warning(
 
-                    "%s failed",
-
-                    provider.name()
+                    f"{provider.name()} failed"
 
                 )
 
-                errors.append(
+                errors.append({
 
-                    {
+                    "provider": provider.name(),
 
-                        "provider": provider.name(),
+                    "error": result.get("error")
 
-                        "error": result.get("error")
+                })
 
-                    }
-
-                )
-
-            except Exception:
+            except Exception as e:
 
                 logger.exception(
 
-                    "%s crashed",
-
-                    provider.name()
+                    f"{provider.name()} crashed"
 
                 )
 
-                errors.append(
+                errors.append({
 
-                    {
+                    "provider": provider.name(),
 
-                        "provider": provider.name(),
+                    "error": str(e)
 
-                        "error": "Provider crashed"
+                })
 
-                    }
-
-                )
-                
         return {
-                    
+
             "success": False,
-                    
+
             "provider": "manager",
-                    
+
             "message": "All AI providers failed.",
-                    
+
             "errors": errors
-                    
+
         }
-            

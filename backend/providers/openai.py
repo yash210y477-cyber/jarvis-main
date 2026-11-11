@@ -1,9 +1,12 @@
 import os
 
 from openai import OpenAI
+from dotenv import load_dotenv
 
 from providers.base import BaseProvider
 from config.settings import settings
+
+load_dotenv()
 
 
 class OpenAIProvider(BaseProvider):
@@ -36,9 +39,15 @@ class OpenAIProvider(BaseProvider):
 
         if not self.health():
 
-            return self.failure(
-                "OpenAI API key not configured."
-            )
+            return {
+
+                "success": False,
+
+                "provider": self.name(),
+
+                "error": "OpenAI API key not configured."
+
+            }
 
         try:
 
@@ -47,20 +56,37 @@ class OpenAIProvider(BaseProvider):
                 model=self.model,
 
                 messages=[
+
                     {
+
                         "role": "user",
+
                         "content": prompt
+
                     }
+
                 ]
 
             )
 
-            return self.success(
+            return {
 
-                response.choices[0].message.content
+                "success": True,
 
-            )
+                "provider": self.name(),
+
+                "response": response.choices[0].message.content
+
+            }
 
         except Exception as e:
 
-            return self.failure(e)
+            return {
+
+                "success": False,
+
+                "provider": self.name(),
+
+                "error": str(e)
+
+            }

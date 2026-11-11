@@ -1,9 +1,12 @@
 import os
 
 from anthropic import Anthropic
+from dotenv import load_dotenv
 
 from providers.base import BaseProvider
 from config.settings import settings
+
+load_dotenv()
 
 
 class ClaudeProvider(BaseProvider):
@@ -14,7 +17,7 @@ class ClaudeProvider(BaseProvider):
 
         self.api_key = os.getenv("CLAUDE_API_KEY")
 
-        self.model = settings.CLAUDE_MODEL
+        self.model = "claude-sonnet-4-20250514"
 
         self.client = None
 
@@ -36,9 +39,15 @@ class ClaudeProvider(BaseProvider):
 
         if not self.health():
 
-            return self.failure(
-                "Claude API key not configured."
-            )
+            return {
+
+                "success": False,
+
+                "provider": self.name(),
+
+                "error": "Claude API key not configured."
+
+            }
 
         try:
 
@@ -49,20 +58,37 @@ class ClaudeProvider(BaseProvider):
                 max_tokens=1024,
 
                 messages=[
+
                     {
+
                         "role": "user",
+
                         "content": prompt
+
                     }
+
                 ]
 
             )
 
-            return self.success(
+            return {
 
-                response.content[0].text
+                "success": True,
 
-            )
+                "provider": self.name(),
+
+                "response": response.content[0].text
+
+            }
 
         except Exception as e:
 
-            return self.failure(e)
+            return {
+
+                "success": False,
+
+                "provider": self.name(),
+
+                "error": str(e)
+
+            }

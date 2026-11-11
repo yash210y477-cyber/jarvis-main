@@ -48,31 +48,6 @@ ALIASES = {
 
 }
 
-STORE_APPS = {
-
-    "whatsapp": "5319275A.WhatsAppDesktop_cv1g1gvanyjgm!App",
-
-}
-
-PROCESS_NAMES = {
-
-    "whatsapp": "WhatsApp.Root.exe",
-
-    "chrome": "chrome.exe",
-
-    "postman": "Postman.exe",
-
-    "code": "Code.exe",
-
-    "vscode": "Code.exe",
-
-    "cmd": "cmd.exe",
-
-    "explorer": "explorer.exe",
-
-    "calc": "CalculatorApp.exe"
-
-}
 
 class WindowsLauncher:
 
@@ -233,24 +208,6 @@ class WindowsLauncher:
 
         app = self.normalize(app)
 
-        if app.lower() == "settings":
-            os.startfile("ms-settings:")
-            return (
-                True,
-                "settings opened successfully."
-            )
-        if app.lower() in STORE_APPS:
-            subprocess.Popen(
-                [
-                    "explorer.exe",
-                    f"shell:AppsFolder\\{STORE_APPS[app.lower()]}"
-                ]
-            )
-            return (
-                True,
-                f"{app} opened successfully."
-            )
-
         target = self.find_application(app)
 
         if target is None:
@@ -308,8 +265,6 @@ class WindowsLauncher:
         if path:
 
             exe = Path(path).name
-        
-        exe = PROCESS_NAMES.get(app.lower(), exe)
 
         if not exe.lower().endswith(".exe"):
 
@@ -320,7 +275,6 @@ class WindowsLauncher:
             subprocess.run(
 
                 [
-                    
                     "taskkill",
                     "/F",
                     "/IM",

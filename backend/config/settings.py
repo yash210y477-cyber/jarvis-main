@@ -23,6 +23,14 @@ class Settings:
 
     MAX_RETRIES = 2
 
+    # Origins allowed to call the API (the Mina web UI).
+    ALLOWED_ORIGINS = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+    ]
+
     # ==========================================================
     # GEMINI
     # ==========================================================

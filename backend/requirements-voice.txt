@@ -1,0 +1,14 @@
+# Optional voice pipeline. Install after requirements.txt.
+
+faster-whisper==1.2.1
+silero-vad==6.2.1
+# torch and torchaudio must ship the same version: torchaudio wheels are
+# built against one exact torch ABI, and 2.13 has no matching torchaudio.
+torch==2.11.0
+torchaudio==2.11.0
+sounddevice==0.5.5
+numpy==2.4.6
+# 7.3.x needed: Microsoft rejects the websocket handshake with HTTP 403 on
+# older edge-tts builds.
+edge-tts==7.3.1
+pygame==2.6.1
