@@ -1,17 +1,21 @@
+
 """Timers and alarms that survive inside the running backend process."""
 
 import threading
 import time
 import uuid
-import winsound
+
+# winsound is available only on Windows.
+try:
+    import winsound
+except ImportError:
+    winsound = None
 
 
 class TimerManager:
 
     def __init__(self):
-
         self.lock = threading.Lock()
-
         self.timers = {}
 
     def set(self, seconds: int, label: str = ""):
@@ -19,15 +23,12 @@ class TimerManager:
         seconds = int(seconds)
 
         if seconds <= 0:
-
             return {"success": False, "error": "Duration must be positive."}
 
         if seconds > 86400:
-
             return {"success": False, "error": "Max timer is 24 hours."}
 
         timer_id = uuid.uuid4().hex[:6]
-
         label = (label or "").strip() or "timer"
 
         entry = {
@@ -38,13 +39,16 @@ class TimerManager:
             "cancelled": False,
         }
 
-        handle = threading.Timer(seconds, self._ring, args=(timer_id,))
+        handle = threading.Timer(
+            seconds,
+            self._ring,
+            args=(timer_id,)
+        )
         handle.daemon = True
 
         entry["handle"] = handle
 
         with self.lock:
-
             self.timers[timer_id] = entry
 
         handle.start()
@@ -61,39 +65,37 @@ class TimerManager:
     def _ring(self, timer_id):
 
         with self.lock:
-
             entry = self.timers.pop(timer_id, None)
 
         if not entry:
             return
 
-        try:
-
-            for _ in range(3):
-
-                winsound.Beep(880, 250)
-
-                time.sleep(0.15)
-
-        except Exception:
-
-            pass
+        # Play an alarm on Windows.
+        # On Linux, the timer completes without system audio.
+        if winsound is not None:
+            try:
+                for _ in range(3):
+                    winsound.Beep(880, 250)
+                    time.sleep(0.15)
+            except Exception:
+                pass
 
     def cancel(self, timer_id: str = ""):
 
         with self.lock:
-
             if timer_id:
-
                 entry = self.timers.pop(timer_id, None)
-
             else:
-
-                entry = self.timers.pop(next(iter(self.timers), ""), None)
+                entry = self.timers.pop(
+                    next(iter(self.timers), ""),
+                    None
+                )
 
         if not entry:
-
-            return {"success": False, "error": "No matching timer."}
+            return {
+                "success": False,
+                "error": "No matching timer."
+            }
 
         entry["handle"].cancel()
 
@@ -108,7 +110,6 @@ class TimerManager:
         now = time.time()
 
         with self.lock:
-
             active = [
                 {
                     "id": entry["id"],
@@ -119,13 +120,16 @@ class TimerManager:
                 for entry in self.timers.values()
             ]
 
-        return {"success": True, "timers": active, "count": len(active)}
+        return {
+            "success": True,
+            "timers": active,
+            "count": len(active)
+        }
 
 
 def _human(seconds: int) -> str:
 
     minutes, secs = divmod(int(seconds), 60)
-
     hours, minutes = divmod(minutes, 60)
 
     parts = []
