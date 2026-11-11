@@ -1,3 +1,7 @@
+from pathlib import Path
+
+import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -22,6 +26,12 @@ class Settings:
     REQUEST_TIMEOUT = 60
 
     MAX_RETRIES = 2
+
+    # Optional extra secret for state-changing requests (X-Jarvis-Token).
+    LOCAL_TOKEN = os.getenv("JARVIS_LOCAL_TOKEN", "")
+
+    # Root folder the sandboxed file/shell tools may touch.
+    WORKSPACE_ROOT = str(Path(__file__).resolve().parents[2])
 
     # Origins allowed to call the API (the Mina web UI).
     ALLOWED_ORIGINS = [

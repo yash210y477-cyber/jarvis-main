@@ -1,15 +1,16 @@
-import json
 import platform
 import socket
 import subprocess
 from pathlib import Path
 
 import psutil
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from brain.brain import Brain
 from api.voice import router as voice_router
+from config.security import check_request
 from config.settings import settings
 
 app = FastAPI(
@@ -27,10 +28,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def origin_guard(request, call_next):
+    """Reject state-changing calls from foreign origins."""
+
+    error = check_request(request.method, request.headers)
+
+    if error:
+
+        return JSONResponse(
+            status_code=403,
+            content={"success": False, "error": error},
+        )
+
+    return await call_next(request)
+
+
 # Voice API
 app.include_router(voice_router)
 
 MEMORY_FILE = Path(__file__).parent / "data" / "memory.json"
+
+MODES = ["assistant", "coder", "researcher", "friend"]
+
+INTENTS = [
+    "open_app",
+    "close_app",
+    "search_web",
+    "open_website",
+    "system_status",
+    "remember",
+    "recall",
+]
 
 
 def system_stats() -> dict:
@@ -47,11 +77,84 @@ def system_stats() -> dict:
     }
 
 
+def network_state() -> str:
+
+    try:
+
+        socket.create_connection(("8.8.8.8", 53), timeout=2)
+
+        return "Online"
+
+    except Exception:
+
+        return "Offline"
+
+
 @app.get("/")
 def home():
     return {
         "assistant": "JARVIS",
         "status": "Running"
+    }
+
+
+@app.get("/capabilities")
+def capabilities():
+    """What this build can do, for the UI to advertise."""
+
+    return {
+        "success": True,
+        "assistant": "JARVIS",
+        "version": settings.APP_VERSION,
+        "modes": MODES,
+        "intents": INTENTS,
+        "voice": {
+            "websocket": "/ws/voice",
+            "record_endpoint": "/voice",
+            "stt": True,
+            "tts": True,
+        },
+        "tools": [tool["name"] for tool in brain.registry.metadata()],
+        "memory": {
+            "profile": True,
+            "facts": True,
+            "notes": True,
+        },
+    }
+
+
+@app.get("/models")
+def models():
+    """Configured providers and whether they can answer right now."""
+
+    providers = []
+
+    for provider in brain.ai.providers:
+
+        try:
+
+            available = bool(provider.health())
+
+        except Exception:
+
+            available = False
+
+        model = getattr(provider, "model", None)
+
+        if isinstance(model, dict):
+
+            model = model.get("model_name") or model.get("name")
+
+        providers.append({
+            "name": provider.name(),
+            "model": model,
+            "available": available,
+        })
+
+    return {
+        "success": True,
+        "providers": providers,
+        "any_available": any(item["available"] for item in providers),
     }
 
 
@@ -77,26 +180,21 @@ def stats():
 @app.get("/system-info")
 def get_system_info():
     try:
-        info = system_stats()
-
         hostname = socket.gethostname()
+
         try:
             ip = socket.gethostbyname(hostname)
         except Exception:
             ip = "127.0.0.1"
 
-        network = "Offline"
-        try:
-            socket.create_connection(("8.8.8.8", 53), timeout=2)
-            network = "Online"
-        except Exception:
-            pass
+        info = system_stats()
 
         return {
-            "cpu": info["cpu"],
-            "ram": info["memory"],
-            "storage": info["storage"],
-            "network": network,
+            "success": True,
+            "cpu": int(info["cpu"]),
+            "ram": int(info["memory"]),
+            "storage": int(info["storage"]),
+            "network": network_state(),
             "os": platform.system(),
             "hostname": hostname,
             "ip": ip,
@@ -205,3 +303,48 @@ def clear_memory(data: dict | None = None):
         "facts": brain.memory.all_facts(),
         "notes": brain.memory.notes(),
     }
+
+
+@app.get("/tools")
+def list_tools():
+    """Tool catalogue the agent can call, with schemas and permissions."""
+    return {
+        "success": True,
+        "tools": brain.registry.metadata(),
+        "count": len(brain.registry.all()),
+    }
+
+
+@app.websocket("/ws/voice")
+async def voice_socket(websocket: WebSocket):
+    """Streaming voice channel: text in, JARVIS reply out."""
+
+    await websocket.accept()
+
+    origin = (websocket.headers.get("origin") or "").rstrip("/")
+
+    if origin and origin not in settings.ALLOWED_ORIGINS:
+
+        await websocket.close(code=1008)
+
+        return
+
+    await websocket.send_json({"status": "ready"})
+
+    try:
+
+        while True:
+
+            message = await websocket.receive_text()
+
+            if not message.strip():
+
+                continue
+
+            reply = brain.chat(message)
+
+            await websocket.send_json({"heard": message, **reply})
+
+    except WebSocketDisconnect:
+
+        return

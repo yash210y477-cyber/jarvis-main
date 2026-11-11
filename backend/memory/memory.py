@@ -1,18 +1,21 @@
 from brain.facts import canonical_key, human_key
 
-from memory.profile import Profile
 from memory.conversation import Conversation
+from memory.profile import Profile
+from memory.storage import PROFILE_FIELDS, Storage
 
 
 class Memory:
 
-    PROFILE_FIELDS = ("name", "email", "city", "occupation")
+    PROFILE_FIELDS = PROFILE_FIELDS
 
-    def __init__(self):
+    def __init__(self, storage=None):
 
-        self.profile = Profile()
+        self.storage = storage or Storage()
 
-        self.conversation = Conversation()
+        self.profile = Profile(self.storage)
+
+        self.conversation = Conversation(self.storage)
 
     # -----------------------------
     # Facts
@@ -61,9 +64,13 @@ class Memory:
 
         return self.profile.get_fact(key)
 
-    def all_facts(self):
+    def all_facts(self) -> list:
 
         return self.profile.get_facts()
+
+    def facts(self) -> dict:
+
+        return self.storage.facts()
 
     def forget(self, key: str):
 
@@ -90,13 +97,7 @@ class Memory:
                 "message": "Nothing to remember."
             }
 
-        notes = list(self.notes())
-
-        notes.append(text)
-
-        self.profile.storage.write(
-            self._with_notes(notes)
-        )
+        notes = self.storage.add_note(text)
 
         return {
             "success": True,
@@ -104,73 +105,61 @@ class Memory:
             "notes": notes
         }
 
-    def notes(self):
+    def notes(self) -> list:
 
-        data = self.profile.storage.read()
-
-        return data.get("notes", [])
+        return self.storage.notes()
 
     def delete_note(self, index: int):
 
-        notes = list(self.notes())
-
-        if 0 <= index < len(notes):
-
-            notes.pop(index)
-
-            self.profile.storage.write(
-                self._with_notes(notes)
-            )
+        if not self.storage.delete_note(index):
 
             return {
-                "success": True,
-                "notes": notes
+                "success": False,
+                "message": "Note not found."
             }
 
         return {
-            "success": False,
-            "message": "Note not found."
+            "success": True,
+            "notes": self.notes()
         }
-
-    def _with_notes(self, notes):
-
-        data = self.profile.storage.read()
-
-        data["notes"] = notes
-
-        return data
 
     # -----------------------------
     # Conversation
     # -----------------------------
 
-    def remember_conversation(
-        self,
-        role: str,
-        message: str
-    ):
+    def remember_conversation(self, role: str, message: str):
 
-        self.conversation.add(
-            role,
-            message
-        )
+        self.conversation.add(role, message)
 
-    def recent_conversation(
-        self,
-        limit: int = 10
-    ):
+    def recent_conversation(self, limit: int = 10):
 
-        return self.conversation.last(
-            limit
-        )
+        return self.conversation.last(limit)
+
+    def message_count(self) -> int:
+
+        return self.conversation.count()
+
+    def trim_conversation(self, keep: int) -> int:
+
+        return self.conversation.trim(keep)
+
+    # -----------------------------
+    # Utility
+    # -----------------------------
+
+    def latest_summary(self):
+
+        return self.storage.latest_summary()
+
+    def save_summary(self, summary: str, message_count: int = 0):
+
+        self.storage.save_summary(summary, message_count)
 
     def reset(self):
 
-        self.profile.clear()
+        self.storage.reset()
 
-        self.conversation.clear()
-
-    def stats(self):
+    def stats(self) -> dict:
 
         return {
             "profile": self.profile.get_profile(),

@@ -12,176 +12,135 @@ class IntentEngine:
 
         self.entity = EntityExtractor()
 
-        self.patterns = {
+        self.patterns = (
+
+            # -----------------------------
+            # WEB (must win over open_app)
+            # -----------------------------
+
+            (
+                "open_website",
+                (
+                    r"open\s+(?:website\s+)?([\w-]+\.[a-z]{2,}(?:/\S*)?)",
+                    r"visit\s+(.+)",
+                )
+            ),
+
+            (
+                "search_web",
+                (
+                    r"search(?:\s+for)?\s+(.+)",
+                    r"google\s+(.+)",
+                    r"find\s+(.+)",
+                )
+            ),
 
             # -----------------------------
             # APPS
             # -----------------------------
 
-            "open_app": [
-                r"open\s+(.+)",
-                r"launch\s+(.+)",
-                r"start\s+(.+)"
-            ],
+            (
+                "open_app",
+                (
+                    r"open\s+(.+)",
+                    r"launch\s+(.+)",
+                    r"start\s+(.+)",
+                )
+            ),
 
-            "close_app": [
-                r"close\s+(.+)",
-                r"exit\s+(.+)",
-                r"quit\s+(.+)"
-            ],
-
-            # -----------------------------
-            # WEB
-            # -----------------------------
-
-            "search_web": [
-                r"search\s+(.+)",
-                r"google\s+(.+)",
-                r"find\s+(.+)"
-            ],
-
-            "open_website": [
-                r"open website\s+(.+)",
-                r"visit\s+(.+)"
-            ],
-
-            # -----------------------------
-            # MEMORY SAVE
-            # -----------------------------
-
-            "remember": [
-
-                r"remember(.+)",
-
-                r"my name is(.+)",
-
-                r"i live in(.+)",
-
-                r"my city is(.+)",
-
-                r"my email is(.+)",
-
-                r"i am(.+)",
-
-                r"my occupation is(.+)",
-
-                r"my favourite language is(.+)",
-
-                r"my favorite language is(.+)",
-
-                r"my favourite editor is(.+)",
-
-                r"my favorite editor is(.+)",
-
-                r"i use(.+)",
-
-                r"my bike is(.+)",
-
-                r"my phone is(.+)",
-
-                r"my laptop is(.+)"
-            ],
+            (
+                "close_app",
+                (
+                    r"close\s+(.+)",
+                    r"exit\s+(.+)",
+                    r"quit\s+(.+)",
+                )
+            ),
 
             # -----------------------------
             # MEMORY RECALL
             # -----------------------------
 
-            "recall": [
+            (
+                "recall",
+                (
+                    r"what(?:'s| is| was)? my\s+.+",
+                    r"who am i",
+                    r"where do i live",
+                    r"which is my\s+.+",
+                    r"tell me my\s+.+",
+                    r"do you (?:know|remember) my\s+.+",
+                    r"what do you (?:remember|know about me)",
+                    r"recall",
+                )
+            ),
 
-                r"what is my name",
+            # -----------------------------
+            # MEMORY SAVE
+            # -----------------------------
 
-                r"who am i",
-
-                r"where do i live",
-
-                r"what is my city",
-
-                r"what is my email",
-
-                r"what is my occupation",
-
-                r"what is my favourite language",
-
-                r"what is my favorite language",
-
-                r"what is my favourite editor",
-
-                r"what is my favorite editor",
-
-                r"what is my bike",
-
-                r"what is my phone",
-
-                r"what is my laptop",
-
-                r"what do you remember",
-
-                r"recall"
-
-            ],
+            (
+                "remember",
+                (
+                    r"remember\s+(.+)",
+                    r"my\s+.+?\s+(?:is|are)\s+.+",
+                    r"i live in\s+.+",
+                    r"i(?:'m| am) from\s+.+",
+                    r"i(?:'m| am)\s+(?:a|an)\s+.+",
+                    r"call me\s+.+",
+                )
+            ),
 
             # -----------------------------
             # SYSTEM
             # -----------------------------
 
-            "system_status": [
-
-                r"system status",
-
-                r"cpu",
-
-                r"ram",
-
-                r"memory",
-
-                r"battery"
-
-            ]
-
-        }
+            (
+                "system_status",
+                (
+                    r"system status",
+                    r"cpu",
+                    r"ram",
+                    r"memory",
+                    r"battery",
+                )
+            ),
+        )
 
     def detect(self, text: str):
 
-        original = text.strip()
+        original = (text or "").strip()
 
         lower = original.lower()
 
-        entities = self.entity.extract(original)
+        entities = self.entity.extract_all(original)
 
-        for intent, regex_list in self.patterns.items():
+        for intent, regex_list in self.patterns:
 
             for pattern in regex_list:
 
                 match = re.match(pattern, lower)
 
-                if match:
+                if not match:
 
-                    result = {
+                    continue
 
-                        "intent": intent,
+                target = ""
 
-                        "text": lower,
+                if match.groups():
 
-                        "target": ""
+                    target = (match.group(1) or "").strip()
 
-                    }
-
-                    if match.groups():
-
-                        result["target"] = match.group(1).strip()
-
-                    result.update(entities)
-
-                    return result
+                return {
+                    "intent": intent,
+                    "text": lower,
+                    "target": target,
+                    "entities": entities,
+                }
 
         return {
-
             "intent": "chat",
-
             "text": lower,
-
             "target": "",
-
-            **entities
-
+            "entities": entities,
         }

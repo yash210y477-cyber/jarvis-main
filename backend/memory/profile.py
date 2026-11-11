@@ -1,168 +1,94 @@
-from memory.storage import Storage
+from memory.storage import PROFILE_FIELDS, Storage
 
 
 class Profile:
 
-    def __init__(self):
+    def __init__(self, storage=None):
 
-        self.storage = Storage()
+        self.storage = storage or Storage()
 
-        self.profile_fields = {
+        self.profile_fields = set(PROFILE_FIELDS)
 
-            "name",
+    def get_profile(self) -> dict:
 
-            "email",
-
-            "city",
-
-            "occupation"
-
-        }
-
-    def get_profile(self):
-
-        data = self.storage.read()
-
-        return data["profile"]
+        return self.storage.get_profile()
 
     def get(self, key: str):
 
-        data = self.storage.read()
+        value = self.storage.get_profile().get(key)
 
-        return data["profile"].get(key)
+        return value or None
 
     def update(self, key: str, value: str):
 
         if key not in self.profile_fields:
 
             return {
-
                 "success": False,
-
                 "message": f"Invalid profile field: {key}"
-
             }
 
-        data = self.storage.read()
+        value = (value or "").strip()
 
-        data["profile"][key] = value.strip()
+        self.storage.set_profile(key, value)
 
-        self.storage.write(data)
+        if not value:
+
+            return {
+                "success": True,
+                "message": f"Forgot your {key}."
+            }
 
         return {
-
             "success": True,
-
             "message": f"Got it — I'll remember your {key} is {value}."
-
         }
 
     def save_fact(self, key: str, value: str):
 
-        data = self.storage.read()
+        value = (value or "").strip()
 
-        facts = data.setdefault("facts", [])
+        if not key or not value:
 
-        updated = False
+            return {
+                "success": False,
+                "message": "Nothing to remember."
+            }
 
-        for item in facts:
-
-            if item["key"] == key:
-
-                item["value"] = value
-
-                updated = True
-
-                break
-
-        if not updated:
-
-            facts.append({
-
-                "key": key,
-
-                "value": value
-
-            })
-
-        self.storage.write(data)
+        self.storage.set_fact(key, value)
 
         return {
-
             "success": True,
-
             "message": f"Got it — I'll remember your {key} is {value}."
-
         }
 
     def get_fact(self, key: str):
 
-        data = self.storage.read()
+        return self.storage.get_fact(key)
 
-        for item in reversed(
+    def get_facts(self) -> list:
 
-            data.get("facts", [])
-
-        ):
-
-            if item["key"] == key:
-
-                return item["value"]
-
-        return None
-
-    def get_facts(self):
-
-        data = self.storage.read()
-
-        return list(data.get("facts", []))
+        return [
+            {"key": key, "value": value}
+            for key, value in self.storage.facts().items()
+        ]
 
     def delete_fact(self, key: str):
 
-        data = self.storage.read()
-
-        facts = data.get("facts", [])
-
-        remaining = [item for item in facts if item.get("key") != key]
-
-        if len(remaining) == len(facts):
+        if not self.storage.delete_fact(key):
 
             return {
-
                 "success": False,
-
                 "message": f"I don't have anything saved for {key}."
-
             }
 
-        data["facts"] = remaining
-
-        self.storage.write(data)
-
         return {
-
             "success": True,
-
             "message": f"Forgot your {key.replace('_', ' ')}."
-
         }
 
     def clear(self):
 
-        data = self.storage.read()
+        self.storage.clear_profile()
 
-        data["profile"] = {
-
-            "name": "",
-
-            "email": "",
-
-            "city": "",
-
-            "occupation": ""
-
-        }
-
-        data["facts"] = []
-
-        self.storage.write(data)
+        self.storage.clear_facts()

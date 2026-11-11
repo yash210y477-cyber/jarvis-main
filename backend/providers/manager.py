@@ -180,3 +180,46 @@ class AIManager:
             "errors": errors
 
         }
+    def chat_with_tools(self, messages, tools):
+
+        errors = []
+
+        for provider in self.providers:
+
+            if not getattr(provider, "supports_tools", False):
+
+                errors.append({
+                    "provider": provider.name(),
+                    "error": "tool calling not supported"
+                })
+
+                continue
+
+            try:
+
+                result = provider.chat_with_tools(messages, tools)
+
+            except Exception as error:
+
+                errors.append({
+                    "provider": provider.name(),
+                    "error": str(error)
+                })
+
+                continue
+
+            if result.get("success"):
+
+                return result
+
+            errors.append({
+                "provider": provider.name(),
+                "error": result.get("error")
+            })
+
+        return {
+            "success": False,
+            "provider": "manager",
+            "error": "No provider could run tools.",
+            "errors": errors
+        }

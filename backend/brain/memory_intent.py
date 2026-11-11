@@ -160,6 +160,8 @@ def describe(memory, key: str) -> str:
         profile = {}
 
     if key in profile and profile.get(key):
+        if key == "city":
+            return f"You live in {profile[key]}."
         return f"Your {human} is {profile[key]}."
 
     value = None
@@ -169,6 +171,8 @@ def describe(memory, key: str) -> str:
         value = None
 
     if value:
+        if key == "city":
+            return f"You live in {value}."
         return f"Your {human} is {value}."
 
     # loose fallback: "city name" style leftovers, matching fact keys

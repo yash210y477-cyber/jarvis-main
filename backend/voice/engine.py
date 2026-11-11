@@ -5,7 +5,7 @@ from voice.stt import SpeechToText
 from voice.tts import TextToSpeech
 
 
-class Engine:
+class VoiceEngine:
 
     def __init__(self):
 

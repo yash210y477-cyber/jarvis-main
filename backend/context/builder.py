@@ -36,3 +36,15 @@ class ContextBuilder:
         prompt += "\nAssistant:"
 
         return prompt
+
+    def history_text(self, limit=10):
+
+        lines = []
+
+        for message in self.memory.conversation.last(limit):
+
+            text = (message.get("text") or "").replace(chr(10), " ")
+
+            lines.append(f"{message['role']}: {text[:300]}")
+
+        return chr(10).join(lines)

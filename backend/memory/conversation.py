@@ -3,50 +3,35 @@ from memory.storage import Storage
 
 class Conversation:
 
-    def __init__(self):
+    def __init__(self, storage=None):
 
-        self.storage = Storage()
+        self.storage = storage or Storage()
 
     def add(self, role: str, text: str):
 
-        data = self.storage.read()
+        return self.storage.add_message(role, text)
 
-        data["conversation"].append(
-            {
-                "role": role,
-                "text": text
-            }
-        )
+    def get(self) -> list:
 
-        self.storage.write(data)
+        return self.storage.messages()
 
-    def get(self):
+    def last(self, limit=10) -> list:
 
-        data = self.storage.read()
-
-        return data["conversation"]
-
-    def last(self, limit=10):
-
-        data = self.storage.read()
-
-        return data["conversation"][-limit:]
+        return self.storage.messages(limit=limit)
 
     def clear(self):
 
-        data = self.storage.read()
-
-        data["conversation"] = []
-
-        self.storage.write(data)
+        self.storage.clear_messages()
 
         return {
             "success": True,
             "message": "Conversation cleared."
         }
 
-    def count(self):
+    def count(self) -> int:
 
-        data = self.storage.read()
+        return self.storage.message_count()
 
-        return len(data["conversation"])
+    def trim(self, keep: int) -> int:
+
+        return self.storage.trim_messages(keep)

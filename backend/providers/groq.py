@@ -4,12 +4,13 @@ from groq import Groq
 from dotenv import load_dotenv
 
 from providers.base import BaseProvider
+from providers.tool_call import OpenAIToolMixin
 from config.settings import settings
 
 load_dotenv()
 
 
-class GroqProvider(BaseProvider):
+class GroqProvider(OpenAIToolMixin, BaseProvider):
 
     def __init__(self):
 

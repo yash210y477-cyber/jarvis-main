@@ -4,12 +4,13 @@ from openai import OpenAI
 from dotenv import load_dotenv
 
 from providers.base import BaseProvider
+from providers.tool_call import OpenAIToolMixin
 from config.settings import settings
 
 load_dotenv()
 
 
-class DeepSeekProvider(BaseProvider):
+class DeepSeekProvider(OpenAIToolMixin, BaseProvider):
 
     def __init__(self):
 

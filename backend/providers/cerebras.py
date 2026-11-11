@@ -4,13 +4,14 @@ from dotenv import load_dotenv
 from cerebras.cloud.sdk import Cerebras
 
 from providers.base import BaseProvider
+from providers.tool_call import OpenAIToolMixin
 from config.settings import settings
 
 
 load_dotenv()
 
 
-class CerebrasProvider(BaseProvider):
+class CerebrasProvider(OpenAIToolMixin, BaseProvider):
 
     def __init__(self):
 

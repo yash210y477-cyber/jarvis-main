@@ -18,14 +18,26 @@ def system_status():
 
     cpu = psutil.cpu_percent(interval=0.5)
 
+    cpu = round(cpu)
+    ram = round(memory.percent)
+    storage = round(disk.percent)
+
+    message = f"CPU {cpu}% · RAM {ram}% · Storage {storage}%"
+
+    if battery:
+
+        message += f" · Battery {round(battery.percent)}%"
+
     return {
         "success": True,
 
-        "cpu": round(cpu),
+        "message": message,
 
-        "ram": round(memory.percent),
+        "cpu": cpu,
 
-        "storage": round(disk.percent),
+        "ram": ram,
+
+        "storage": storage,
 
         "battery": (
             round(battery.percent)

@@ -3,9 +3,9 @@ from memory.memory import Memory
 
 class MemoryManager:
 
-    def __init__(self):
+    def __init__(self, memory=None):
 
-        self.memory = Memory()
+        self.memory = memory or Memory()
 
     # -----------------------------
     # Conversation
@@ -13,31 +13,23 @@ class MemoryManager:
 
     def add_user_message(self, message: str):
 
-        self.memory.remember_conversation(
-
-            "user",
-
-            message
-
-        )
+        self.memory.remember_conversation("user", message)
 
     def add_assistant_message(self, message: str):
 
-        self.memory.remember_conversation(
-
-            "assistant",
-
-            message
-
-        )
+        self.memory.remember_conversation("assistant", message)
 
     def get_messages(self):
 
-        return self.memory.recent_conversation(
+        return self.memory.recent_conversation(limit=100000)
 
-            limit=100000
+    def message_count(self) -> int:
 
-        )
+        return self.memory.message_count()
+
+    def trim_messages(self, keep: int) -> int:
+
+        return self.memory.trim_conversation(keep)
 
     def clear_messages(self):
 
@@ -49,21 +41,11 @@ class MemoryManager:
 
     def remember(self, key: str, value: str):
 
-        return self.memory.remember(
-
-            key,
-
-            value
-
-        )
+        return self.memory.remember(key, value)
 
     def recall(self, key: str):
 
-        return self.memory.recall(
-
-            key
-
-        )
+        return self.memory.recall(key)
 
     def get_profile(self):
 

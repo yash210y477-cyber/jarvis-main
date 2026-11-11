@@ -1,19 +1,19 @@
-
 from fastapi import APIRouter
 
 from controllers.command_controller import CommandController
-from voice.engine import Engine
+from voice.engine import VoiceEngine
 
 router = APIRouter()
 
-voice = Engine()
+voice = VoiceEngine()
 command = CommandController()
 
 
 @router.post("/voice")
 def voice_command():
+    """Record one utterance, transcribe it and run the command."""
 
-    text = voice.listen()
+    text = voice.transcribe(voice.listen())
 
     if not text:
         return {
