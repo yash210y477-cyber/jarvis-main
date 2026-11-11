@@ -348,3 +348,102 @@ async def voice_socket(websocket: WebSocket):
     except WebSocketDisconnect:
 
         return
+
+
+# -----------------------------
+# Proactive + remote
+# -----------------------------
+
+
+@app.on_event("startup")
+def start_services():
+    from reminders.scheduler import SCHEDULER
+    from remote.telegram import BRIDGE
+
+    SCHEDULER.start(
+        memory=brain.memory,
+        briefing_hour=settings.MORNING_BRIEFING_HOUR,
+        briefing_minute=settings.MORNING_BRIEFING_MINUTE,
+    )
+
+    BRIDGE.start(brain)
+
+
+@app.on_event("shutdown")
+def stop_services():
+    from reminders.scheduler import SCHEDULER
+    from remote.telegram import BRIDGE
+
+    SCHEDULER.stop()
+    BRIDGE.stop()
+
+
+@app.get("/reminders")
+def get_reminders():
+    from reminders.scheduler import SCHEDULER
+
+    return {
+        "success": True,
+        "reminders": SCHEDULER.list(),
+        "status": SCHEDULER.status(),
+    }
+
+
+@app.post("/reminders")
+def create_reminder(data: dict):
+    from reminders.scheduler import SCHEDULER
+
+    text = (data.get("text") or "").strip() or "reminder"
+    result = SCHEDULER.add(text, data.get("when") or "", data.get("seconds"))
+
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error"))
+
+    return result
+
+
+@app.delete("/reminders/{reminder_id}")
+def delete_reminder(reminder_id: str):
+    from reminders.scheduler import SCHEDULER
+
+    result = SCHEDULER.cancel(reminder_id)
+
+    if not result.get("success"):
+        raise HTTPException(status_code=404, detail=result.get("error"))
+
+    return result
+
+
+@app.delete("/reminders")
+def clear_reminders():
+    from reminders.scheduler import SCHEDULER
+
+    return SCHEDULER.clear()
+
+
+@app.get("/briefing")
+def briefing():
+    from reminders.scheduler import SCHEDULER
+
+    return {
+        "success": True,
+        "briefing": SCHEDULER.briefing(),
+    }
+
+
+@app.post("/notify")
+def send_notification(data: dict):
+    from notify.toast import notify
+
+    return notify(
+        data.get("title") or "JARVIS",
+        data.get("message") or "",
+        data.get("app") or "JARVIS",
+    )
+
+
+@app.get("/telegram/status")
+def telegram_status():
+    from remote.telegram import BRIDGE
+
+    return BRIDGE.status()

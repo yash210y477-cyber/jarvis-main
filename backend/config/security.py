@@ -51,6 +51,14 @@ def check_request(method: str, headers) -> Optional[str]:
     if method.upper() not in STATE_CHANGING_METHODS:
         return None
 
+    # A valid local token is enough for non-browser clients (telegram
+    # bridge, scripts); it short-circuits the origin check.
+    token = settings.LOCAL_TOKEN
+
+    if token and headers.get("x-jarvis-token") == token:
+
+        return None
+
     origin = headers.get("origin")
 
     if not is_allowed_origin(origin):
@@ -61,9 +69,6 @@ def check_request(method: str, headers) -> Optional[str]:
     if (headers.get("sec-fetch-site") or "").lower() == "cross-site":
         return "Cross-site request rejected."
 
-    token = settings.LOCAL_TOKEN
-
-    if token and headers.get("x-jarvis-token") != token:
-        return "Missing or invalid local token."
-
+    # Allowed origin (the local UI) or a native client without Origin.
+    # Foreign origins either presented a valid token above or were rejected.
     return None

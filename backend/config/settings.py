@@ -33,6 +33,27 @@ class Settings:
     # Root folder the sandboxed file/shell tools may touch.
     WORKSPACE_ROOT = str(Path(__file__).resolve().parents[2])
 
+    # ==========================================================
+    # PROACTIVE + REMOTE
+    # ==========================================================
+
+    NOTIFICATIONS_ENABLED = os.getenv("JARVIS_NOTIFICATIONS", "1") not in (
+        "0", "false", "False", "no"
+    )
+
+    # Telegram bot bridge (optional, leave empty to disable).
+    TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+
+    TELEGRAM_ALLOWED_CHAT_IDS = [
+        item.strip()
+        for item in os.getenv("TELEGRAM_ALLOWED_CHAT_IDS", "").split(",")
+        if item.strip()
+    ]
+
+    MORNING_BRIEFING_HOUR = int(os.getenv("JARVIS_BRIEFING_HOUR", "8"))
+
+    MORNING_BRIEFING_MINUTE = int(os.getenv("JARVIS_BRIEFING_MINUTE", "30"))
+
     # Origins allowed to call the API (the Mina web UI).
     ALLOWED_ORIGINS = [
         "http://localhost:5173",

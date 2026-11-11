@@ -2,6 +2,7 @@
 # Install with:  backend/venv/Scripts/python.exe -m pip install -r backend/requirements.txt
 # Voice pipeline extras live in requirements-voice.txt.
 
+APScheduler==3.11.3
 aiohappyeyeballs==2.7.1
 aiohttp==3.14.1
 aiosignal==1.4.0

@@ -5,7 +5,7 @@ from providers.manager import AIManager
 from brain.intent import IntentEngine
 from brain.router import Router
 from brain.summary_manager import SummaryManager
-from brain import memory_intent, smalltalk
+from brain import local_clock, memory_intent, smalltalk
 
 from memory.manager import MemoryManager
 from memory.context import ContextBuilder
@@ -123,6 +123,13 @@ class Brain:
             if result.get("success"):
 
                 return ("memory", "remember", result.get("message", "Got it."))
+
+        # 0b. Local clock: date, month, year, weekday, time
+        clock = local_clock.reply(message)
+
+        if clock:
+
+            return ("local", "time", clock)
 
         # 1. Memory recall comes first: "what is my city name"
         key = memory_intent.detect_recall(message)

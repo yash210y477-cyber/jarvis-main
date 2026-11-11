@@ -103,6 +103,55 @@ def detect(message: str):
         return {"tool": "get_clipboard", "arguments": {}}
 
     # -----------------------------
+    # Reminders / alarms
+    # -----------------------------
+
+    if re.search(r"\b(remind me|reminder|yaad dilana|yaad rakhna)\b", text):
+
+        match = re.match(
+            r"remind me\s+(?:to\s+)?(.+?)(?:\s+(?:at|in|after)\s+(.+))?$",
+            text,
+        )
+
+        if match:
+
+            body = (match.group(1) or "reminder").strip(" .")
+            when = (match.group(2) or "").strip(" .")
+
+            return {
+                "tool": "set_reminder",
+                "arguments": {
+                    "text": body or "reminder",
+                    "when": when or "in 10 minutes",
+                },
+            }
+
+    if re.search(r"\b(alarm|alarms|alarma)\b", text):
+
+        clock_at = re.search(r"(\d{1,2}(?::\d{2})?\s*(?:am|pm|baje))", text)
+
+        if clock_at:
+
+            return {
+                "tool": "set_reminder",
+                "arguments": {"text": "alarm", "when": clock_at.group(1)},
+            }
+
+        seconds = _timer_seconds(text)
+
+        if seconds:
+
+            return {
+                "tool": "set_reminder",
+                "arguments": {
+                    "text": "alarm",
+                    "when": f"in {max(1, seconds // 60)} minutes",
+                },
+            }
+
+        return {"tool": "open_special", "arguments": {"app": "alarm"}}
+
+    # -----------------------------
     # Timers
     # -----------------------------
 
@@ -184,6 +233,23 @@ def detect(message: str):
 
     if match:
         return {"tool": "read_file", "arguments": {"path": match.group(1).strip(" .")}}
+
+    # -----------------------------
+    # Open folders / files
+    # -----------------------------
+
+    match = re.match(
+        r"(?:open|kholo|khol)\s+(?:the\s+)?(.+?)(?:\s+(?:folder|directory))?$",
+        text,
+    )
+
+    if match:
+
+        target = match.group(1).strip(" .")
+
+        if _looks_like_path(target):
+
+            return {"tool": "open_path", "arguments": {"path": target}}
 
     # -----------------------------
     # Shell (always needs confirmation)
@@ -297,4 +363,65 @@ def render(name: str, result: dict) -> str:
 
         return f"`{data.get('command')}` exited with {data.get('exit_code')}.\n\n```\n{output[:1200]}\n```"
 
+    if name == "get_datetime":
+
+        return data.get("spoken") or str(data)
+
+    if name == "open_path":
+
+        return data.get("message") or f"Opened `{data.get('path')}`."
+
+    if name == "open_special":
+
+        return data.get("message") or "Opened."
+
+    if name == "set_reminder":
+
+        return data.get("message") or "Reminder set."
+
+    if name == "list_reminders":
+
+        items = data.get("reminders", [])
+
+        if not items:
+            return "No reminders set."
+
+        return "Reminders:\n" + "\n".join(
+            f"- {item['text']} in {max(1, item['remaining'] // 60)} min"
+            for item in items
+        )
+
+    if name == "cancel_reminder":
+
+        return data.get("message") or "Reminder cancelled."
+
+    if name == "notify":
+
+        return (
+            "Notification sent."
+            if data.get("success")
+            else f"Notification failed: {data.get('error')}"
+        )
+
     return str(data)
+
+
+PATH_HINTS = (
+    "folder", "directory", "downloads", "desktop", "documents",
+    "pictures", "photos", "music", "videos", "workspace", "project",
+)
+
+
+def _looks_like_path(target: str) -> bool:
+
+    lowered = (target or "").lower()
+
+    if any(word in lowered for word in PATH_HINTS):
+
+        return True
+
+    if re.search(r"[a-z]:\\", lowered) or "/" in lowered or "\\" in lowered:
+
+        return True
+
+    return bool(re.search(r"\.\w{1,5}$", lowered)) or lowered.startswith("~")
