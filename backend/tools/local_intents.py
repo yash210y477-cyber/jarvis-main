@@ -106,6 +106,18 @@ def detect(message: str):
     # Reminders / alarms
     # -----------------------------
 
+    if re.search(r"reminders?", text) and any(
+        word in text for word in ("list", "show", "which", "kitne", "what")
+    ):
+
+        return {"tool": "list_reminders", "arguments": {}}
+
+    if re.search(r"reminders?", text) and any(
+        word in text for word in ("cancel", "delete", "remove", "clear", "hatao")
+    ):
+
+        return {"tool": "cancel_reminder", "arguments": {}}
+
     if re.search(r"\b(remind me|reminder|yaad dilana|yaad rakhna)\b", text):
 
         match = re.match(
