@@ -33,6 +33,16 @@ SCREEN_WORDS = (
     "screen capture", "screenshot lo",
 )
 
+SPECIAL_APP_WORDS = (
+    "settings", "camera", "photos", "store", "calculator",
+    "alarm", "clock", "stopwatch",
+)
+
+WEBSITE_PATTERN = re.compile(
+    r"^(?:https?://)?[\w-]+(?:\.[\w-]+)*\."
+    r"(?:com|in|org|net|io|dev|co|ai|me|app)(?:/\S*)?$"
+)
+
 NUMBER_WORDS = {
     "a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
     "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "fifteen": 15,
@@ -146,6 +156,13 @@ def detect(message: str):
             body = (match.group(1) or "reminder").strip(" .")
             when = (match.group(2) or "").strip(" .")
 
+            # "2 minutes" without a leading "in" must stay relative
+            if when and re.match(
+                r"^\d+(\.\d+)?\s*(second|seconds|sec|secs|minute|minutes|min|mins|hour|hours|hr|hrs)\s*$",
+                when,
+            ):
+                when = "in " + when
+
             return {
                 "tool": "set_reminder",
                 "arguments": {
@@ -206,8 +223,23 @@ def detect(message: str):
     # Windows
     # -----------------------------
 
-    if "show desktop" in text or "desktop dikhao" in text:
+    if any(
+        phrase in text
+        for phrase in ("show desktop", "desktop dikhao", "hide all windows")
+    ):
         return {"tool": "minimize_all", "arguments": {}}
+
+    if ("minimize" in text or "minimise" in text) and any(
+        word in text
+        for word in ("all", "everything", "sab", "saare", "saari", "sare")
+    ):
+        return {"tool": "minimize_all", "arguments": {}}
+
+    if ("close" in text or "band" in text) and any(
+        word in text
+        for word in ("all", "everything", "sab", "saare", "saari", "sare")
+    ):
+        return {"tool": "close_all_windows", "arguments": {}}
 
     if text.startswith("minimize ") and len(text) > 9:
         return {
@@ -224,6 +256,27 @@ def detect(message: str):
 
     if "windows" in text and any(word in text for word in ("list", "open", "kaunse")):
         return {"tool": "list_windows", "arguments": {}}
+
+    # -----------------------------
+    # Lock / power
+    # -----------------------------
+
+    if "lock" in text and "screen" in text:
+        return {"tool": "lock_screen", "arguments": {}}
+
+    if "lock" in text and ("pc" in text or "laptop" in text):
+        return {"tool": "lock_screen", "arguments": {}}
+
+    if "shutdown" in text or "shut down" in text or "power off" in text:
+        return {"tool": "power_action", "arguments": {"action": "shutdown"}}
+    if "restart" in text or "reboot" in text:
+        return {"tool": "power_action", "arguments": {"action": "restart"}}
+    if "sleep" in text or "suspend" in text:
+        return {"tool": "power_action", "arguments": {"action": "sleep"}}
+    if "sign out" in text or "log out" in text:
+        return {"tool": "power_action", "arguments": {"action": "signout"}}
+    if "lock" in text:
+        return {"tool": "power_action", "arguments": {"action": "lock"}}
 
     # -----------------------------
     # Media
@@ -263,6 +316,22 @@ def detect(message: str):
         return {"tool": "read_file", "arguments": {"path": match.group(1).strip(" .")}}
 
     # -----------------------------
+    # Close one app
+    # -----------------------------
+
+    match = re.match(
+        r"(?:close|quit|exit|kill|band karo)\s+(?:the\s+)?(.+?)(?:\s+app)?$",
+        text,
+    )
+
+    if match:
+
+        target = match.group(1).strip(" .")
+
+        if target:
+            return {"tool": "close_app", "arguments": {"app_name": target}}
+
+    # -----------------------------
     # Open folders / files
     # -----------------------------
 
@@ -275,9 +344,40 @@ def detect(message: str):
 
         target = match.group(1).strip(" .")
 
-        if _looks_like_path(target):
+        if target and WEBSITE_PATTERN.match(target):
+
+            return {"tool": "open_website", "arguments": {"url": target}}
+
+        folder_words = ("folder", "directory", "kholo", "khol")
+
+        if _looks_like_path(target) or any(word in text for word in folder_words):
 
             return {"tool": "open_path", "arguments": {"path": target}}
+
+    match = re.match(
+        r"(?:open|launch|start|kholo|khol)\s+(?:the\s+)?(.+?)(?:\s+app)?$",
+        text,
+    )
+
+    if match:
+
+        target = match.group(1).strip(" .")
+
+        if target and WEBSITE_PATTERN.match(target):
+            return {"tool": "open_website", "arguments": {"url": target}}
+
+        if target in SPECIAL_APP_WORDS or target in (
+            "windows settings", "pc settings", "system settings",
+        ):
+            return {
+                "tool": "open_special",
+                "arguments": {
+                    "app": "settings" if "settings" in target else target,
+                },
+            }
+
+        if target:
+            return {"tool": "open_app", "arguments": {"app_name": target}}
 
     # -----------------------------
     # Shell (always needs confirmation)
@@ -344,7 +444,17 @@ def render(name: str, result: dict) -> str:
 
     if name == "minimize_all":
 
-        return "Showing the desktop."
+        count = data.get("count")
+
+        return f"Minimized {count} window(s)." if count else "Showing the desktop."
+
+    if name in ("open_app", "close_app"):
+
+        return data.get("message") or "Done."
+
+    if name == "close_all_windows":
+
+        return data.get("message") or "Closing the windows."
 
     if name == "list_files":
 

@@ -1,4 +1,5 @@
 import datetime
+import time
 from pathlib import Path
 
 from brain import local_clock
@@ -157,3 +158,70 @@ def test_briefing_mentions_the_day_and_stats(tmp_path):
 
     assert datetime.datetime.now().strftime("%A") in text
     assert "CPU" in text
+
+
+def test_local_intents_cover_system_commands():
+    from tools import local_intents as li
+
+    assert li.detect("open settings")["tool"] == "open_special"
+    assert li.detect("open youtube.com")["tool"] == "open_website"
+    assert li.detect("lock the screen")["tool"] == "lock_screen"
+    assert li.detect("shut down the computer")["arguments"]["action"] == "shutdown"
+    assert li.detect("reboot")["arguments"]["action"] == "restart"
+    assert li.detect("open chrome")["tool"] == "open_app"
+
+
+def test_reminder_duration_without_in_prefix_is_relative():
+    from tools import local_intents as li
+    from reminders.scheduler import parse_when
+
+    intent = li.detect("remind me to stretch in 2 minutes")
+
+    assert intent["tool"] == "set_reminder"
+    assert intent["arguments"]["when"].startswith("in ")
+
+    due = parse_when("2 minutes")
+
+    assert due < datetime.datetime.now() + datetime.timedelta(minutes=5)
+
+
+def test_brain_answers_instantly_without_providers(monkeypatch):
+    from brain.brain import Brain
+
+    brain = Brain()
+
+    monkeypatch.setattr(brain.ai, "providers", [])
+
+    started = time.time()
+
+    result = brain.chat("something completely unknown to jarvis")
+
+    elapsed = time.time() - started
+
+    assert result["action"] == "fallback"
+    assert elapsed < 5
+    assert "open chrome" in result["response"]
+
+
+
+def test_local_intents_route_apps_and_bulk_window_commands():
+
+    from tools import local_intents as li
+
+    assert li.detect("open whatsapp")["tool"] == "open_app"
+    assert li.detect("open telegram")["tool"] == "open_app"
+    assert li.detect("close chrome")["tool"] == "close_app"
+    assert li.detect("minimize all windows")["tool"] == "minimize_all"
+    assert li.detect("close all apps")["tool"] == "close_all_windows"
+    assert li.detect("open settings")["arguments"]["app"] == "settings"
+    assert li.detect("open youtube.com")["tool"] == "open_website"
+
+
+def test_clock_answers_today_day_separately():
+
+    from brain import local_clock
+
+    assert local_clock.detect("what is today day") == "weekday"
+    assert local_clock.detect("which day is today") == "weekday"
+    assert local_clock.detect("what is the current month") == "month"
+    assert local_clock.detect("which year is it") == "year"

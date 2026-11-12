@@ -73,7 +73,14 @@ def parse_when(when, now=None):
     # Relative: in / after <n> <unit>
     # -----------------------------
 
-    if re.search(r"\b(in|after|baad)\b", text) or re.fullmatch(r"\s*\d+\s*", text):
+    if (
+        re.search(r"\b(in|after|baad)\b", text)
+        or re.fullmatch(r"\s*\d+\s*", text)
+        or re.fullmatch(
+            r"\s*\d+\s*(second|seconds|sec|secs|minute|minutes|min|mins|hour|hours|hr|hrs)\s*",
+            text,
+        )
+    ):
 
         amount = _number(text) or 0
 

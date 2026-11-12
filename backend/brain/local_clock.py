@@ -73,6 +73,17 @@ def detect(text: str):
 
         return "year"
 
+    if re.search(r"\b(day|din)\b", lowered) and _has_question(lowered):
+
+        return "weekday"
+
+    if lowered.strip(" .") in (
+        "what is today", "what's today", "whats today", "today",
+        "today kya hai", "aaj kya hai",
+    ):
+
+        return "date"
+
     if any(word in lowered for word in WEEKDAY_WORDS):
 
         return "weekday"

@@ -28,10 +28,14 @@ AI_POOL = concurrent.futures.ThreadPoolExecutor(max_workers=2)
 
 
 FALLBACK_REPLY = (
-    "I can't reach an AI provider right now (no API key configured), but I'm "
-    "still here for the local stuff: I remember things you tell me, recall "
-    "them, open apps, run tools and report system stats.\n"
-    "Try: \"my favourite colour is black\" then \"what is my favourite colour?\""
+    "No AI provider is configured (the API keys are missing or rejected), "
+    "so free-form chat is off — but local commands still work. Try:\n"
+    "- \"open chrome\", \"open downloads folder\", \"open youtube.com\"\n"
+    "- \"what is the current month\", \"system status\"\n"
+    "- \"take a screenshot\", \"volume up\", \"lock the screen\"\n"
+    "- \"remind me to drink water in 20 minutes\", \"list reminders\"\n"
+    "- \"my favourite colour is black\" / \"what is my favourite colour\"\n"
+    "\"shut down\", \"restart\" jaise commands confirm maangte hain."
 )
 
 
@@ -290,6 +294,21 @@ class Brain:
         # -----------------------------
         # AI fallback
         # -----------------------------
+
+        # No provider at all: answer immediately instead of waiting on dead
+        # endpoints. Free-form chat needs a key; local commands are above.
+        if not self.ai.providers:
+
+            self.memory.add_assistant_message(FALLBACK_REPLY)
+
+            self._check_summary()
+
+            return {
+                "success": True,
+                "provider": "local",
+                "action": "fallback",
+                "response": FALLBACK_REPLY,
+            }
 
         # Tool-calling loop first: the model may need to act, not just talk.
         agent_result = None

@@ -4,6 +4,8 @@ from tools.registry import CONFIRM, ToolRegistry
 from tools.executor import ActionExecutor
 
 from tools import (
+    apps,
+    browser,
     clipboard,
     clock,
     desktop,
@@ -12,6 +14,7 @@ from tools import (
     screenshot,
     shell,
     timer,
+    power,
     windows,
 )
 
@@ -320,6 +323,47 @@ def build_registry():
     )
 
     # -----------------------------
+    # Applications
+    # -----------------------------
+
+    registry.register(
+        "open_app",
+        apps.open_app,
+        description=(
+            "Open a desktop or Store app by name. Brings back the window when "
+            "the app is already running but minimized."
+        ),
+        schema=_schema(
+            {"app_name": {"type": "string", "description": "App name."}},
+            ["app_name"],
+        ),
+        category="desktop",
+        examples=["open chrome", "open whatsapp", "open telegram"],
+    )
+
+    registry.register(
+        "close_app",
+        apps.close_app,
+        description="Close one running application.",
+        schema=_schema(
+            {"app_name": {"type": "string", "description": "App name."}},
+            ["app_name"],
+        ),
+        category="desktop",
+        examples=["close chrome"],
+    )
+
+    registry.register(
+        "close_all_windows",
+        apps.close_all_apps,
+        description="Close every open window at once, from one command.",
+        schema=_schema({}),
+        permission=CONFIRM,
+        category="desktop",
+        examples=["close all apps"],
+    )
+
+    # -----------------------------
     # Reminders + notifications
     # -----------------------------
 
@@ -384,6 +428,59 @@ def build_registry():
         ),
         category="notification",
         examples=["notify me that the build finished"],
+    )
+
+    # -----------------------------
+    # Web
+    # -----------------------------
+
+    registry.register(
+        "open_website",
+        browser.open_website,
+        description="Open a website in the default browser.",
+        schema=_schema({"url": {"type": "string"}}, ["url"]),
+        category="web",
+        examples=["open youtube.com"],
+    )
+
+    registry.register(
+        "search_web",
+        browser.google_search,
+        description="Search Google in the default browser.",
+        schema=_schema({"query": {"type": "string"}}, ["query"]),
+        category="web",
+        examples=["search for python decorators"],
+    )
+
+    # -----------------------------
+    # Lock / power
+    # -----------------------------
+
+    registry.register(
+        "lock_screen",
+        power.lock_screen,
+        description="Lock the Windows session.",
+        schema=_schema({}),
+        category="power",
+        examples=["lock the screen"],
+    )
+
+    registry.register(
+        "power_action",
+        power.power_action,
+        description="Lock, sleep, sign out, shut down or restart this computer.",
+        schema=_schema(
+            {
+                "action": {
+                    "type": "string",
+                    "enum": ["lock", "sleep", "signout", "shutdown", "restart"],
+                }
+            },
+            ["action"],
+        ),
+        permission=CONFIRM,
+        category="power",
+        examples=["shut down the computer", "restart"],
     )
 
     return registry
