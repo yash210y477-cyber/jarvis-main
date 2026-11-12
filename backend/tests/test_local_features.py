@@ -200,7 +200,7 @@ def test_brain_answers_instantly_without_providers(monkeypatch):
 
     assert result["action"] == "fallback"
     assert elapsed < 5
-    assert "open chrome" in result["response"]
+    assert result["response"] == "ALL AI PROVIDER FAILED"
 
 
 

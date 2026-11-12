@@ -29,16 +29,7 @@ AGENT_TIMEOUT_SECONDS = 60
 AI_POOL = concurrent.futures.ThreadPoolExecutor(max_workers=2)
 
 
-FALLBACK_REPLY = (
-    "No AI provider is configured (the API keys are missing or rejected), "
-    "so free-form chat is off — but local commands still work. Try:\n"
-    "- \"open chrome\", \"open downloads folder\", \"open youtube.com\"\n"
-    "- \"what is the current month\", \"system status\"\n"
-    "- \"take a screenshot\", \"volume up\", \"lock the screen\"\n"
-    "- \"remind me to drink water in 20 minutes\", \"list reminders\"\n"
-    "- \"my favourite colour is black\" / \"what is my favourite colour\"\n"
-    "\"shut down\", \"restart\" jaise commands confirm maangte hain."
-)
+FALLBACK_REPLY = "ALL AI PROVIDER FAILED"
 
 
 class Brain:
