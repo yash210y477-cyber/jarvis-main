@@ -50,6 +50,25 @@ class Settings:
         if item.strip()
     ]
 
+    # Telegram user account for real voice calls (bots cannot call).
+    TELEGRAM_API_ID = int(os.getenv("TELEGRAM_API_ID", "0") or 0)
+
+    TELEGRAM_API_HASH = os.getenv("TELEGRAM_API_HASH", "")
+
+    TELEGRAM_CALL_AUTO_ANSWER = os.getenv(
+        "TELEGRAM_CALL_AUTO_ANSWER", "1"
+    ) not in ("0", "false", "False", "no")
+
+    # Optional ready-made greeting clip; otherwise one is generated locally.
+    TELEGRAM_CALL_GREETING = os.getenv("TELEGRAM_CALL_GREETING", "")
+
+    # Only these Telegram user ids may reach JARVIS (empty = anyone).
+    TELEGRAM_CALL_ALLOWED = [
+        item.strip()
+        for item in os.getenv("TELEGRAM_CALL_ALLOWED", "").split(",")
+        if item.strip()
+    ]
+
     MORNING_BRIEFING_HOUR = int(os.getenv("JARVIS_BRIEFING_HOUR", "8"))
 
     MORNING_BRIEFING_MINUTE = int(os.getenv("JARVIS_BRIEFING_MINUTE", "30"))

@@ -368,6 +368,16 @@ def start_services():
 
     BRIDGE.start(brain)
 
+    try:
+
+        from remote.telegram_calls import CALL_BRIDGE
+
+        CALL_BRIDGE.start()
+
+    except Exception:
+
+        pass
+
 
 @app.on_event("shutdown")
 def stop_services():
@@ -376,6 +386,16 @@ def stop_services():
 
     SCHEDULER.stop()
     BRIDGE.stop()
+
+    try:
+
+        from remote.telegram_calls import CALL_BRIDGE
+
+        CALL_BRIDGE.stop()
+
+    except Exception:
+
+        pass
 
 
 @app.get("/reminders")
@@ -447,3 +467,88 @@ def telegram_status():
     from remote.telegram import BRIDGE
 
     return BRIDGE.status()
+
+
+# -----------------------------
+# Telegram voice calls (user account)
+# -----------------------------
+
+
+@app.get("/telegram-call/status")
+def telegram_call_status():
+
+    from remote.telegram_calls import CALL_BRIDGE
+
+    return CALL_BRIDGE.status()
+
+
+@app.post("/telegram-call/login/start")
+async def telegram_call_login_start(data: dict):
+
+    from remote.telegram_user import start_login
+
+    phone = (data.get("phone") or "").strip()
+
+    if not phone:
+
+        raise HTTPException(status_code=400, detail="phone is required")
+
+    return await start_login(phone)
+
+
+@app.post("/telegram-call/login/verify")
+async def telegram_call_login_verify(data: dict):
+
+    from remote.telegram_user import verify_login
+
+    code = str(data.get("code") or "").strip()
+
+    if not code:
+
+        raise HTTPException(status_code=400, detail="code is required")
+
+    return await verify_login(code, (data.get("password") or "").strip())
+
+
+@app.post("/telegram-call/start")
+def telegram_call_start():
+
+    from remote.telegram_calls import CALL_BRIDGE
+
+    return CALL_BRIDGE.start()
+
+
+@app.post("/telegram-call/stop")
+def telegram_call_stop():
+
+    from remote.telegram_calls import CALL_BRIDGE
+
+    return CALL_BRIDGE.stop()
+
+
+@app.post("/telegram-call/answer")
+def telegram_call_answer(data: dict):
+
+    from remote.telegram_calls import CALL_BRIDGE
+
+    chat_id = data.get("chat_id")
+
+    if chat_id is None:
+
+        raise HTTPException(status_code=400, detail="chat_id is required")
+
+    return CALL_BRIDGE.answer(chat_id, int(data.get("seconds") or 0))
+
+
+@app.post("/telegram-call/hangup")
+def telegram_call_hangup(data: dict):
+
+    from remote.telegram_calls import CALL_BRIDGE
+
+    chat_id = data.get("chat_id")
+
+    if chat_id is None:
+
+        raise HTTPException(status_code=400, detail="chat_id is required")
+
+    return CALL_BRIDGE.hangup(chat_id)

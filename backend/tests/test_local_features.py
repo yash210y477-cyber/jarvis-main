@@ -244,3 +244,41 @@ def test_local_intents_browser_tabs_and_volume_levels():
     assert li.detect("volume up to 85")["arguments"] == {"percent": 85}
     assert li.detect("set volume to 40")["arguments"] == {"percent": 40}
     assert li.detect("volume up")["arguments"]["action"] == "volume_up"
+
+
+
+def test_telegram_call_bridge_needs_setup(monkeypatch):
+
+    from config.settings import settings
+    from remote.telegram_calls import TelegramCallBridge
+    from remote.telegram_user import TelegramUserSession
+
+    monkeypatch.setattr(settings, "TELEGRAM_API_ID", 0)
+    monkeypatch.setattr(settings, "TELEGRAM_API_HASH", "")
+
+    bridge = TelegramCallBridge(TelegramUserSession(api_id=0, api_hash=""))
+
+    status = bridge.status()
+
+    assert status["enabled"] is False
+    assert status["running"] is False
+
+    started = bridge.start()
+
+    assert started["running"] is False
+    assert started["last_error"]
+
+    assert bridge.answer(123)["success"] is False
+
+
+def test_telegram_greeting_audio_is_written(tmp_path, monkeypatch):
+
+    from remote import telegram_calls as calls
+
+    monkeypatch.setattr(calls, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(calls, "GREETING_PATH", tmp_path / "greeting.wav")
+
+    path = calls.greeting_file()
+
+    assert path.exists()
+    assert path.stat().st_size > 44
