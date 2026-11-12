@@ -8,3 +8,6 @@ __pycache__/
 backend/data/
 check-ports.out
 check-ports.sh
+.env
+**/.env
+frontend/mina/dist

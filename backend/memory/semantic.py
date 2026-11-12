@@ -103,7 +103,7 @@ class TransformerEmbedder:
             normalize_embeddings=True,
             convert_to_numpy=True,
             show_progress_bar=False,
-            batch_size=8,
+            batch_size=32,
         )
 
         return np.asarray(vectors, dtype=np.float32)
@@ -260,6 +260,54 @@ class SemanticMemory:
         self.conn.commit()
 
         return True
+
+    def index_many(self, items) -> int:
+        """Index (text, source, ref) tuples in one embedding batch."""
+
+        pending = []
+
+        for text, source, ref in items:
+
+            clean = " ".join((text or "").split())
+
+            if len(clean) < 3:
+
+                continue
+
+            digest = hashlib.sha1(
+                f"{source}:{clean}".encode("utf-8")
+            ).hexdigest()
+
+            found = self.conn.execute(
+                "SELECT 1 FROM semantic_docs WHERE hash = ?", (digest,)
+            ).fetchone()
+
+            if found:
+
+                continue
+
+            pending.append((digest, source, str(ref), clean))
+
+        if not pending:
+
+            return 0
+
+        vectors = self.embedder.encode([item[3] for item in pending])
+
+        for (digest, source, ref, text), vector in zip(pending, vectors):
+
+            self.conn.execute(
+                "INSERT INTO semantic_docs (hash, source, ref, text) "
+                "VALUES (?, ?, ?, ?)",
+                (digest, source, ref, text),
+            )
+
+            self._save_vector(digest, vector)
+
+        self.conn.commit()
+
+        return len(pending)
+
 
     def _save_vector(self, digest: str, vector) -> None:
 

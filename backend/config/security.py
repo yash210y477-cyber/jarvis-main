@@ -51,13 +51,17 @@ def check_request(method: str, headers) -> Optional[str]:
     if method.upper() not in STATE_CHANGING_METHODS:
         return None
 
-    # A valid local token is enough for non-browser clients (telegram
-    # bridge, scripts); it short-circuits the origin check.
+    # When a token is configured it is the only way in: an origin header
+    # is easy for a local script to fake, so nothing is trusted without it.
     token = settings.LOCAL_TOKEN
 
-    if token and headers.get("x-jarvis-token") == token:
+    if token:
 
-        return None
+        if headers.get("x-jarvis-token") == token:
+
+            return None
+
+        return "Missing or invalid local token."
 
     origin = headers.get("origin")
 

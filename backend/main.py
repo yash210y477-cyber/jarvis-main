@@ -137,6 +137,30 @@ def memory_search(q: str = "", limit: int = 3):
 
     return {"success": True, "query": q, "results": results, **semantic.stats()}
 
+@app.post("/documents/index")
+def documents_index(data: dict = None):
+    """Extract and index real folders so files can be found by meaning."""
+
+    from memory.documents import index_documents
+
+    payload = data or {}
+
+    folders = payload.get("folders")
+
+    if isinstance(folders, str):
+
+        folders = [folders]
+
+    return index_documents(folders, int(payload.get("limit") or 200))
+
+
+@app.get("/documents/status")
+def documents_status():
+
+    from memory.documents import status
+
+    return status()
+
 
 @app.get("/models")
 def models():

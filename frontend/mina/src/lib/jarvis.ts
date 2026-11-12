@@ -1,18 +1,22 @@
-import { API } from '../config';
+import { API, TOKEN } from '../config';
 
 export type Stats = { cpu: number; memory: number; storage: number };
 
+// The local API only accepts state-changing calls that carry this token.
+const auth = (): Record<string, string> => (TOKEN ? { 'X-Jarvis-Token': TOKEN } : {});
+
 const post = async (path: string, body: unknown) => {
-  const r = await fetch(`${API}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const r = await fetch(`${API}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...auth() }, body: JSON.stringify(body) });
+  if (r.status === 401) return { error: 'Local token rejected. Set VITE_JARVIS_TOKEN in frontend/mina/.env to match JARVIS_LOCAL_TOKEN, then restart the UI.' };
   return r.json();
 };
 
 export async function askJarvis(message: string, mode: string, model: string): Promise<string> {
-  try { const d = await post('/chat', { message, mode, model }); return d.reply ?? d.response ?? 'Done.'; }
+  try { const d = await post('/chat', { message, mode, model }); return d.reply ?? d.response ?? d.error ?? 'Done.'; }
   catch { return `I can't reach my backend at ${API}. Start it and try again.`; }
 }
 export async function launchApp(app: string): Promise<string> {
-  try { const d = await post('/launch', { app }); return d.reply ?? `Opening ${app}.`; }
+  try { const d = await post('/launch', { app }); return d.reply ?? d.error ?? `Opening ${app}.`; }
   catch { return `Couldn't open ${app}: backend at ${API} isn't responding.`; }
 }
 export async function getStats(): Promise<Stats | null> {
@@ -56,7 +60,7 @@ export async function addMemoryNote(text: string): Promise<string[] | null> {
 
 export async function deleteMemoryNote(index: number): Promise<string[] | null> {
   try {
-    const r = await fetch(`${API}/memory/note/${index}`, { method: 'DELETE' });
+    const r = await fetch(`${API}/memory/note/${index}`, { method: 'DELETE', headers: auth() });
     const d = await r.json();
     return d.notes ?? null;
   } catch { return null; }
@@ -64,7 +68,7 @@ export async function deleteMemoryNote(index: number): Promise<string[] | null> 
 
 export async function deleteMemoryFact(key: string): Promise<MemoryFact[] | null> {
   try {
-    const r = await fetch(`${API}/memory/fact/${encodeURIComponent(key)}`, { method: 'DELETE' });
+    const r = await fetch(`${API}/memory/fact/${encodeURIComponent(key)}`, { method: 'DELETE', headers: auth() });
     const d = await r.json();
     return d.facts ?? null;
   } catch { return null; }

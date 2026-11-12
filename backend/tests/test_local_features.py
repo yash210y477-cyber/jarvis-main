@@ -139,24 +139,26 @@ def test_telegram_bridge_requires_token_and_filters_chats():
     assert open_bridge.is_allowed("999") is True
 
 
-def test_local_token_bypasses_foreign_origin(monkeypatch):
+def test_local_token_is_required_for_changes(monkeypatch):
 
     monkeypatch.setattr(settings, "LOCAL_TOKEN", "secret")
 
+    # A valid token works even from a foreign origin.
     assert check_request(
         "POST",
         {"origin": "http://evil.example", "x-jarvis-token": "secret"},
     ) is None
 
-    assert check_request(
-        "POST",
-        {"origin": "http://evil.example"},
-    ) is not None
-
+    # Without it nothing state-changing gets through, local UI included.
     assert check_request(
         "POST",
         {"origin": "http://localhost:5173"},
-    ) is None
+    ) is not None
+
+    assert check_request("POST", {}) is not None
+
+    # Reads stay open.
+    assert check_request("GET", {}) is None
 
 
 def test_briefing_mentions_the_day_and_stats(tmp_path):

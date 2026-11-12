@@ -1,4 +1,6 @@
 export const USER_NAME = 'Yash';
 export const API = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000';
+export const TOKEN = import.meta.env.VITE_JARVIS_TOKEN ?? '';
+
 export const MODELS = ['gemini', 'gpt-4o', 'claude', 'llama3 (local)'];
 export const MODES = ['Assistant', 'Coder', 'Researcher', 'Friend'];
