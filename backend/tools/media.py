@@ -81,3 +81,92 @@ def control(action: str, steps: int = 1) -> dict:
         "action": key,
         "message": LABELS[key],
     }
+
+
+
+def _endpoint_volume():
+    """Windows endpoint volume through pycaw, when it is installed."""
+
+    from pycaw.pycaw import AudioUtilities
+
+    device = AudioUtilities.GetSpeakers()
+
+    volume = getattr(device, "EndpointVolume", None)
+
+    if volume is not None:
+        return volume
+
+    # Older pycaw builds only expose Activate().
+    from ctypes import POINTER, cast
+
+    from comtypes import CLSCTX_ALL
+    from pycaw.pycaw import IAudioEndpointVolume
+
+    interface = device.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+
+    return cast(interface, POINTER(IAudioEndpointVolume))
+
+
+def get_volume(**_) -> dict:
+
+    try:
+
+        volume = _endpoint_volume()
+
+        percent = round(volume.GetMasterVolumeLevelScalar() * 100)
+
+    except Exception as error:
+
+        return {
+            "success": False,
+            "error": f"Reading the exact volume needs pycaw: {error}",
+        }
+
+    return {
+        "success": True,
+        "action": "get_volume",
+        "volume": percent,
+        "message": f"Volume is at {percent}%.",
+    }
+
+
+def set_volume(percent=50, **_) -> dict:
+
+    try:
+
+        percent = max(0, min(100, int(percent)))
+
+    except (TypeError, ValueError):
+
+        return {"success": False, "error": "Give me a volume between 0 and 100."}
+
+    try:
+
+        volume = _endpoint_volume()
+
+        volume.SetMasterVolumeLevelScalar(percent / 100.0, None)
+
+        actual = round(volume.GetMasterVolumeLevelScalar() * 100)
+
+    except Exception:
+
+        # Fallback: walk to zero, then up to the requested level.
+        _press(KEYS["volume_down"], 50)
+
+        if percent > 0:
+            _press(KEYS["volume_up"], max(1, round(percent / 2)))
+
+        return {
+            "success": True,
+            "action": "set_volume",
+            "volume": percent,
+            "approximate": True,
+            "message": f"Volume moved to about {percent}%.",
+        }
+
+    return {
+        "success": True,
+        "action": "set_volume",
+        "volume": actual,
+        "message": f"Volume set to {actual}%.",
+    }

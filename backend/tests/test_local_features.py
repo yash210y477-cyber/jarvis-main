@@ -225,3 +225,22 @@ def test_clock_answers_today_day_separately():
     assert local_clock.detect("which day is today") == "weekday"
     assert local_clock.detect("what is the current month") == "month"
     assert local_clock.detect("which year is it") == "year"
+
+
+
+def test_local_intents_browser_tabs_and_volume_levels():
+
+    from tools import local_intents as li
+
+    assert li.detect("open new tab")["arguments"]["action"] == "new_tab"
+    assert li.detect("open a new window")["arguments"]["action"] == "new_window"
+    assert li.detect("close the 2nd tab")["arguments"] == {
+        "action": "close_tab",
+        "index": 2,
+    }
+    assert li.detect("close the last tab")["arguments"]["index"] == 9
+    assert li.detect("close this tab")["arguments"]["action"] == "close_tab"
+    assert li.detect("volume down to 10")["arguments"] == {"percent": 10}
+    assert li.detect("volume up to 85")["arguments"] == {"percent": 85}
+    assert li.detect("set volume to 40")["arguments"] == {"percent": 40}
+    assert li.detect("volume up")["arguments"]["action"] == "volume_up"

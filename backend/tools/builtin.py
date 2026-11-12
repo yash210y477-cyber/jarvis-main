@@ -6,6 +6,7 @@ from tools.executor import ActionExecutor
 from tools import (
     apps,
     browser,
+    browser_control,
     clipboard,
     clock,
     desktop,
@@ -260,6 +261,63 @@ def build_registry():
         schema=_schema({"timer_id": {"type": "string"}}),
         category="timer",
         examples=["cancel the timer"],
+    )
+
+    # -----------------------------
+    # Browser control
+    # -----------------------------
+
+    registry.register(
+        "browser_control",
+        browser_control.control,
+        description=(
+            "Control the running browser: open a new tab or window, close a tab "
+            "by its position, reopen, switch tabs or reload."
+        ),
+        schema=_schema(
+            {
+                "action": {
+                    "type": "string",
+                    "enum": list(browser_control.ACTIONS),
+                },
+                "index": {
+                    "type": "integer",
+                    "description": "Tab position 1-8, or 9 for the last tab.",
+                },
+                "browser": {
+                    "type": "string",
+                    "description": "chrome, edge or firefox.",
+                },
+            },
+            ["action"],
+        ),
+        category="browser",
+        examples=["open new tab", "open new window", "close the 2nd tab"],
+    )
+
+    # -----------------------------
+    # Volume
+    # -----------------------------
+
+    registry.register(
+        "set_volume",
+        media.set_volume,
+        description="Set the system volume to an exact percentage (0-100).",
+        schema=_schema(
+            {"percent": {"type": "integer", "description": "Target volume 0-100."}},
+            ["percent"],
+        ),
+        category="media",
+        examples=["volume up to 85", "volume down to 10"],
+    )
+
+    registry.register(
+        "get_volume",
+        media.get_volume,
+        description="Report the current system volume percentage.",
+        schema=_schema({}),
+        category="media",
+        examples=["what is the volume"],
     )
 
     # -----------------------------

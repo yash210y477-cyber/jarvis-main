@@ -129,6 +129,84 @@ def detect(message: str):
         return {"tool": "get_clipboard", "arguments": {}}
 
     # -----------------------------
+    # Volume: exact level
+    # -----------------------------
+
+    if not any(word in text for word in ("mute", "unmute")):
+
+        volume_target = re.search(
+            r"(?:volume|awaaz|awaz|sound)\D{0,25}?(\d{1,3})\s*%?",
+            text,
+        )
+
+        if volume_target:
+
+            percent = max(0, min(100, int(volume_target.group(1))))
+
+            return {"tool": "set_volume", "arguments": {"percent": percent}}
+
+    if text.strip() in (
+        "what is the volume", "volume kitna hai", "current volume",
+        "how loud is it", "volume level",
+    ):
+
+        return {"tool": "get_volume", "arguments": {}}
+
+    # -----------------------------
+    # Browser tabs and windows
+    # -----------------------------
+
+    if "tab" in text and "window" not in text:
+
+        if any(word in text for word in ("reopen", "restore", "wapas kholo")):
+            return {"tool": "browser_control", "arguments": {"action": "reopen_tab"}}
+
+        close_words = ("close", "band", "hatao")
+
+        if any(word in text for word in close_words):
+
+            match = re.search(
+                r"(\d+(?:st|nd|rd|th)|first|second|third|fourth|fifth|sixth|"
+                r"seventh|eighth|ninth|last)\s+tab",
+                text,
+            )
+
+            if match:
+                return {
+                    "tool": "browser_control",
+                    "arguments": {
+                        "action": "close_tab",
+                        "index": _tab_index(match.group(1)),
+                    },
+                }
+
+            return {"tool": "browser_control", "arguments": {"action": "close_tab"}}
+
+        if any(word in text for word in ("next", "agli", "agla")):
+            return {"tool": "browser_control", "arguments": {"action": "next_tab"}}
+
+        if any(word in text for word in ("previous", "prev", "pichhli", "pichla")):
+            return {"tool": "browser_control", "arguments": {"action": "prev_tab"}}
+
+        if any(word in text for word in ("new tab", "naya tab", "nayi tab")):
+            return {"tool": "browser_control", "arguments": {"action": "new_tab"}}
+
+    if any(
+        phrase in text
+        for phrase in ("close this window", "close the window", "close new window")
+    ):
+        return {"tool": "browser_control", "arguments": {"action": "close_window"}}
+
+    if "new tab" in text or "naya tab" in text or "nayi tab" in text:
+        return {"tool": "browser_control", "arguments": {"action": "new_tab"}}
+
+    if "new window" in text or "naya window" in text or "nayi window" in text:
+        return {"tool": "browser_control", "arguments": {"action": "new_window"}}
+
+    if "tab" in text and "window" not in text:
+        return {"tool": "browser_control", "arguments": {"action": "new_tab"}}
+
+    # -----------------------------
     # Reminders / alarms
     # -----------------------------
 
@@ -391,6 +469,30 @@ def detect(message: str):
     return None
 
 
+TAB_WORDS = {
+    "first": 1, "1st": 1,
+    "second": 2, "2nd": 2,
+    "third": 3, "3rd": 3,
+    "fourth": 4, "4th": 4,
+    "fifth": 5, "5th": 5,
+    "sixth": 6, "6th": 6,
+    "seventh": 7, "7th": 7,
+    "eighth": 8, "8th": 8,
+    "ninth": 9, "9th": 9,
+    "last": 9,
+}
+
+
+def _tab_index(word: str) -> int:
+
+    word = (word or "").strip().lower()
+
+    if word.isdigit():
+        return max(1, min(9, int(word)))
+
+    return TAB_WORDS.get(word, 1)
+
+
 def _after(text: str, markers):
 
     for marker in markers:
@@ -424,7 +526,7 @@ def render(name: str, result: dict) -> str:
 
         return "Copied to your clipboard."
 
-    if name == "media_control":
+    if name in ("media_control", "set_volume", "get_volume", "browser_control"):
 
         return data.get("message") or "Done."
 
