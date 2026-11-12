@@ -15,6 +15,7 @@ import wave
 from pathlib import Path
 
 from config.settings import settings
+from remote.call_agent import CallConversation, clip_duration
 from remote.telegram_user import TelegramUserSession
 
 
@@ -111,6 +112,9 @@ class TelegramCallBridge:
         self.last_call = {}
         self.answered = 0
 
+        self.brain = None
+        self.conversation = None
+
     # ---------------------------------------------------------------- state
 
     def available(self) -> bool:
@@ -141,9 +145,17 @@ class TelegramCallBridge:
             "auto_answer": settings.TELEGRAM_CALL_AUTO_ANSWER,
             "allowed": settings.TELEGRAM_CALL_ALLOWED,
             "answered": self.answered,
+            "talk": settings.TELEGRAM_CALL_CONVERSATION,
+            "conversation": (
+                self.conversation.status() if self.conversation else None
+            ),
             "last_call": self.last_call,
             "last_error": self.last_error,
         }
+
+    def attach_brain(self, brain) -> None:
+
+        self.brain = brain
 
     # ------------------------------------------------------------ lifecycle
 
@@ -202,7 +214,7 @@ class TelegramCallBridge:
 
         from pytgcalls import PyTgCalls, filters
 
-        from pytgcalls.types import ChatUpdate
+        from pytgcalls.types import ChatUpdate, Direction
 
         self.loop = asyncio.get_running_loop()
 
@@ -229,6 +241,12 @@ class TelegramCallBridge:
         self.calls.add_handler(
             self._on_incoming,
             filters.chat_update(ChatUpdate.Status.INCOMING_CALL),
+        )
+
+        # Phase B: the caller's audio arrives as stream frames.
+        self.calls.add_handler(
+            self._on_frames,
+            filters.stream_frame(Direction.INCOMING),
         )
 
         self.stopper = asyncio.Event()
@@ -315,11 +333,51 @@ class TelegramCallBridge:
             entry["status"] = "answered"
             self.answered += 1
 
+            if settings.TELEGRAM_CALL_CONVERSATION and self.brain is not None:
+
+                asyncio.create_task(self._start_conversation(chat_id))
+
         except Exception as error:
 
             entry["status"] = "failed"
             entry["error"] = str(error)
             self.last_error = str(error)
+
+    async def _on_frames(self, _client, update) -> None:
+
+        conversation = self.conversation
+
+        if conversation is None or conversation.chat_id != update.chat_id:
+            return
+
+        payload = b"".join(
+            getattr(frame, "data", b"") for frame in update.frames
+        )
+
+        for utterance in conversation.feed(payload):
+
+            asyncio.create_task(conversation.handle(utterance))
+
+    async def _start_conversation(self, chat_id) -> None:
+
+        try:
+
+            # Let the greeting finish before listening for an answer.
+            await asyncio.sleep(clip_duration(greeting_file()) + 0.4)
+
+            conversation = CallConversation(
+                self.calls, brain=self.brain, chat_id=chat_id
+            )
+
+            await conversation.start()
+
+            self.conversation = conversation
+
+        except Exception as error:
+
+            self.last_error = str(error)
+
+            log.warning("Starting the call conversation failed: %s", error)
 
     def _run(self, coro, timeout: float = 30.0):
 
@@ -353,6 +411,28 @@ class TelegramCallBridge:
 
             return {"success": False, "error": str(error)}
 
+    def say(self, text: str, chat_id=None) -> dict:
+
+        conversation = self.conversation
+
+        if conversation is None:
+
+            return {
+                "success": False,
+                "error": "No call is in a conversation right now.",
+            }
+
+        target = chat_id or conversation.chat_id
+
+        async def _say():
+            conversation.chat_id = target
+            return await conversation.say(text)
+
+        try:
+            return self._run(_say(), timeout=120)
+        except Exception as error:
+            return {"success": False, "error": str(error)}
+
     def hangup(self, chat_id) -> dict:
 
         if not self.running:
@@ -360,6 +440,12 @@ class TelegramCallBridge:
             return {"success": False, "error": "The call bridge is not running."}
 
         async def _hangup():
+
+            if (
+                self.conversation is not None
+                and self.conversation.chat_id == chat_id
+            ):
+                self.conversation = None
 
             await self.calls.leave_call(chat_id)
 

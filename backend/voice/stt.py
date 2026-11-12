@@ -1,5 +1,6 @@
 import logging
 
+import numpy as np
 from faster_whisper import WhisperModel
 
 logger = logging.getLogger(__name__)
@@ -49,14 +50,19 @@ class SpeechToText:
 
         return text
 
-    def transcribe(self, audio_file):
+    def transcribe(self, audio, language="en"):
 
         logger.info("Transcribing Audio...")
 
+        # Call audio arrives as float32 samples, mic recordings as a path.
+        if isinstance(audio, np.ndarray):
+
+            audio = np.ascontiguousarray(audio, dtype=np.float32)
+
         segments, info = self.model.transcribe(
-            audio_file,
+            audio,
+            language=language,
             beam_size=2,
-            language="en",
             vad_filter=False,
             condition_on_previous_text=False,
             temperature=0,

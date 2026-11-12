@@ -62,6 +62,14 @@ class Settings:
     # Optional ready-made greeting clip; otherwise one is generated locally.
     TELEGRAM_CALL_GREETING = os.getenv("TELEGRAM_CALL_GREETING", "")
 
+    # Phase B: actually talk on the call (listen, think, answer).
+    TELEGRAM_CALL_CONVERSATION = os.getenv(
+        "TELEGRAM_CALL_CONVERSATION", "1"
+    ) not in ("0", "false", "False", "no")
+
+    # "auto" lets Whisper guess (Hinglish works); or "en", "hi", ...
+    TELEGRAM_CALL_LANGUAGE = os.getenv("TELEGRAM_CALL_LANGUAGE", "auto")
+
     # Only these Telegram user ids may reach JARVIS (empty = anyone).
     TELEGRAM_CALL_ALLOWED = [
         item.strip()

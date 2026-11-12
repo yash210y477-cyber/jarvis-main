@@ -372,6 +372,8 @@ def start_services():
 
         from remote.telegram_calls import CALL_BRIDGE
 
+        CALL_BRIDGE.attach_brain(brain)
+
         CALL_BRIDGE.start()
 
     except Exception:
@@ -538,6 +540,20 @@ def telegram_call_answer(data: dict):
         raise HTTPException(status_code=400, detail="chat_id is required")
 
     return CALL_BRIDGE.answer(chat_id, int(data.get("seconds") or 0))
+
+
+@app.post("/telegram-call/say")
+def telegram_call_say(data: dict):
+
+    from remote.telegram_calls import CALL_BRIDGE
+
+    text = (data.get("text") or "").strip()
+
+    if not text:
+
+        raise HTTPException(status_code=400, detail="text is required")
+
+    return CALL_BRIDGE.say(text, data.get("chat_id"))
 
 
 @app.post("/telegram-call/hangup")
