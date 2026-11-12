@@ -7,6 +7,8 @@ clock is read straight from the machine and rendered here.
 import datetime
 import re
 
+from config.settings import settings
+
 
 QUESTION_WORDS = (
     "what", "which", "when", "tell", "current", "today", "now",
@@ -102,25 +104,45 @@ def detect(text: str):
 
 
 def render(kind: str) -> str:
-    """Spoken answer for a clock question."""
+    """Spoken answer for a clock question, in the configured language."""
 
     moment = now()
+
+    hinglish = (getattr(settings, "JARVIS_LANGUAGE", "") or "").lower() in (
+        "hinglish", "hindi", "hi",
+    )
 
     if kind == "time":
 
         clock = moment.strftime("%I:%M %p").lstrip("0")
 
+        if hinglish:
+
+            return f"Abhi {clock} baje hain."
+
         return f"It's {clock} ({moment.tzname() or 'local time'})."
 
     if kind == "date":
+
+        if hinglish:
+
+            return f"Aaj {moment.strftime('%A, %d %B %Y')} hai."
 
         return f"Today is {moment.strftime('%A, %d %B %Y')}."
 
     if kind == "weekday":
 
+        if hinglish:
+
+            return f"Aaj {moment.strftime('%A')} hai."
+
         return f"Today is {moment.strftime('%A')}."
 
     if kind == "month":
+
+        if hinglish:
+
+            return f"{moment.strftime('%B')} chal raha hai."
 
         return (
             f"It's {moment.strftime('%B')} — the "
@@ -129,9 +151,17 @@ def render(kind: str) -> str:
 
     if kind == "year":
 
+        if hinglish:
+
+            return f"{moment.year} chal raha hai."
+
         return f"It's {moment.year}."
 
     if kind == "week":
+
+        if hinglish:
+
+            return f"Ye {moment.year} ka {moment.isocalendar().week}va hafta hai."
 
         return (
             f"This is week {moment.isocalendar().week} of {moment.year}."
@@ -143,9 +173,20 @@ def render(kind: str) -> str:
 
         pretty = f"UTC{offset[:3]}:{offset[3:]}" if offset else "UTC"
 
+        if hinglish:
+
+            return f"Tumhara timezone {moment.tzname() or 'local time'} hai ({pretty})."
+
         return f"Your timezone is {moment.tzname() or 'local time'} ({pretty})."
 
     if kind == "datetime":
+
+        if hinglish:
+
+            return (
+                f"Abhi {moment.strftime('%I:%M %p').lstrip('0')} baje hain, "
+                f"{moment.strftime('%A, %d %B %Y')} ko."
+            )
 
         return (
             f"It's {moment.strftime('%I:%M %p').lstrip('0')} on "
@@ -153,7 +194,6 @@ def render(kind: str) -> str:
         )
 
     return ""
-
 
 def reply(text: str):
     """Return a clock answer for the message, or None."""

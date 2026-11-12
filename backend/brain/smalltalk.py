@@ -8,6 +8,8 @@ or an API key: they are answered here, before any network call.
 import datetime
 import re
 
+from config.settings import settings
+
 GREETINGS = (
     "hi",
     "hii",
@@ -39,6 +41,9 @@ HOW_ARE_YOU = (
     r"what'?s up",
     r"whats up",
     r"sup\\b",
+    r"kaise ho",
+    r"kaisa hai",
+    r"kya haal",
 )
 
 THANKS = (r"thanks", r"thank you", r"thx", r"ty\\b", r"shukriya", r"dhanyawad")
@@ -67,6 +72,22 @@ CAPABILITIES = """I can:
 - report CPU, RAM, storage and network
 - search the web and open sites
 - chat with you when an AI provider is configured"""
+
+CAPABILITIES_HINGLISH = """Main ye kar sakta hoon:
+- baatein yaad rakhna ("mera favourite colour black hai")
+- wahi wapas batana ("mera favourite colour kya hai?")
+- apps kholna aur band karna ("chrome kholo")
+- CPU, RAM, storage aur network batana
+- web search aur sites kholna
+- AI provider na ho tab bhi basic baatein"""
+
+
+def _hinglish() -> bool:
+    """Local replies follow JARVIS_LANGUAGE (hinglish by default)."""
+
+    return (getattr(settings, "JARVIS_LANGUAGE", "") or "").lower() in (
+        "hinglish", "hindi", "hi", "hinglish/hindi",
+    )
 
 
 def _greeting() -> str:
@@ -124,6 +145,7 @@ DATE_PHRASES = (
     "aaj ki date",
     "aaj ki tareekh",
     "aaj kaunsi date",
+    "aaj kaun sa din",
     "today date",
     "date today",
     "what is today date",
@@ -160,6 +182,7 @@ def _is_date_query(text: str) -> bool:
 
     return bool(words & {"date", "tareekh", "din"}) and bool(words & QUESTION_WORDS)
 
+
 def local_reply(text: str, memory=None) -> str:
     """
     Return a reply for a normal, everyday message, or "" when the message
@@ -183,51 +206,102 @@ def local_reply(text: str, memory=None) -> str:
 
     who = f" {name}" if name else ""
 
+    hinglish = _hinglish()
+
     # "hey", "hi jarvis", "good morning jarvis"
     stripped = re.sub(r"\bjarvis\b", "", lowered).strip()
 
     stripped = re.sub(r"\s+", " ", stripped)
 
-    if stripped in GREETINGS:
+    if stripped in GREETINGS or re.fullmatch(
+        rf"{GREETING_WORDS}(\s+there)?", stripped
+    ):
+
+        if hinglish:
+
+            return f"{_greeting()}{who} 👋 Bolo, kya karna hai?"
+
         return f"{_greeting()}{who} 👋 How can I help?"
 
-    if re.fullmatch(rf"{GREETING_WORDS}(\s+there)?", stripped):
-        return f"{_greeting()}{who} 👋 I'm here — what do you need?"
-
     if _matches(lowered, HOW_ARE_YOU):
+
+        if hinglish:
+            return "Main badhiya hoon, poochhne ke liye shukriya. Batao kya karna hai?"
+
         return "Running smoothly, thanks for asking. What can I do for you?"
 
     if _matches(lowered, THANKS) or lowered.startswith("thank you"):
+
+        if hinglish:
+            return "Koi baat nahi. Aur kuch?"
+
         return "Anytime. Anything else?"
 
     if _matches(lowered, BYE):
+
+        if hinglish:
+            return f"Chalo, phir milte hain{who}. Main yahin hoon."
+
         return f"See you{who}. I'll be right here."
 
-    if lowered in ("who are you", "what is your name", "whats your name",
-                   "what's your name", "introduce yourself", "your name"):
+    if lowered in (
+        "who are you", "what is your name", "whats your name",
+        "what's your name", "introduce yourself", "your name",
+        "tum kaun ho", "tum kaun", "aap kaun ho", "tumhara naam kya hai",
+        "tumhara naam", "apna naam batao",
+    ):
+
+        if hinglish:
+
+            return (
+                "Main JARVIS hoon — tumhara local AI assistant. Memory isi "
+                "machine par rehti hai, apps control karta hoon aur system ki "
+                "report deta hoon."
+            )
+
         return (
             "I'm JARVIS — your local AI assistant. I keep your memory on this "
             "machine, control your apps and report on your system."
         )
 
     if lowered in ("what can you do", "help", "commands", "what can you do?"):
-        return CAPABILITIES
+
+        return CAPABILITIES_HINGLISH if hinglish else CAPABILITIES
 
     if _is_time_query(lowered):
 
-        return "It's " + datetime.datetime.now().strftime("%I:%M %p").lstrip("0") + "."
+        clock = datetime.datetime.now().strftime("%I:%M %p").lstrip("0")
+
+        if hinglish:
+            return f"Abhi {clock} baje hain."
+
+        return f"It's {clock}."
 
     if _is_date_query(lowered):
 
-        return "Today is " + datetime.datetime.now().strftime("%A, %d %B %Y") + "."
+        today = datetime.datetime.now().strftime("%A, %d %B %Y")
+
+        if hinglish:
+            return f"Aaj {today} hai."
+
+        return f"Today is {today}."
 
     if re.search(r"\bare you\s+(?:there|online|awake)\b", lowered):
+
+        if hinglish:
+            return "Haan, main yahan hoon. Batao?"
+
         return "I'm here. What do you need?"
 
     if re.search(r"\b(good job|well done|nice work|great work|love you)\b", lowered):
+
+        if hinglish:
+            return "Shukriya — help karke achha laga."
+
         return "Thank you — happy to help."
 
     if _matches(lowered, ACK):
-        return "Noted."
+
+        return "Samajh gaya." if hinglish else "Noted."
 
     return ""

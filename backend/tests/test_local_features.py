@@ -10,7 +10,11 @@ from remote.telegram import TelegramBridge
 from tools import clock, desktop
 
 
-def test_clock_answers_without_any_provider():
+def test_clock_answers_without_any_provider(monkeypatch):
+
+    from config.settings import settings
+
+    monkeypatch.setattr(settings, "JARVIS_LANGUAGE", "english")
 
     now = datetime.datetime.now()
 
@@ -33,6 +37,13 @@ def test_clock_answers_without_any_provider():
     assert local_clock.reply("what time is it").startswith("It's")
 
     assert local_clock.reply("tell me a joke") is None
+
+    # Same answers in Hinglish when that language is configured.
+    monkeypatch.setattr(settings, "JARVIS_LANGUAGE", "hinglish")
+
+    assert local_clock.reply("what is the date").startswith("Aaj")
+
+    assert local_clock.reply("what time is it").startswith("Abhi")
 
 
 def test_clock_tool_exposes_fields():
