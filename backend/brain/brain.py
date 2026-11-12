@@ -6,6 +6,7 @@ from brain.intent import IntentEngine
 from brain.router import Router
 from brain.summary_manager import SummaryManager
 from brain import local_clock, memory_intent, smalltalk
+from brain.multi import split_commands
 
 from memory.manager import MemoryManager
 from memory.context import ContextBuilder
@@ -237,6 +238,33 @@ class Brain:
     # -----------------------------
 
     def chat(self, message: str):
+
+        message = (message or "").strip()
+
+        # "close terminal and open calculator" runs both, in order.
+        parts = split_commands(message)
+
+        if len(parts) > 1:
+
+            results = [self._chat_single(part) for part in parts]
+
+            lines = [
+                f"- {part}: {(result.get('response') or '').strip()}"
+                for part, result in zip(parts, results)
+            ]
+
+            return {
+                "success": all(result.get("success") for result in results),
+                "provider": "local",
+                "action": "multi",
+                "commands": parts,
+                "results": results,
+                "response": "\n".join(lines),
+            }
+
+        return self._chat_single(message)
+
+    def _chat_single(self, message: str):
 
         message = (message or "").strip()
 

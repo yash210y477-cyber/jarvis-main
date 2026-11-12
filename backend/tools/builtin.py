@@ -380,6 +380,36 @@ def build_registry():
         examples=["open the alarm app", "open windows settings"],
     )
 
+    registry.register(
+        "open_site",
+        browser.open_site,
+        description=(
+            "Open a well-known site by short name, like youtube, gmail, "
+            "github or chatgpt."
+        ),
+        schema=_schema(
+            {"name": {"type": "string", "description": "Site name."}},
+            ["name"],
+        ),
+        category="web",
+        examples=["visit youtube", "open gmail"],
+    )
+
+    registry.register(
+        "search_site",
+        browser.search_site,
+        description="Search on a specific site, such as YouTube or Google.",
+        schema=_schema(
+            {
+                "query": {"type": "string", "description": "What to search."},
+                "site": {"type": "string", "description": "youtube, google, ..."},
+            },
+            ["query"],
+        ),
+        category="web",
+        examples=["search free fire in youtube"],
+    )
+
     # -----------------------------
     # Applications
     # -----------------------------

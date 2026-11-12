@@ -6,6 +6,8 @@ configured) the obvious tool requests still go through here.
 
 import re
 
+from tools import browser
+
 
 MEDIA_WORDS = {
     "play": "play_pause",
@@ -182,6 +184,25 @@ def detect(message: str):
 
             return {"tool": "browser_control", "arguments": {"action": "close_tab"}}
 
+        position = re.search(
+            r"(\d+(?:st|nd|rd|th)|first|second|third|fourth|fifth|sixth|"
+            r"seventh|eighth|ninth|last)\s+tab",
+            text,
+        )
+
+        if position and any(
+            word in text
+            for word in ("open", "go", "jump", "switch", "show", "jao", "par")
+        ):
+
+            return {
+                "tool": "browser_control",
+                "arguments": {
+                    "action": "switch_tab",
+                    "index": _tab_index(position.group(1)),
+                },
+            }
+
         if any(word in text for word in ("next", "agli", "agla")):
             return {"tool": "browser_control", "arguments": {"action": "next_tab"}}
 
@@ -205,6 +226,48 @@ def detect(message: str):
 
     if "tab" in text and "window" not in text:
         return {"tool": "browser_control", "arguments": {"action": "new_tab"}}
+
+    # -----------------------------
+    # Websites: search on a site, visit a site
+    # -----------------------------
+
+    match = re.search(
+        r"search\s+(?:for\s+)?(.+?)\s+(?:in|on)\s+"
+        r"(youtube|google|github|wikipedia|amazon|flipkart|spotify)\s*$",
+        text,
+    )
+
+    if match:
+
+        return {
+            "tool": "search_site",
+            "arguments": {
+                "query": match.group(1).strip(),
+                "site": match.group(2),
+            },
+        }
+
+    match = re.search(
+        r"(?:visit|go to|open site)\s+(?:the\s+)?(.+?)(?:\s+(?:website|site))?$",
+        text,
+    )
+
+    if match:
+
+        target = match.group(1).strip(" .")
+
+        if target and browser.site_url(target):
+
+            return {"tool": "open_site", "arguments": {"name": target}}
+
+    match = re.match(r"search\s+(?:for\s+)?(.+)$", text)
+
+    if match:
+
+        return {
+            "tool": "search_site",
+            "arguments": {"query": match.group(1).strip(), "site": "google"},
+        }
 
     # -----------------------------
     # Reminders / alarms
@@ -526,7 +589,10 @@ def render(name: str, result: dict) -> str:
 
         return "Copied to your clipboard."
 
-    if name in ("media_control", "set_volume", "get_volume", "browser_control"):
+    if name in (
+        "media_control", "set_volume", "get_volume", "browser_control",
+        "open_site", "search_site",
+    ):
 
         return data.get("message") or "Done."
 

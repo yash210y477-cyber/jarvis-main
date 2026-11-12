@@ -12,6 +12,7 @@ import time
 import uuid
 from pathlib import Path
 
+from notify.speech import speak_async
 from notify.toast import notify
 
 
@@ -439,6 +440,24 @@ class ReminderScheduler:
     # FIRING
     # -----------------------------
 
+    def _owner_name(self) -> str:
+
+        try:
+
+            if self.memory is not None:
+
+                value = self.memory.recall("name")
+
+                if value:
+
+                    return str(value).strip().capitalize()
+
+        except Exception:
+
+            pass
+
+        return ""
+
     def _fire(self, reminder_id):
 
         with self.lock:
@@ -458,7 +477,13 @@ class ReminderScheduler:
 
             return None
 
-        notify("JARVIS reminder", item["text"])
+        text = item["text"]
+
+        name = self._owner_name()
+
+        notify("JARVIS reminder", text)
+
+        speak_async(f"Reminder. {text}{', ' + name if name else ''}.")
 
         return item
 
@@ -516,7 +541,13 @@ class ReminderScheduler:
 
             for item in due:
 
-                notify("JARVIS reminder", item["text"])
+                text = item["text"]
+
+                name = self._owner_name()
+
+                notify("JARVIS reminder", text)
+
+                speak_async(f"Reminder. {text}{', ' + name if name else ''}.")
 
             if self.briefing_at and not self.stop_event.is_set():
 

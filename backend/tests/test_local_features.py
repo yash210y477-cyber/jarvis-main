@@ -282,3 +282,71 @@ def test_telegram_greeting_audio_is_written(tmp_path, monkeypatch):
 
     assert path.exists()
     assert path.stat().st_size > 44
+
+
+
+def test_multiple_commands_in_one_line_split():
+    from brain.multi import split_commands
+
+    parts = split_commands("close terminal and open calculator")
+
+    assert parts == ["close terminal", "open calculator"]
+
+    assert split_commands("visit youtube and search free fire in youtube") == [
+        "visit youtube",
+        "search free fire in youtube",
+    ]
+
+    # A single reminder sentence must stay together.
+    assert split_commands("remind me to drink water and stretch in 10 minutes") == [
+        "remind me to drink water and stretch in 10 minutes"
+    ]
+
+
+def test_visit_and_search_site_intents():
+    from tools import browser, local_intents as li
+
+    assert browser.site_url("youtube") == "https://www.youtube.com"
+    assert browser.site_url("browser-tab-name") is None
+
+    assert li.detect("visit youtube")["tool"] == "open_site"
+    assert li.detect("visit youtube")["arguments"]["name"] == "youtube"
+
+    search = li.detect("search free fire in youtube")
+
+    assert search["tool"] == "search_site"
+    assert search["arguments"] == {"query": "free fire", "site": "youtube"}
+
+    plain = li.detect("search bahubali")
+
+    assert plain["tool"] == "search_site"
+    assert plain["arguments"]["site"] == "google"
+
+
+def test_tab_jump_intent():
+    from tools import local_intents as li
+
+    intent = li.detect("open 1st tab")
+
+    assert intent["tool"] == "browser_control"
+    assert intent["arguments"] == {"action": "switch_tab", "index": 1}
+
+    assert li.detect("switch to 3rd tab")["arguments"]["index"] == 3
+
+
+def test_reminder_speaks_the_subject(tmp_path, monkeypatch):
+    from reminders import scheduler as sched
+
+    spoken = []
+
+    monkeypatch.setattr(sched, "speak_async", lambda text: spoken.append(text))
+    monkeypatch.setattr(sched, "notify", lambda *args, **kwargs: {"success": True})
+
+    scheduler = sched.ReminderScheduler(tmp_path / "r.json")
+
+    added = scheduler.add("drink water", "in 5 minutes")
+
+    scheduler._fire(added["reminder"]["id"])
+
+    assert spoken
+    assert "drink water" in spoken[0]

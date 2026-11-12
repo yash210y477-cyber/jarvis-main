@@ -11,6 +11,22 @@ def open_app(app_name: str):
 
     success, message = launcher.open(app_name)
 
+    if not success:
+
+        # Not an installed app: maybe the user meant the website.
+        from tools import browser
+
+        if browser.site_url(app_name):
+
+            opened = browser.open_site(app_name)
+
+            return {
+                "success": opened.get("success", False),
+                "action": "open_site",
+                "target": app_name,
+                "message": opened.get("message") or f"Opening {app_name}.",
+            }
+
     return {
         "success": success,
         "action": "open_app",

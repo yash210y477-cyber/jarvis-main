@@ -35,7 +35,7 @@ BROWSER_NAMES = {
 
 ACTIONS = (
     "new_tab", "new_window", "close_tab", "close_window",
-    "reopen_tab", "next_tab", "prev_tab", "reload",
+    "reopen_tab", "next_tab", "prev_tab", "switch_tab", "reload",
     "address_bar", "find",
 )
 
@@ -116,6 +116,8 @@ def control(action, index=None, browser=""):
         "next": "next_tab",
         "previous": "prev_tab",
         "prev": "prev_tab",
+        "tab_switch": "switch_tab",
+        "jump": "switch_tab",
         "refresh": "reload",
         "url": "address_bar",
         "search": "address_bar",
@@ -192,6 +194,14 @@ def control(action, index=None, browser=""):
         _combo(0x09, shift=True)
 
         message = "Switched to the previous tab."
+
+    elif action == "switch_tab":
+
+        position = max(1, min(9, int(index or 1)))
+
+        _combo(0x30 + position if position < 9 else 0x39)
+
+        message = f"Switched to tab {position} in {name}."
 
     elif action == "reload":
 
