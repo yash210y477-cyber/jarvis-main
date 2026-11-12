@@ -22,25 +22,105 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState('Assistant');
   const [voiceReplies, setVoiceReplies] = useState(true);
   const rec = useRef<any>(null);
+  const wantMic = useRef(false); // the mic stays on until the button is pressed again
+  const busy = useRef(false); // JARVIS is thinking or speaking
+  const restart = useRef(0);
 
-  const speak = (text: string, voice = voiceReplies) => { setStatus('idle'); say(text, voice, (on) => setStatus(on ? 'speaking' : 'idle')); };
+  const engine = () => {
+    const w = window as any;
+    return w.SpeechRecognition || w.webkitSpeechRecognition;
+  };
+
+  function stopRecognition() {
+    const current = rec.current;
+    rec.current = null;
+    try { current?.stop(); } catch { /* already closed */ }
+  }
+
+  function scheduleRestart() {
+    window.clearTimeout(restart.current);
+    restart.current = window.setTimeout(() => {
+      if (wantMic.current && !busy.current && !rec.current) startListening();
+    }, 400);
+  }
+
+  function startListening() {
+    const SR = engine();
+    if (!SR) {
+      wantMic.current = false;
+      jarvisSays('Voice input is not supported in this browser. Please use Chrome.');
+      return;
+    }
+    if (rec.current) return;
+    stopSpeaking();
+    const r = new SR();
+    r.lang = 'en-IN';
+    r.continuous = true;
+    r.interimResults = true;
+    r.onstart = () => setStatus('listening');
+    r.onresult = (e: any) => {
+      let final = '';
+      for (let i = e.resultIndex; i < e.results.length; i += 1) {
+        if (e.results[i].isFinal) final += e.results[i][0].transcript;
+      }
+      if (!final.trim()) return;
+      // Stop listening the moment a request is clear, so JARVIS never hears itself.
+      busy.current = true;
+      stopRecognition();
+      void send(final);
+    };
+    r.onerror = (e: any) => {
+      if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
+        wantMic.current = false;
+        jarvisSays('Microphone permission is blocked. Allow it in Chrome, then press the mic again.');
+      }
+    };
+    r.onend = () => {
+      rec.current = null;
+      setStatus((s) => (s === 'listening' ? 'idle' : s));
+      // Chrome ends the session on its own after a pause; start over.
+      if (wantMic.current && !busy.current) scheduleRestart();
+    };
+    rec.current = r;
+    try { r.start(); } catch { rec.current = null; }
+  }
+
+  const speak = (text: string, voice = voiceReplies) => {
+    setStatus('idle');
+    say(text, voice, (on) => {
+      setStatus(on ? 'speaking' : 'idle');
+      if (on) return;
+      busy.current = false;
+      if (wantMic.current) scheduleRestart();
+    });
+  };
+
   const jarvisSays = (text: string) => { setMessages((m) => [...m, { role: 'jarvis', text }]); speak(text); };
+
   const send = async (text: string) => {
     const t = text.trim(); if (!t) return;
+    busy.current = true;
     setMessages((m) => [...m, { role: 'user', text: t }]); setStatus('thinking');
     const reply = await askJarvis(t, mode, model);
-    setMessages((m) => [...m, { role: 'jarvis', text: reply }]); speak(reply);
+    setMessages((m) => [...m, { role: 'jarvis', text: reply }]);
+    speak(reply);
   };
+
   const toggleMic = () => {
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) return jarvisSays('Voice input is not supported in this browser. Please use Chrome.');
-    if (rec.current) { rec.current.stop(); return; }
-    stopSpeaking();
-    const r = new SR(); r.lang = 'en-IN'; r.interimResults = false;
-    r.onstart = () => setStatus('listening');
-    r.onresult = (e: any) => send(e.results[0][0].transcript);
-    r.onend = () => { rec.current = null; setStatus((s) => (s === 'listening' ? 'idle' : s)); };
-    rec.current = r; r.start();
+    if (wantMic.current) {
+      // Manual off: nothing reopens the mic until it is pressed again.
+      wantMic.current = false;
+      busy.current = false;
+      window.clearTimeout(restart.current);
+      stopRecognition();
+      stopSpeaking();
+      setStatus('idle');
+      return;
+    }
+    if (!engine()) return jarvisSays('Voice input is not supported in this browser. Please use Chrome.');
+    wantMic.current = true;
+    startListening();
   };
+
   return <C.Provider value={{ messages, status, model, setModel, mode, setMode, voiceReplies, setVoiceReplies, send, toggleMic, jarvisSays }}>{children}</C.Provider>;
 }
