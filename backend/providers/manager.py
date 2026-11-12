@@ -8,6 +8,7 @@ from providers.groq import GroqProvider
 from providers.cerebras import CerebrasProvider
 from providers.deepseek import DeepSeekProvider
 from providers.openai import OpenAIProvider
+from providers.ollama import OllamaProvider
 
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,14 @@ class AIManager:
                 settings.ENABLE_OPENAI,
 
                 OpenAIProvider
+
+            ),
+
+            "ollama": (
+
+                settings.ENABLE_OLLAMA,
+
+                OllamaProvider
 
             )
 

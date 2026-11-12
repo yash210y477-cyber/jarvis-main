@@ -7,6 +7,33 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def _int_env(name: str, default: int) -> int:
+    """Read an int from the environment, tolerating placeholder values."""
+
+    raw = (os.getenv(name) or "").strip()
+
+    try:
+
+        return int(raw)
+
+    except ValueError:
+
+        return default
+
+
+def _float_env(name: str, default: float) -> float:
+
+    raw = (os.getenv(name) or "").strip()
+
+    try:
+
+        return float(raw)
+
+    except ValueError:
+
+        return default
+
+
 class Settings:
 
     # ==========================================================
@@ -51,7 +78,7 @@ class Settings:
     ]
 
     # Telegram user account for real voice calls (bots cannot call).
-    TELEGRAM_API_ID = int(os.getenv("TELEGRAM_API_ID", "0") or 0)
+    TELEGRAM_API_ID = _int_env("TELEGRAM_API_ID", 0)
 
     TELEGRAM_API_HASH = os.getenv("TELEGRAM_API_HASH", "")
 
@@ -77,9 +104,9 @@ class Settings:
         if item.strip()
     ]
 
-    MORNING_BRIEFING_HOUR = int(os.getenv("JARVIS_BRIEFING_HOUR", "8"))
+    MORNING_BRIEFING_HOUR = _int_env("JARVIS_BRIEFING_HOUR", 8)
 
-    MORNING_BRIEFING_MINUTE = int(os.getenv("JARVIS_BRIEFING_MINUTE", "30"))
+    MORNING_BRIEFING_MINUTE = _int_env("JARVIS_BRIEFING_MINUTE", 30)
 
     # Origins allowed to call the API (the Mina web UI).
     ALLOWED_ORIGINS = [
@@ -130,6 +157,24 @@ class Settings:
     OPENAI_MODEL = "gpt-4.1-mini"
 
     # ==========================================================
+    # OLLAMA (local model, no API key)
+    # ==========================================================
+
+    OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
+
+    # Empty = use the first installed model (qwen is preferred).
+    OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "")
+
+    # Local generation on CPU is slow, so give it room.
+    OLLAMA_TIMEOUT = _float_env("OLLAMA_TIMEOUT", 90.0)
+
+    OLLAMA_MAX_TOKENS = _int_env("OLLAMA_MAX_TOKENS", 250)
+
+    ENABLE_OLLAMA = os.getenv("ENABLE_OLLAMA", "1") not in (
+        "0", "false", "False", "no"
+    )
+
+    # ==========================================================
     # ENABLE / DISABLE PROVIDERS
     # ==========================================================
 
@@ -161,7 +206,10 @@ class Settings:
 
         "deepseek",
 
-        "openai"
+        "openai",
+
+        # Local fallback: answers when every cloud key above fails.
+        "ollama"
 
     ]
 

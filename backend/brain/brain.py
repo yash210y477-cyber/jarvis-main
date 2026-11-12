@@ -21,7 +21,8 @@ from tools.approvals import (
 )
 
 
-AI_TIMEOUT_SECONDS = 15
+# A local Ollama model on CPU needs more than the cloud APIs did.
+AI_TIMEOUT_SECONDS = 45
 
 AGENT_TIMEOUT_SECONDS = 60
 
