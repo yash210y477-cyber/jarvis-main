@@ -110,11 +110,15 @@ class Settings:
 
     # Origins allowed to call the API (the Mina web UI).
     ALLOWED_ORIGINS = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-    ]
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+
+    # Swagger UI
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
 
     # ==========================================================
     # GEMINI
@@ -157,6 +161,26 @@ class Settings:
     OPENAI_MODEL = "gpt-4.1-mini"
 
     # ==========================================================
+    # LANGUAGE + SEMANTIC MEMORY
+    # ==========================================================
+
+    # hinglish (default), english or hindi.
+    JARVIS_LANGUAGE = os.getenv("JARVIS_LANGUAGE", "hinglish")
+
+    SEMANTIC_MEMORY = os.getenv("SEMANTIC_MEMORY", "1") not in (
+        "0", "false", "False", "no"
+    )
+
+    SEMANTIC_MODEL = os.getenv(
+        "SEMANTIC_MODEL",
+        "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    )
+
+    SEMANTIC_TOP_K = _int_env("SEMANTIC_TOP_K", 3)
+
+    SEMANTIC_MIN_SCORE = _float_env("SEMANTIC_MIN_SCORE", 0.28)
+
+    # ==========================================================
     # OLLAMA (local model, no API key)
     # ==========================================================
 
@@ -168,7 +192,10 @@ class Settings:
     # Local generation on CPU is slow, so give it room.
     OLLAMA_TIMEOUT = _float_env("OLLAMA_TIMEOUT", 90.0)
 
-    OLLAMA_MAX_TOKENS = _int_env("OLLAMA_MAX_TOKENS", 250)
+    OLLAMA_MAX_TOKENS = _int_env("OLLAMA_MAX_TOKENS", 120)
+
+    # Prompt characters sent to the local model (it runs on CPU).
+    OLLAMA_PROMPT_CHARS = _int_env("OLLAMA_PROMPT_CHARS", 1200)
 
     ENABLE_OLLAMA = os.getenv("ENABLE_OLLAMA", "1") not in (
         "0", "false", "False", "no"

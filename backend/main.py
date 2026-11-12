@@ -123,6 +123,21 @@ def capabilities():
     }
 
 
+@app.get("/memory/search")
+def memory_search(q: str = "", limit: int = 3):
+    """Search everything JARVIS remembers by meaning, not exact words."""
+
+    from memory.semantic import get_semantic
+
+    semantic = get_semantic()
+
+    semantic.sync()
+
+    results = semantic.search(q, limit=limit)
+
+    return {"success": True, "query": q, "results": results, **semantic.stats()}
+
+
 @app.get("/models")
 def models():
     """Configured providers and whether they can answer right now."""
@@ -357,6 +372,7 @@ async def voice_socket(websocket: WebSocket):
 
 @app.on_event("startup")
 def start_services():
+    from memory.semantic import warm_up_async
     from reminders.scheduler import SCHEDULER
     from remote.telegram import BRIDGE
 
@@ -367,6 +383,15 @@ def start_services():
     )
 
     BRIDGE.start(brain)
+
+    # Load the embedding model off the request path.
+    try:
+
+        warm_up_async()
+
+    except Exception:
+
+        pass
 
     try:
 

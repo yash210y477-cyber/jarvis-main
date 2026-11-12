@@ -119,6 +119,9 @@ watchfiles==1.2.0
 websockets==16.0
 yarl==1.24.2
 
+# Local embeddings for semantic memory (no API key)
+sentence-transformers==6.3.0
+
 # Exact system volume control (Windows endpoint volume)
 pycaw>=20240210
 comtypes>=1.2.0

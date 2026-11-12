@@ -100,7 +100,9 @@ def test_chat_returns_local_answer(monkeypatch):
         "response": "Local answer.",
     }
     assert captured["model"] == "qwen2.5:3b"
-    assert captured["messages"] == [{"role": "user", "content": "who are you"}]
+    assert captured["messages"][0]["role"] == "system"
+    assert "Hinglish" in captured["messages"][0]["content"]
+    assert captured["messages"][1] == {"role": "user", "content": "who are you"}
 
 
 def test_chat_error_is_reported(monkeypatch):

@@ -1,10 +1,30 @@
+from config.settings import settings
 from memory.manager import MemoryManager
+from memory.semantic import search_memory
 from brain.summary_manager import SummaryManager
+
+
+LANGUAGE_RULES = {
+
+    "hinglish": (
+        "Reply in Hinglish (Hindi + English mixed, Roman script), short and "
+        "friendly. Example: \"Ho gaya, calculator khol diya.\" Keep command "
+        "names, file names and code in English."
+    ),
+
+    "english": "Reply in English.",
+
+    "hindi": "Reply in Hindi (Devanagari script).",
+}
 
 
 class ContextBuilder:
 
-    RECENT_MESSAGES = 10
+    RECENT_MESSAGES = 6
+
+    NOISE = ("all ai provider failed", "no ai provider", "ai provider timed out")
+
+    MESSAGE_CHARS = 400
 
     def __init__(self, memory: MemoryManager):
 
@@ -14,6 +34,18 @@ class ContextBuilder:
     def build(self, current_message: str):
 
         prompt = []
+
+        # -------------------------
+        # Reply Language
+        # -------------------------
+
+        rule = LANGUAGE_RULES.get(
+            settings.JARVIS_LANGUAGE, LANGUAGE_RULES["hinglish"]
+        )
+
+        prompt.append("### Reply Language")
+        prompt.append(rule)
+        prompt.append("")
 
         # -------------------------
         # Conversation Summary
@@ -46,10 +78,34 @@ class ContextBuilder:
             prompt.append("")
 
         # -------------------------
+        # Relevant Memory (semantic search)
+        # -------------------------
+
+        needle = " ".join((current_message or "").lower().split())
+
+        relevant = [
+            item for item in search_memory(current_message)
+            if " ".join(item["text"].lower().split()) != needle
+        ]
+
+        if relevant:
+
+            prompt.append("### Relevant Memory (semantic search)")
+
+            for item in relevant:
+
+                prompt.append(f"- {item['text']}")
+
+            prompt.append("")
+
+        # -------------------------
         # Recent Conversation
         # -------------------------
 
-        recent = self.memory.get_messages()
+        recent = [
+            item for item in self.memory.get_messages()
+            if not any(word in (item["text"] or "").lower() for word in self.NOISE)
+        ]
 
         if recent:
 
@@ -59,11 +115,13 @@ class ContextBuilder:
 
                 role = item["role"].capitalize()
 
-                prompt.append(
+                text = (item["text"] or "").strip()
 
-                    f"{role}: {item['text']}"
+                if len(text) > self.MESSAGE_CHARS:
 
-                )
+                    text = text[: self.MESSAGE_CHARS] + "..."
+
+                prompt.append(f"{role}: {text}")
 
             prompt.append("")
 

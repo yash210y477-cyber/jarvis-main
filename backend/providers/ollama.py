@@ -117,6 +117,50 @@ class OllamaProvider(OpenAIToolMixin, BaseProvider):
 
         return bool(self._alive and self.client is not None)
 
+    def _system(self) -> str:
+        """Instructions a small local model needs spelled out."""
+
+        language = (settings.JARVIS_LANGUAGE or "hinglish").lower()
+
+        if language == "english":
+
+            style = "Answer in English."
+
+        elif language == "hindi":
+
+            style = "Answer in Hindi (Devanagari)."
+
+        else:
+
+            style = (
+                "Answer in Hinglish: Hindi and English mixed in Roman script, "
+                "the way friends talk in India."
+            )
+
+        return (
+            "You are JARVIS, a friendly assistant running on this Windows PC. "
+            f"{style} Keep answers to one or two short sentences and be "
+            "practical: the user gives short spoken commands."
+        )
+
+    @staticmethod
+    def _trim(prompt: str) -> str:
+        """Keep the instructions at the top and the newest turns at the end."""
+
+        prompt = (prompt or "").strip()
+
+        limit = int(settings.OLLAMA_PROMPT_CHARS)
+
+        if limit <= 0 or len(prompt) <= limit:
+
+            return prompt
+
+        head = prompt[:400]
+
+        tail = prompt[-(limit - len(head)):]
+
+        return head + "\n...\n" + tail
+
     def chat(self, prompt: str) -> dict:
 
         if not self.health():
@@ -130,11 +174,16 @@ class OllamaProvider(OpenAIToolMixin, BaseProvider):
                 ),
             }
 
+        prompt = self._trim(prompt)
+
         try:
 
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=[
+                    {"role": "system", "content": self._system()},
+                    {"role": "user", "content": prompt},
+                ],
                 max_tokens=int(settings.OLLAMA_MAX_TOKENS),
                 temperature=0.4,
             )
