@@ -5,15 +5,22 @@ allowed chat ids live in settings; when no allowed ids are configured every
 chat is answered, otherwise only the listed ones.
 """
 
+import os
 import threading
 import time
+from pathlib import Path
 
+import psutil
 import requests
 
 from config.settings import settings
 
 
 API = "https://api.telegram.org/bot{token}/{method}"
+
+# One poller per bot token: a second JARVIS process makes every reply arrive
+# twice and makes Telegram answer "Conflict" to both of them.
+LOCK_PATH = Path(__file__).resolve().parents[1] / "data" / "telegram_bot.lock"
 
 
 class TelegramBridge:
@@ -43,6 +50,8 @@ class TelegramBridge:
         self.thread = None
 
         self.stop_event = threading.Event()
+
+        self._lock_owned = False
 
     def enabled(self) -> bool:
 
@@ -83,10 +92,13 @@ class TelegramBridge:
 
             return self.status()
 
+        if not self._acquire_lock():
+
+            return self.status()
+
         self.stop_event.clear()
 
         self.thread = threading.Thread(target=self._loop, daemon=True)
-
         self.thread.start()
 
         return self.status()
@@ -94,14 +106,30 @@ class TelegramBridge:
     def stop(self):
 
         self.stop_event.set()
-
         self.thread = None
+
+        self._release_lock()
 
     def handle(self, chat_id, text: str) -> str:
 
         if not self.is_allowed(chat_id):
 
-            return "This chat is not authorized for JARVIS."
+            return (
+                "This chat is not authorized for JARVIS.\n"
+                f"Your chat id: {chat_id}\n"
+                "Add it to TELEGRAM_ALLOWED_CHAT_IDS in backend/.env, "
+                "then restart JARVIS."
+            )
+
+        command = (text or "").strip().lower()
+
+        if command in ("/start", "/help", "start", "help"):
+
+            return self.help_text()
+
+        if command in ("/status", "status"):
+
+            return self.status_text()
 
         if self.brain is None:
 
@@ -110,6 +138,124 @@ class TelegramBridge:
         result = self.brain.chat(text)
 
         return result.get("response") or "Done."
+
+    def help_text(self) -> str:
+        """Bots cannot receive calls, so point at the real call path."""
+
+        return (
+            "JARVIS is online.\n"
+            "Chat: just send a message, Hinglish works.\n"
+            "Call: a Telegram bot cannot make or receive calls, so there is no "
+            "call button here. Call the JARVIS user account directly (the "
+            "number logged in with TELEGRAM_API_ID) and JARVIS answers by "
+            "itself.\n"
+            "Commands: /status, /help"
+        )
+
+    def status_text(self) -> str:
+
+        try:
+
+            from remote.telegram_calls import CALL_BRIDGE
+
+            calls = CALL_BRIDGE.status()
+
+        except Exception:
+
+            calls = {}
+
+        chat_on = bool(self.thread and self.thread.is_alive())
+
+        answer_state = "ready" if calls.get("running") else "not running"
+
+        return (
+            f"Chat: {'on' if chat_on else 'off'}\n"
+            f"Calls: {answer_state}\n"
+            f"Answered calls: {calls.get('answered', 0)}"
+        )
+
+    # ------------------------------------------------------- single instance
+
+    def _acquire_lock(self) -> bool:
+
+        try:
+
+            LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+            handle = os.open(
+                str(LOCK_PATH), os.O_CREAT | os.O_EXCL | os.O_WRONLY
+            )
+
+        except FileExistsError:
+
+            pid = 0
+
+            try:
+
+                pid = int(LOCK_PATH.read_text(encoding="utf-8").strip() or 0)
+
+            except (OSError, ValueError):
+
+                pid = 0
+
+            if pid and pid != os.getpid() and psutil.pid_exists(pid):
+
+                self.last_error = (
+                    f"Another JARVIS is already reading this bot (pid {pid}); "
+                    "stop it, otherwise every reply arrives twice."
+                )
+
+                return False
+
+            try:
+
+                LOCK_PATH.unlink()
+
+            except OSError:
+
+                pass
+
+            try:
+
+                handle = os.open(
+                    str(LOCK_PATH), os.O_CREAT | os.O_EXCL | os.O_WRONLY
+                )
+
+            except OSError:
+
+                self.last_error = "Could not create the bot lock file."
+
+                return False
+
+        try:
+
+            os.write(handle, str(os.getpid()).encode())
+
+        finally:
+
+            os.close(handle)
+
+        self._lock_owned = True
+
+        return True
+
+    def _release_lock(self) -> None:
+
+        if not self._lock_owned:
+
+            return
+
+        self._lock_owned = False
+
+        try:
+
+            LOCK_PATH.unlink()
+
+        except OSError:
+
+            pass
+
+    # ------------------------------------------------------------- transport
 
     def _call(self, method: str, **payload):
 

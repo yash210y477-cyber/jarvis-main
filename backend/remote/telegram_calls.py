@@ -119,17 +119,20 @@ class TelegramCallBridge:
 
     def available(self) -> bool:
 
-        try:
+        # Do not import pytgcalls here: its sync layer binds every call to the
+        # event loop that was running when it was first imported. Importing on
+        # the caller's thread (FastAPI startup runs on the uvicorn loop) made
+        # the bridge schedule its work on the wrong loop afterwards.
 
-            import pytgcalls  # noqa: F401
+        import importlib.util
+
+        if importlib.util.find_spec("pytgcalls") is not None:
 
             return True
 
-        except Exception as error:
+        self.last_error = "py-tgcalls is not installed: pip install py-tgcalls"
 
-            self.last_error = f"py-tgcalls is not installed: {error}"
-
-            return False
+        return False
 
     def enabled(self) -> bool:
 
@@ -207,16 +210,18 @@ class TelegramCallBridge:
 
         except Exception as error:
 
+            log.exception("Telegram call bridge crashed")
+
             self.last_error = str(error)
             self.running = False
 
     async def _serve(self) -> None:
 
+        self.loop = asyncio.get_running_loop()
+
         from pytgcalls import PyTgCalls, filters
 
         from pytgcalls.types import ChatUpdate, Direction
-
-        self.loop = asyncio.get_running_loop()
 
         client = self.session.build()
 

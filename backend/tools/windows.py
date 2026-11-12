@@ -9,7 +9,10 @@ user32 = ctypes.windll.user32 if hasattr(ctypes, "windll") else None
 kernel32 = ctypes.windll.kernel32 if hasattr(ctypes, "windll") else None
 
 SW_MINIMIZE = 6
+SW_SHOW = 5
 SW_RESTORE = 9
+
+VK_MENU = 0x12
 
 WM_CLOSE = 0x0010
 
@@ -103,6 +106,37 @@ def find_matching(names):
     return None
 
 
+def _force_foreground(hwnd) -> None:
+    """Raise a window for real; a bare SetForegroundWindow is often ignored."""
+
+    user32.ShowWindow(hwnd, SW_RESTORE)
+    user32.ShowWindow(hwnd, SW_SHOW)
+
+    if user32.GetForegroundWindow() == hwnd:
+        return
+
+    # A synthetic Alt press releases Windows' foreground lock, so the
+    # next SetForegroundWindow is accepted even from a background app.
+    user32.keybd_event(VK_MENU, 0, 0, 0)
+    user32.SetForegroundWindow(hwnd)
+    user32.BringWindowToTop(hwnd)
+    user32.keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0)
+
+    if user32.GetForegroundWindow() == hwnd:
+        return
+
+    # Still behind: share the foreground thread's input queue instead.
+    foreground = user32.GetForegroundWindow()
+    target = user32.GetWindowThreadProcessId(hwnd, None)
+    current = kernel32.GetCurrentThreadId()
+
+    if foreground and target and target != current:
+        user32.AttachThreadInput(current, target, True)
+        user32.SetForegroundWindow(hwnd)
+        user32.BringWindowToTop(hwnd)
+        user32.AttachThreadInput(current, target, False)
+
+
 def restore_matching(names) -> dict:
 
     if user32 is None:
@@ -115,9 +149,7 @@ def restore_matching(names) -> dict:
 
         return {"success": False, "error": "No matching window."}
 
-    user32.ShowWindow(window["handle"], SW_RESTORE)
-
-    user32.SetForegroundWindow(window["handle"])
+    _force_foreground(window["handle"])
 
     return {"success": True, "window": window["title"]}
 
@@ -134,9 +166,7 @@ def focus_window(title: str) -> dict:
 
         return {"success": False, "error": f"No open window matches '{title}'."}
 
-    user32.ShowWindow(window["handle"], SW_RESTORE)
-
-    user32.SetForegroundWindow(window["handle"])
+    _force_foreground(window["handle"])
 
     return {"success": True, "window": window["title"]}
 
