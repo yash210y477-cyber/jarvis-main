@@ -365,3 +365,28 @@ def test_reminder_speaks_the_subject(tmp_path, monkeypatch):
 
     assert spoken
     assert "drink water" in spoken[0]
+
+def test_app_commands_work_in_any_word_order():
+
+    # "spotify open" said aloud did nothing because the verb came last.
+    from tools import local_intents as li
+
+    for phrase in ("spotify open", "open spotify", "spotify kholo",
+                   "kholo spotify", "chrome open karo"):
+
+        intent = li.detect(phrase)
+
+        assert intent["tool"] == "open_app", phrase
+        assert intent["arguments"]["app_name"] in ("spotify", "chrome")
+
+    # A misspelt app still lands on the real name.
+    assert li.detect("spoitfy open")["arguments"]["app_name"] == "spotify"
+
+    assert li.detect("close spotify")["tool"] == "close_app"
+    assert li.detect("spotify band karo")["tool"] == "close_app"
+
+    assert li.detect("terminal kholo")["arguments"]["app_name"] == "cmd"
+    assert li.detect("vs code open")["arguments"]["app_name"] == "code"
+
+    # A folder still goes to open_path, not open_app.
+    assert li.detect("downloads folder kholo")["tool"] == "open_path"

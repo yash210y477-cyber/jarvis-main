@@ -87,6 +87,126 @@ def _timer_seconds(text: str):
     return amount * 60
 
 
+OPEN_VERBS = {
+    "open", "launch", "start", "run", "kholo", "khol", "khulo",
+    "chalu", "chalao", "chala",
+}
+
+CLOSE_VERBS = {"close", "quit", "exit", "kill", "band", "hata", "hatao"}
+
+# These also start shell commands ("run git status"), so they only count
+# when the rest of the sentence names an app the launcher knows.
+AMBIGUOUS_VERBS = {"run", "start", "chala", "chalao", "chalu"}
+
+# Words that carry no app name, so any word order still works.
+FILLER_WORDS = {
+    "jarvis", "please", "pls", "zara", "abhi", "bhai", "yaar", "na",
+    "kar", "karo", "kro", "krdo", "do", "de", "dijiye", "mera",
+    "mujhe", "the", "a", "an", "app", "application", "program",
+    "programme", "for", "me", "now", "can", "could", "would",
+    "you", "plz", "hey", "ok", "okay",
+}
+
+
+def _app_candidates():
+    """Names the launcher already knows; used for typo matching."""
+
+    try:
+
+        from tools import launcher
+
+        return set(launcher.ALIASES) | set(launcher.KNOWN_PATHS)
+
+    except Exception:
+
+        return set()
+
+
+def _canonical_app(target: str):
+    """Map a loosely spoken name onto the name the launcher expects."""
+
+    target = target.strip(" .")
+
+    if not target:
+
+        return ""
+
+    try:
+
+        from tools import launcher
+
+        if target in launcher.ALIASES:
+
+            return launcher.ALIASES[target]
+
+    except Exception:
+
+        pass
+
+    import difflib
+
+    candidates = _app_candidates()
+
+    if target in candidates:
+
+        return target
+
+    close = difflib.get_close_matches(target, sorted(candidates), n=1, cutoff=0.78)
+
+    return close[0] if close else target
+
+
+def app_action(text: str):
+    """(action, app) from any word order: "spotify open", "kholo chrome"."""
+
+    words = re.findall(r"[a-z0-9+.#&'-]+", text)
+
+    if not words:
+
+        return None, ""
+
+    wants_open = any(word in OPEN_VERBS for word in words)
+    wants_close = any(word in CLOSE_VERBS for word in words)
+
+    if wants_open == wants_close:
+
+        return None, ""
+
+    skip = OPEN_VERBS | CLOSE_VERBS | FILLER_WORDS
+
+    target_words = [word for word in words if word not in skip]
+
+    if not target_words:
+
+        return None, ""
+
+    spoken = " ".join(target_words)
+
+    # Folders and paths belong to open_path, not to an app launch.
+    if any(word in text for word in ("folder", "directory")):
+
+        return None, ""
+
+    if _looks_like_path(spoken):
+
+        return None, ""
+
+    action = "open" if wants_open else "close"
+
+    if {word for word in words if word in OPEN_VERBS | CLOSE_VERBS} <= AMBIGUOUS_VERBS:
+
+        # "run git status" must stay a shell command.
+        known = _canonical_app(spoken)
+
+        if known == spoken and spoken not in _app_candidates():
+
+            return None, ""
+
+        return action, known
+
+    return action, _canonical_app(spoken)
+
+
 def detect(message: str):
 
     text = (message or "").strip().lower()
@@ -508,7 +628,8 @@ def detect(message: str):
 
             return {"tool": "open_website", "arguments": {"url": target}}
 
-        folder_words = ("folder", "directory", "kholo", "khol")
+        # "kholo" is a verb, not a folder hint: "kholo spotify" is an app.
+        folder_words = ("folder", "directory", "drive")
 
         if _looks_like_path(target) or any(word in text for word in folder_words):
 
@@ -540,6 +661,20 @@ def detect(message: str):
             return {"tool": "open_app", "arguments": {"app_name": target}}
 
     # -----------------------------
+    # Any word order, e.g. "spotify open" or "kholo chrome"
+    # -----------------------------
+
+    action, target = app_action(text)
+
+    if action == "open" and target:
+
+        return {"tool": "open_app", "arguments": {"app_name": target}}
+
+    if action == "close" and target:
+
+        return {"tool": "close_app", "arguments": {"app_name": target}}
+
+    # -----------------------------
     # Hinglish word order: "chrome kholo", "notepad band karo"
     # -----------------------------
 
@@ -556,6 +691,13 @@ def detect(message: str):
         if target and WEBSITE_PATTERN.match(target):
 
             return {"tool": "open_website", "arguments": {"url": target}}
+
+        # "downloads folder kholo" is a folder, not an app.
+        folder = re.sub(r"\s*(?:folder|directory)$", "", target).strip(" .")
+
+        if folder != target or _looks_like_path(target):
+
+            return {"tool": "open_path", "arguments": {"path": folder or target}}
 
         if target in SPECIAL_APP_WORDS:
 
