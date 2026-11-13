@@ -8,6 +8,8 @@ import asyncio
 import datetime
 import logging
 import math
+import os
+import shutil
 import struct
 import threading
 import time
@@ -95,6 +97,48 @@ def greeting_file() -> Path:
     return GREETING_PATH
 
 
+def audio_tools_dir() -> str:
+    """Find ffmpeg/ffprobe and put them on PATH; pytgcalls needs both."""
+
+    if shutil.which("ffmpeg") and shutil.which("ffprobe"):
+
+        return str(Path(shutil.which("ffmpeg")).parent)
+
+    candidates = []
+
+    local = os.environ.get("LOCALAPPDATA")
+
+    if local:
+
+        packages = Path(local) / "Microsoft" / "WinGet" / "Packages"
+
+        if packages.is_dir():
+
+            candidates.extend(sorted(packages.glob("*/**/bin")))
+
+    candidates.extend([
+        Path("C:\ffmpeg\bin"),
+        Path("C:\Program Files\ffmpeg\bin"),
+        DATA_DIR.parent / "tools" / "ffmpeg" / "bin",
+    ])
+
+    for candidate in candidates:
+
+        if (candidate / "ffprobe.exe").is_file() and (
+            candidate / "ffmpeg.exe"
+        ).is_file():
+
+            os.environ["PATH"] = (
+                str(candidate) + os.pathsep + os.environ.get("PATH", "")
+            )
+
+            log.info("Using ffmpeg from %s", candidate)
+
+            return str(candidate)
+
+    return ""
+
+
 async def _every_update(_filter, _client, _update) -> bool:
     """Match every update; pytgcalls calls filters as (self, client, update)."""
 
@@ -165,6 +209,7 @@ class TelegramCallBridge:
                 self.conversation.status() if self.conversation else None
             ),
             "last_call": self.last_call,
+            "audio_tools": audio_tools_dir(),
             "last_error": self.last_error,
         }
 
@@ -230,6 +275,10 @@ class TelegramCallBridge:
     async def _serve(self) -> None:
 
         self.loop = asyncio.get_running_loop()
+
+        # pytgcalls shells out to ffmpeg/ffprobe; make sure they are on PATH
+        # before the library looks them up.
+        audio_tools_dir()
 
         from pytgcalls import PyTgCalls, filters
 
@@ -434,6 +483,16 @@ class TelegramCallBridge:
             entry["status"] = "failed"
             entry["error"] = str(error)
             self.last_error = str(error)
+
+            # Never leave the caller listening to a silent line.
+
+            try:
+
+                await self.calls.leave_call(chat_id)
+
+            except Exception:
+
+                pass
 
     async def _on_frames(self, _client, update) -> None:
 
