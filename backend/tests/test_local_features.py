@@ -390,3 +390,26 @@ def test_app_commands_work_in_any_word_order():
 
     # A folder still goes to open_path, not open_app.
     assert li.detect("downloads folder kholo")["tool"] == "open_path"
+
+def test_loose_sentences_reach_the_right_tool():
+
+    # ChatGPT-like reading: the action words can sit anywhere.
+    from tools import nlu
+
+    assert nlu.interpret("search song on spotify") == {
+        "tool": "search_site",
+        "arguments": {"query": "song", "site": "spotify"},
+    }
+
+    assert nlu.interpret("spotify pe song search karo")["arguments"]["site"] == "spotify"
+    assert nlu.interpret("mujhe gaana bajao youtube pe")["arguments"]["site"] == "youtube"
+
+    assert nlu.interpret("app open spotify")["tool"] == "open_app"
+    assert nlu.interpret("spotify chala do")["tool"] == "open_app"
+    assert nlu.interpret("youtube kholo")["tool"] == "open_site"
+
+    assert nlu.interpret("volume kam karo")["arguments"]["action"] == "volume_down"
+    assert nlu.interpret("pause music")["arguments"]["action"] == "play_pause"
+    assert nlu.interpret("next song")["arguments"]["action"] == "next"
+
+    assert nlu.interpret("what is the weather") is None

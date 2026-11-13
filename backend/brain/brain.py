@@ -12,7 +12,7 @@ from brain.multi import split_commands
 from memory.manager import MemoryManager
 from memory.context import ContextBuilder
 
-from tools import builtin, local_intents
+from tools import builtin, local_intents, nlu
 from tools.agent import AgentLoop
 from tools.approvals import (
     ApprovalStore,
@@ -210,6 +210,25 @@ class Brain:
                 intent["tool"],
                 local_intents.render(intent["tool"], result, hinglish),
             )
+
+        # 3c. Loose phrasing: words in any order ("search song on spotify")
+        loose = nlu.interpret(message)
+
+        if loose:
+
+            tool = self.registry.get(loose["tool"])
+
+            if tool:
+
+                result = self.executor.execute(
+                    loose["tool"], **loose["arguments"]
+                )
+
+                return (
+                    "local",
+                    loose["tool"],
+                    local_intents.render(loose["tool"], result, hinglish),
+                )
 
         # 4. Desktop intents: open app, system status, search
         if command.get("intent") not in ("chat", "remember", "recall"):
