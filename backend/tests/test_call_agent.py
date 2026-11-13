@@ -361,3 +361,38 @@ def test_call_noise_is_not_treated_as_a_request():
         )()
 
         assert conversation._transcribe(bytes(4800)) == ""
+
+def test_own_voice_on_the_line_is_not_taken_as_a_command():
+
+    from remote.call_agent import CallConversation
+
+    conversation = CallConversation.__new__(CallConversation)
+
+    conversation.last_reply = "Sure, opening Spotify now."
+
+    assert conversation._is_echo("sure opening spotify now") is True
+    assert conversation._is_echo("open spotify") is False
+    assert conversation._is_echo("play arijit singh on spotify") is False
+
+
+def test_quiet_audio_is_lifted_before_transcription():
+
+    import numpy as np
+
+    from remote.call_agent import normalise
+
+    wave = np.sin(np.linspace(0, 400 * np.pi, 16000, dtype=np.float32))
+
+    quiet = (0.1 * wave).astype(np.float32)
+
+    assert float(np.max(np.abs(normalise(quiet)))) > 0.5
+
+    # Pure DC is silence, not speech.
+
+    assert float(np.max(np.abs(normalise(np.full(16000, 0.01, np.float32))))) == 0.0
+
+    loud = np.zeros(16000, dtype=np.float32)
+
+    loud[8000] = 0.95
+
+    assert float(np.max(np.abs(normalise(loud)))) <= 1.0

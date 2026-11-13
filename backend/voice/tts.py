@@ -1,8 +1,11 @@
 import asyncio
+import hashlib
 import os
+import shutil
 import tempfile
 import threading
 import time
+from pathlib import Path
 
 import edge_tts
 import pygame
@@ -12,7 +15,7 @@ class TextToSpeech:
 
     def __init__(self):
 
-        self.voice = "en-US-GuyNeural"
+        self.voice = os.getenv("TTS_VOICE", "en-US-AndrewMultilingualNeural")
 
         self.current_file = None
 
@@ -71,11 +74,23 @@ class TextToSpeech:
 
         filename = None
 
+        cached = self._cached_path(text)
+
         with self.lock:
 
             self.stop_requested = False
 
         try:
+
+            if cached and cached.exists() and cached.stat().st_size > 1024:
+
+                pygame.mixer.music.load(str(cached))
+
+                pygame.mixer.music.play()
+
+                self._wait_until_done()
+
+                return
 
             temp = tempfile.NamedTemporaryFile(
                 suffix=".mp3",
@@ -100,6 +115,17 @@ class TextToSpeech:
             if self.stop_requested:
 
                 return
+
+            # Keep the clip so the next identical line plays instantly.
+            try:
+
+                cached.parent.mkdir(parents=True, exist_ok=True)
+
+                shutil.copyfile(filename, cached)
+
+            except Exception:
+
+                pass
 
             pygame.mixer.music.load(filename)
 
@@ -143,6 +169,24 @@ class TextToSpeech:
                 except Exception:
 
                     pass
+
+    def _cached_path(self, text):
+
+        key = hashlib.md5(f"{self.voice}:{text}".encode("utf-8")).hexdigest()
+
+        return Path("data/tts_cache") / f"{key}.mp3"
+
+    def _wait_until_done(self):
+
+        while pygame.mixer.music.get_busy():
+
+            if self.stop_requested:
+
+                pygame.mixer.music.stop()
+
+                break
+
+            time.sleep(0.03)
 
     # ---------------------------------
     # STOP SPEAKING

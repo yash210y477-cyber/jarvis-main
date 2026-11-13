@@ -102,6 +102,22 @@ class Settings:
 
     STT_THREADS = _int_env("STT_THREADS", 4)
 
+    # Neural speech for replies (edge = natural, sapi = offline robotic).
+    TTS_ENGINE = os.getenv("TTS_ENGINE", "sapi")
+
+    TTS_VOICE = os.getenv("TTS_VOICE", "en-US-AndrewNeural")
+
+    # Windows speech keeps call replies instant; edge sounds natural but
+    # needs the network and about two seconds before it can speak.
+    TTS_SAPI_VOICE = os.getenv("TTS_SAPI_VOICE", "Microsoft Zira Desktop")
+
+    TTS_SAPI_RATE = int(os.getenv("TTS_SAPI_RATE", "1"))
+
+    # How long a pause ends the caller's sentence; shorter feels faster.
+    TELEGRAM_CALL_SILENCE_SECONDS = float(
+        os.getenv("TELEGRAM_CALL_SILENCE_SECONDS", "0.7")
+    )
+
     # "auto" lets Whisper guess (Hinglish works); or "en", "hi", ...
     TELEGRAM_CALL_LANGUAGE = os.getenv("TELEGRAM_CALL_LANGUAGE", "en")
 

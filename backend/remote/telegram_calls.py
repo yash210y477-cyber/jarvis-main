@@ -226,6 +226,19 @@ class TelegramCallBridge:
 
     # ------------------------------------------------------------ lifecycle
 
+    def _preload_voice(self) -> None:
+        """Load Whisper in the background so the first call is quick."""
+
+        try:
+
+            from voice.stt import warm_up
+
+            warm_up()
+
+        except Exception as error:
+
+            log.debug("Voice preload skipped: %s", error)
+
     def start(self) -> dict:
 
         if self.running:
@@ -252,6 +265,14 @@ class TelegramCallBridge:
             return self.status()
 
         self.last_error = ""
+
+        # Whisper loads while the bridge connects, not on the first sentence.
+        threading.Thread(
+            target=self._preload_voice,
+            name="jarvis-stt-preload",
+            daemon=True,
+        ).start()
+
         self.thread = threading.Thread(
             target=self._thread_main, name="jarvis-telegram-calls", daemon=True
         )

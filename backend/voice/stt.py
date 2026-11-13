@@ -8,9 +8,9 @@ from config.settings import settings
 # Callers speak short Hinglish commands, so the decoder is nudged
 # towards that vocabulary instead of guessing freely.
 COMMAND_PROMPT = (
-    "Jarvis, open chrome, open calculator, open notepad, volume up, "
-    "volume down, mute, screenshot lo, time kya hai, play music, "
-    "next track, pause, lock the screen."
+    "Jarvis, open Spotify, play a song on Spotify, search Arijit Singh "
+    "on YouTube, volume up, volume down, mute, screenshot lo, "
+    "time kya hai, gaana bajao, next track, pause, lock the screen."
 )
 
 logger = logging.getLogger(__name__)
@@ -106,3 +106,38 @@ class SpeechToText:
         logger.info(f"Recognized: {text}")
 
         return text
+
+# One model for the whole process: the second call must not reload it.
+_SHARED = None
+
+
+def shared():
+    """The single Whisper instance used by every caller of this module."""
+
+    global _SHARED
+
+    if _SHARED is None:
+
+        _SHARED = SpeechToText()
+
+    return _SHARED
+
+
+def warm_up() -> bool:
+    """Load the model and run one pass, so the first call replies fast."""
+
+    try:
+
+        model = shared()
+
+        model.transcribe(np.zeros(16000, dtype=np.float32), language="en")
+
+        logger.info("Speech-to-text is warm.")
+
+        return True
+
+    except Exception as error:
+
+        logger.warning("Speech-to-text warm-up failed: %s", error)
+
+        return False

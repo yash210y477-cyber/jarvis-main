@@ -12,11 +12,15 @@ delivers the caller's audio as ``StreamFrames`` updates, and
 """
 
 import asyncio
+import hashlib
 import logging
 import re
+import shutil
+import subprocess
 import tempfile
 import time
 import wave
+from difflib import SequenceMatcher
 from pathlib import Path
 
 import numpy as np
@@ -34,12 +38,17 @@ TARGET_RATE = 16000
 
 # How the caller's speech is cut into one request.
 CHUNK_SECONDS = 0.25
-SILENCE_AFTER_SPEECH = 1.0
 MAX_UTTERANCE_SECONDS = 12.0
-MIN_UTTERANCE_SECONDS = 0.4
+MIN_UTTERANCE_SECONDS = 0.5
+
+# A shorter pause replies sooner; the value comes from settings.
+SILENCE_AFTER_SPEECH = 0.7
+
+# After JARVIS stops talking the line still carries its echo.
+ECHO_TAIL_SECONDS = 0.6
 
 # Long replies would talk over the caller forever.
-MAX_SPOKEN_CHARS = 600
+MAX_SPOKEN_CHARS = 400
 
 # Whisper invents these on call noise, and acting on them is worse than
 # staying quiet.
@@ -119,13 +128,136 @@ def write_wav(path: Path, samples: np.ndarray, rate: int = TARGET_RATE) -> Path:
 # ----------------------------------------------------------------------- tts
 
 
+def _ffmpeg_binary() -> str:
+    """ffmpeg on PATH (the call bridge adds it there) or an empty string."""
+
+    found = shutil.which("ffmpeg")
+
+    return found or ""
+
+
+def _edge_clip(message: str) -> Path | None:
+    """Neural voice from edge-tts, converted to the WAV a call can stream."""
+
+    try:
+
+        import edge_tts
+
+    except Exception:
+
+        return None
+
+    ffmpeg = _ffmpeg_binary()
+
+    if not ffmpeg:
+
+        return None
+
+    mp3 = Path(tempfile.NamedTemporaryFile(suffix=".mp3", delete=False).name)
+
+    wav = Path(tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name)
+
+    voice = (settings.TTS_VOICE or "en-US-AndrewNeural").strip()
+
+    cache = Path("data/tts_cache")
+
+    cached = cache / (hashlib.md5(f"{voice}:{message}".encode("utf-8")).hexdigest() + ".wav")
+
+    if cached.exists() and cached.stat().st_size > 44:
+
+        return cached
+
+    async def _save():
+
+        await edge_tts.Communicate(text=message, voice=voice).save(str(mp3))
+
+    try:
+
+        asyncio.run(asyncio.wait_for(_save(), timeout=8))
+
+        subprocess.run(
+            [
+                ffmpeg, "-y", "-loglevel", "error", "-i", str(mp3),
+                "-ar", "48000", "-ac", "1", str(wav),
+            ],
+            check=True,
+            capture_output=True,
+        )
+
+        if wav.exists() and wav.stat().st_size > 44:
+
+            try:
+
+                cache.mkdir(parents=True, exist_ok=True)
+
+                shutil.copyfile(wav, cached)
+
+            except OSError:
+
+                pass
+
+            return wav
+
+    except Exception as error:
+
+        log.debug("edge-tts failed (%s); falling back to SAPI", error)
+
+    finally:
+
+        try:
+
+            mp3.unlink()
+
+        except OSError:
+
+            pass
+
+    try:
+
+        wav.unlink()
+
+    except OSError:
+
+        pass
+
+    return None
+
+
+def normalise(samples: np.ndarray) -> np.ndarray:
+    """Lift quiet caller audio to a level Whisper hears clearly."""
+
+    if samples.size == 0:
+
+        return samples
+
+    centred = samples - float(samples.mean())
+
+    peak = float(np.max(np.abs(centred)))
+
+    if peak < 1e-6:
+
+        return centred.astype(np.float32)
+
+    gain = min(6.0, 0.9 / peak)
+
+    return np.clip(centred * gain, -1.0, 1.0).astype(np.float32)
+
+
 def speak_clip(text: str) -> Path | None:
-    """Windows SAPI sentence -> temporary WAV file."""
+    """Say one sentence: neural voice when possible, SAPI otherwise."""
 
     message = (text or "").strip()
 
     if not message:
         return None
+
+    if (settings.TTS_ENGINE or "sapi").lower() == "edge":
+
+        neural = _edge_clip(message)
+
+        if neural is not None:
+
+            return neural
 
     handle = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
 
@@ -147,6 +279,19 @@ def speak_clip(text: str) -> Path | None:
         voice = comtypes.client.CreateObject("SAPI.SpVoice")
 
         voice.AudioOutputStream = stream
+
+        # A calmer Windows voice than the default David one.
+        wanted = (getattr(settings, "TTS_SAPI_VOICE", "") or "").strip()
+
+        if wanted:
+
+            matches = voice.GetVoices("name=" + wanted)
+
+            if matches.Count:
+
+                voice.Voice = matches.Item(0)
+
+        voice.Rate = max(-10, min(10, int(getattr(settings, "TTS_SAPI_RATE", 0) or 0)))
 
         voice.Speak(message)
 
@@ -257,6 +402,11 @@ class CallConversation:
 
         self._vad = None
         self._stt = None
+        self._ignore_until = 0.0
+
+        self.silence_seconds = max(
+            0.5, float(getattr(settings, "TELEGRAM_CALL_SILENCE_SECONDS", 0.7))
+        )
 
         self.listening = False
         self.speaking = False
@@ -294,9 +444,9 @@ class CallConversation:
 
             try:
 
-                from voice.stt import SpeechToText
+                from voice.stt import shared
 
-                self._stt = SpeechToText()
+                self._stt = shared()
 
             except Exception as error:
 
@@ -375,6 +525,9 @@ class CallConversation:
 
         await self.calls.record(self.chat_id, RecordStream(audio=True))
 
+        # Drop the echo of our own voice before listening again.
+        self._ignore_until = time.monotonic() + ECHO_TAIL_SECONDS
+
         self._raw.clear()
         self._utterance.clear()
         self._speech_started = False
@@ -436,7 +589,7 @@ class CallConversation:
                 time.monotonic() - self._utterance_started
             ) > MAX_UTTERANCE_SECONDS
 
-            if self._silence >= SILENCE_AFTER_SPEECH or too_long:
+            if self._silence >= self.silence_seconds or too_long:
 
                 return self._take_utterance()
 
@@ -471,6 +624,12 @@ class CallConversation:
 
                 return {"success": False, "error": "nothing understood"}
 
+            if self._is_echo(text):
+
+                log.info("Ignored our own voice on the line: %r", text)
+
+                return {"success": False, "error": "echo"}
+
             self.last_heard = text
 
             reply = await asyncio.to_thread(self._think, text)
@@ -493,6 +652,23 @@ class CallConversation:
 
             return {"success": False, "error": str(error)}
 
+    def _is_echo(self, text: str) -> bool:
+        """True when the line replayed JARVIS instead of the caller."""
+
+        heard = " ".join((text or "").lower().split())
+
+        said = " ".join((self.last_reply or "").lower().split())
+
+        if len(heard) < 8 or not said:
+
+            return False
+
+        if heard in said:
+
+            return True
+
+        return SequenceMatcher(None, heard, said).ratio() > 0.72
+
     def _transcribe(self, payload: bytes) -> str:
 
         stt = self._engine()
@@ -500,7 +676,7 @@ class CallConversation:
         if stt is None:
             return ""
 
-        samples = resample(pcm_to_float(payload, self.channels))
+        samples = normalise(resample(pcm_to_float(payload, self.channels)))
 
         language = (settings.TELEGRAM_CALL_LANGUAGE or "auto").strip()
 
@@ -523,7 +699,8 @@ class CallConversation:
 
                 text = (
                     stt.transcribe(
-                        resample(pcm_to_float(payload, 1)), language=language
+                        normalise(resample(pcm_to_float(payload, 1))),
+                        language=language,
                     )
                     or ""
                 ).strip()
