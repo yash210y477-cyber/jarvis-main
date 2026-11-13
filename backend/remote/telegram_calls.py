@@ -111,6 +111,9 @@ class TelegramCallBridge:
         self.last_error = ""
         self.last_call = {}
         self.answered = 0
+        self.messages = 0
+        self.updates_seen = 0
+        self.last_update = ""
 
         self.brain = None
         self.conversation = None
@@ -148,6 +151,9 @@ class TelegramCallBridge:
             "auto_answer": settings.TELEGRAM_CALL_AUTO_ANSWER,
             "allowed": settings.TELEGRAM_CALL_ALLOWED,
             "answered": self.answered,
+            "messages": self.messages,
+            "updates_seen": self.updates_seen,
+            "last_update": self.last_update,
             "talk": settings.TELEGRAM_CALL_CONVERSATION,
             "conversation": (
                 self.conversation.status() if self.conversation else None
@@ -254,6 +260,19 @@ class TelegramCallBridge:
             filters.stream_frame(Direction.INCOMING),
         )
 
+        # Count every update, so /telegram-call/status shows whether a
+        # call reaches the bridge at all.
+        self.calls.add_handler(
+            self._on_any, filters.create(lambda _client, _update: True)
+        )
+
+        # Texting this account used to be silent: answer it with the brain.
+        from telethon import events
+
+        client.add_event_handler(
+            self._on_message, events.NewMessage(incoming=True)
+        )
+
         self.stopper = asyncio.Event()
 
         self.running = True
@@ -298,6 +317,68 @@ class TelegramCallBridge:
         return self.status()
 
     # ---------------------------------------------------------------- calls
+
+    async def _on_any(self, _client, update) -> None:
+
+        self.updates_seen += 1
+
+        self.last_update = f"{type(update).__name__}: {update!r}"[:200]
+
+        log.info("Telegram call update: %s", self.last_update)
+
+    def _answer_text(self, text: str) -> str:
+
+        if self.brain is None:
+
+            return "JARVIS is still starting up."
+
+        try:
+
+            result = self.brain.chat(text)
+
+            return (result.get("response") or "Done.")[:4000]
+
+        except Exception as error:
+
+            return f"Kuch galat ho gaya: {error}"
+
+    async def _on_message(self, event) -> None:
+        """Reply to normal text sent to the JARVIS account, like the bot."""
+
+        try:
+
+            if event.out or not event.is_private:
+
+                return
+
+            text = (event.raw_text or "").strip()
+
+            if not text:
+
+                return
+
+            sender = await event.get_sender()
+
+            user_id = getattr(sender, "id", None)
+
+            allowed = settings.TELEGRAM_CALL_ALLOWED
+
+            if allowed and str(user_id) not in allowed:
+
+                log.info("Ignoring message from unlisted user %s", user_id)
+
+                return
+
+            reply = await asyncio.to_thread(self._answer_text, text)
+
+            await event.reply(reply)
+
+            self.messages += 1
+
+        except Exception as error:
+
+            log.warning("Replying on the JARVIS account failed: %s", error)
+
 
     async def _on_incoming(self, _client, update) -> None:
 
