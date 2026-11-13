@@ -413,3 +413,13 @@ def test_loose_sentences_reach_the_right_tool():
     assert nlu.interpret("next song")["arguments"]["action"] == "next"
 
     assert nlu.interpret("what is the weather") is None
+
+def test_site_search_prefers_the_installed_app_only_for_apps():
+
+    # Spotify is a desktop app, so its search belongs there; a Google or
+    # YouTube search must stay on the web.
+    from tools import browser
+
+    assert browser._search_in_app("google", "song") is None
+    assert browser._search_in_app("youtube", "song") is None
+    assert browser._search_in_app("stackoverflow", "dict") is None

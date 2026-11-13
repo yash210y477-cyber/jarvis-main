@@ -1,5 +1,6 @@
 """Open websites and search them, with short names like "youtube"."""
 
+import os
 import webbrowser
 from urllib.parse import quote
 
@@ -130,6 +131,97 @@ def github_search(query: str):
     }
 
 
+# Apps that accept a search straight from a URI, so the search happens in
+# the installed app instead of the website.
+APP_SEARCH_URIS = {
+    "spotify": "spotify:search:{query}",
+}
+
+
+def _installed_app(name: str):
+    """Path of an installed desktop app for a site name, or None."""
+
+    try:
+
+        from tools.apps import launcher
+
+        return launcher.find_application(" ".join(name.split()))
+
+    except Exception:
+
+        return None
+
+
+# Only these are searched in their own app; a browser shortcut must never
+# swallow a Google or YouTube search.
+APP_SEARCH_SITES = {"spotify", "discord", "telegram", "whatsapp", "netflix"}
+
+
+def _search_in_app(key: str, query: str):
+    """Search inside the installed app when there is one."""
+
+    if key not in APP_SEARCH_SITES:
+
+        return None
+
+    if not _installed_app(key):
+
+        return None
+
+    uri = APP_SEARCH_URIS.get(key)
+
+    if uri:
+
+        target = uri.format(query=quote(query))
+
+        try:
+
+            os.startfile(target)
+
+        except Exception:
+
+            webbrowser.open(target)
+
+        return {
+            "success": True,
+            "action": "search_site",
+            "site": key,
+            "query": query,
+            "app": True,
+            "message": f"Searching {key.capitalize()} app for '{query}'",
+        }
+
+    # No direct search URI: open the app and keep the query ready to paste.
+    try:
+
+        from tools import clipboard
+        from tools.apps import launcher
+
+        opened, _message = launcher.open(key)
+
+        if opened:
+
+            clipboard.set_clipboard(query)
+
+            return {
+                "success": True,
+                "action": "search_site",
+                "site": key,
+                "query": query,
+                "app": True,
+                "message": (
+                    f"Opened the {key.capitalize()} app; '{query}' is on your "
+                    "clipboard, press Ctrl+V in its search box."
+                ),
+            }
+
+    except Exception:
+
+        pass
+
+    return None
+
+
 def search_site(query: str, site: str = "google"):
 
     query = (query or "").strip()
@@ -139,6 +231,12 @@ def search_site(query: str, site: str = "google"):
     if not query:
 
         return {"success": False, "error": "Tell me what to search for."}
+
+    in_app = _search_in_app(key, query)
+
+    if in_app:
+
+        return in_app
 
     base = SEARCH_ENGINES.get(key)
 
