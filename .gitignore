@@ -11,3 +11,5 @@ check-ports.sh
 .env
 **/.env
 frontend/mina/dist
+
+data/
