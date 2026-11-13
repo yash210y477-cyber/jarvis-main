@@ -41,6 +41,22 @@ MIN_UTTERANCE_SECONDS = 0.4
 # Long replies would talk over the caller forever.
 MAX_SPOKEN_CHARS = 600
 
+# Whisper invents these on call noise, and acting on them is worse than
+# staying quiet.
+PHANTOM_PHRASES = frozenset({
+    "thank you",
+    "thank you for watching",
+    "thanks for watching",
+    "please subscribe",
+    "like and subscribe",
+    "subtitles by",
+    "you",
+    "bye",
+    "goodbye",
+    "hmm",
+    "mm",
+})
+
 
 # --------------------------------------------------------------------- audio
 
@@ -218,12 +234,16 @@ def clean_for_speech(text: str) -> str:
 class CallConversation:
     """One private call: listen, understand, answer, repeat."""
 
-    def __init__(self, calls, brain=None, chat_id=None, channels: int = CHANNELS):
+    def __init__(self, calls, brain=None, chat_id=None, channels: int = CHANNELS,
+                 is_active=None):
 
         self.calls = calls
         self.brain = brain
         self.chat_id = chat_id
         self.channels = channels
+        # A dropped call must never be re-dialled: pytgcalls starts an
+        # outgoing call when play/record is used outside a live call.
+        self.is_active = is_active or (lambda: True)
 
         self.chunk_bytes = int(
             SAMPLE_RATE * CHUNK_SECONDS * SAMPLE_WIDTH * channels
@@ -339,6 +359,12 @@ class CallConversation:
 
         from pytgcalls.types import RecordStream
 
+        if not self.is_active():
+
+            self.listening = False
+
+            return
+
         await self.calls.record(self.chat_id, RecordStream(audio=True))
 
         self._raw.clear()
@@ -443,7 +469,7 @@ class CallConversation:
 
             if not reply:
 
-                reply = "I did not find anything for that."
+                reply = "Kuch samajh nahi aaya, phir se boliye."
 
             self.last_reply = reply
             self.turns += 1
@@ -498,6 +524,14 @@ class CallConversation:
 
                 log.debug("Mono retry failed: %s", error)
 
+        cleaned = text.strip().strip(".!?,").lower()
+
+        if cleaned in PHANTOM_PHRASES or not any(
+            character.isalpha() for character in cleaned
+        ):
+
+            return ""
+
         return text
 
     def _think(self, text: str) -> str:
@@ -524,7 +558,15 @@ class CallConversation:
 
             return "Sorry, I hit an error while handling that."
 
-        return clean_for_speech(result.get("response") or "")
+        from brain.brain import FALLBACK_REPLY
+
+        answer = result.get("response") or ""
+
+        if answer.strip() == FALLBACK_REPLY:
+
+            return "Ye mujhe samajh nahi aaya. Zara phir se boliye."
+
+        return clean_for_speech(answer)
 
     async def say(self, text: str) -> dict:
 
@@ -537,6 +579,12 @@ class CallConversation:
         if not message:
 
             return {"success": False, "error": "Nothing to say."}
+
+        if not self.is_active():
+
+            self.last_error = "The call ended before the reply."
+
+            return {"success": False, "error": self.last_error}
 
         self.speaking = True
 

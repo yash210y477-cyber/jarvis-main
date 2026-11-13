@@ -165,6 +165,8 @@ class TelegramCallBridge:
         self.updates_seen = 0
         self.frames = 0
         self.frame_bytes = 0
+        self.in_call = False
+        self.call_chat = None
         self.last_update = ""
 
         self.brain = None
@@ -205,6 +207,7 @@ class TelegramCallBridge:
             "answered": self.answered,
             "messages": self.messages,
             "updates_seen": self.updates_seen,
+            "in_call": self.in_call,
             "frames": self.frames,
             "frame_bytes": self.frame_bytes,
             "last_update": self.last_update,
@@ -385,6 +388,43 @@ class TelegramCallBridge:
 
         log.debug("Telegram call update: %s", self.last_update)
 
+        self._track(update)
+
+    def _track(self, update) -> None:
+        """Follow the call state: pytgcalls dials out if play/record runs
+        after the call has already ended."""
+
+        status = getattr(update, "status", None)
+
+        chat_id = getattr(update, "chat_id", None)
+
+        if status is None:
+
+            return
+
+        try:
+
+            from pytgcalls.types import ChatUpdate
+
+        except Exception:
+
+            return
+
+        flags = ChatUpdate.Status
+
+        if status & flags.INCOMING_CALL:
+
+            self.in_call = True
+            self.call_chat = chat_id
+
+        elif status & flags.LEFT_CALL:
+
+            if self.call_chat is None or chat_id == self.call_chat:
+
+                self.in_call = False
+                self.call_chat = None
+                self.conversation = None
+
     def _answer_text(self, text: str) -> str:
 
         if self.brain is None:
@@ -451,11 +491,17 @@ class TelegramCallBridge:
 
         self.last_call = entry
 
+        self.in_call = True
+        self.call_chat = chat_id
+
         allowed = settings.TELEGRAM_CALL_ALLOWED
 
         if allowed and str(chat_id) not in allowed:
 
             entry["status"] = "rejected"
+
+            self.in_call = False
+            self.call_chat = None
 
             try:
 
@@ -488,6 +534,9 @@ class TelegramCallBridge:
             entry["error"] = str(error)
             self.last_error = str(error)
 
+            self.in_call = False
+            self.call_chat = None
+
             # Never leave the caller listening to a silent line.
 
             try:
@@ -503,6 +552,10 @@ class TelegramCallBridge:
         conversation = self.conversation
 
         if conversation is None or conversation.chat_id != update.chat_id:
+            return
+
+        if not self.in_call:
+
             return
 
         # pytgcalls Frame keeps its PCM in .frame; .data does not exist,
@@ -522,11 +575,19 @@ class TelegramCallBridge:
 
         try:
 
+            if not self.in_call:
+
+                return
+
             # Let the greeting finish before listening for an answer.
             await asyncio.sleep(clip_duration(greeting_file()) + 0.4)
 
             conversation = CallConversation(
-                self.calls, brain=self.brain, chat_id=chat_id
+                self.calls,
+                brain=self.brain,
+                chat_id=chat_id,
+                is_active=lambda: self.in_call
+                and self.call_chat == chat_id,
             )
 
             await conversation.start()
@@ -552,6 +613,13 @@ class TelegramCallBridge:
         if not self.running:
 
             return {"success": False, "error": "The call bridge is not running."}
+
+        if not self.in_call:
+
+            return {
+                "success": False,
+                "error": "No call is ringing; refusing to dial out.",
+            }
 
         async def _answer():
 
@@ -600,6 +668,9 @@ class TelegramCallBridge:
             return {"success": False, "error": "The call bridge is not running."}
 
         async def _hangup():
+
+            self.in_call = False
+            self.call_chat = None
 
             if (
                 self.conversation is not None

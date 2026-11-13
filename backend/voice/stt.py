@@ -63,15 +63,31 @@ class SpeechToText:
             audio,
             language=language,
             beam_size=2,
-            vad_filter=False,
+            # Call noise used to turn into invented sentences; whisper's
+            # own VAD and the score thresholds below drop those segments.
+            vad_filter=True,
+            vad_parameters={"min_silence_duration_ms": 300},
             condition_on_previous_text=False,
             temperature=0,
+            no_speech_threshold=0.6,
+            log_prob_threshold=-1.0,
         )
 
-        text = " ".join(
-            segment.text.strip()
-            for segment in segments
-        )
+        parts = []
+
+        for segment in segments:
+
+            if segment.no_speech_prob > 0.6:
+
+                continue
+
+            if segment.avg_logprob < -1.0:
+
+                continue
+
+            parts.append(segment.text.strip())
+
+        text = " ".join(parts)
 
         text = self.clean_text(text)
 

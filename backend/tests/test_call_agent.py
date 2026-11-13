@@ -252,6 +252,8 @@ def test_bridge_reads_the_frame_attribute():
     from remote.telegram_calls import TelegramCallBridge
 
     bridge = TelegramCallBridge()
+    bridge.in_call = True
+    bridge.call_chat = 5
 
     capture = _Capture()
 
@@ -297,3 +299,65 @@ def test_vad_hears_speech_in_quarter_second_chunks():
     assert vad.has_speech(torch.from_numpy(chunk)) is True
 
     assert vad.has_speech(torch.from_numpy(np.zeros(4000, dtype=np.float32))) is False
+
+def test_a_finished_call_is_never_re_dialled():
+
+    # pytgcalls starts an OUTGOING call when play/record is used outside a
+    # live call; that is why JARVIS appeared to call the user back.
+
+    from remote.telegram_calls import TelegramCallBridge
+
+    bridge = TelegramCallBridge()
+    bridge.running = True
+    bridge.in_call = False
+
+    result = bridge.answer(9026811697)
+
+    assert result["success"] is False
+    assert "dial" in result["error"]
+
+    conversation = call_agent.CallConversation(
+        FakeCalls(), brain=FakeBrain(), chat_id=9026811697,
+        is_active=lambda: False,
+    )
+
+    assert asyncio.run(conversation.say("hello"))["success"] is False
+
+    asyncio.run(conversation.resume_listening())
+
+    assert conversation.listening is False
+    assert conversation.feed(_call_chunk()) == []
+
+
+def test_call_state_follows_pytgcalls_updates():
+
+    from pytgcalls.types import ChatUpdate
+
+    from remote.telegram_calls import TelegramCallBridge
+
+    bridge = TelegramCallBridge()
+
+    bridge._track(ChatUpdate(516, ChatUpdate.Status.INCOMING_CALL))
+
+    assert bridge.in_call is True
+    assert bridge.call_chat == 516
+
+    bridge._track(ChatUpdate(516, ChatUpdate.Status.DISCARDED_CALL))
+
+    assert bridge.in_call is False
+    assert bridge.call_chat is None
+
+
+def test_call_noise_is_not_treated_as_a_request():
+
+    conversation = call_agent.CallConversation(
+        FakeCalls(), brain=FakeBrain(), chat_id=7
+    )
+
+    for noise in ("Thank you.", "Thanks for watching!", " . "):
+
+        conversation._stt = type(
+            "FakeSTT", (), {"transcribe": lambda self, audio, language=None: noise}
+        )()
+
+        assert conversation._transcribe(bytes(4800)) == ""
