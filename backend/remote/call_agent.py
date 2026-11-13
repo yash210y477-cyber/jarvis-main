@@ -241,6 +241,8 @@ class CallConversation:
         self.listening = False
         self.speaking = False
         self.turns = 0
+        self.received_bytes = 0
+        self.peak_rms = 0.0
         self.last_heard = ""
         self.last_reply = ""
         self.last_error = ""
@@ -254,6 +256,10 @@ class CallConversation:
             "listening": self.listening,
             "speaking": self.speaking,
             "turns": self.turns,
+            "input_seconds": round(self.received_bytes / float(
+                SAMPLE_RATE * SAMPLE_WIDTH * self.channels
+            ), 1),
+            "peak_rms": round(self.peak_rms, 4),
             "last_heard": self.last_heard,
             "last_reply": self.last_reply,
             "last_error": self.last_error,
@@ -298,21 +304,26 @@ class CallConversation:
         if mono.size == 0:
             return False
 
+        rms = float(np.sqrt(np.mean(mono ** 2)))
+
+        self.peak_rms = max(self.peak_rms, rms)
+
         if self._vad:
 
             try:
 
                 import torch
 
-                return bool(self._vad.has_speech(torch.from_numpy(mono)))
+                if bool(self._vad.has_speech(torch.from_numpy(mono))):
+
+                    return True
 
             except Exception as error:
 
                 log.debug("VAD check failed: %s", error)
 
-        rms = float(np.sqrt(np.mean(mono ** 2)))
-
-        return rms > 0.012
+        # Loud audio is speech even when the detector is unsure.
+        return rms > (0.012 if not self._vad else 0.06)
 
     # ------------------------------------------------------------- listening
 
@@ -348,6 +359,8 @@ class CallConversation:
 
         if not payload or self.speaking:
             return []
+
+        self.received_bytes += len(payload)
 
         self._raw.extend(payload)
 

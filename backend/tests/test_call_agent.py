@@ -214,3 +214,86 @@ def test_whisper_understands_generated_speech(tmp_path):
     clip.unlink()
 
     assert "calculator" in text.lower()
+
+class _Frame:
+
+    """pytgcalls Frame: the PCM lives in .frame, there is no .data."""
+
+    def __init__(self, data):
+
+        self.frame = data
+
+
+class _Frames:
+
+    def __init__(self, chat_id, chunks):
+
+        self.chat_id = chat_id
+        self.frames = [_Frame(chunk) for chunk in chunks]
+
+
+class _Capture:
+
+    def __init__(self):
+
+        self.chat_id = 5
+        self.payload = b""
+
+    def feed(self, payload):
+
+        self.payload += payload
+        return []
+
+
+def test_bridge_reads_the_frame_attribute():
+
+    # Reading .data made every call silent: the attribute does not exist.
+
+    from remote.telegram_calls import TelegramCallBridge
+
+    bridge = TelegramCallBridge()
+
+    capture = _Capture()
+
+    bridge.conversation = capture
+
+    chunk = _call_chunk()
+
+    asyncio.run(bridge._on_frames(None, _Frames(5, [chunk])))
+
+    assert capture.payload == chunk
+    assert bridge.frames == 1
+    assert bridge.frame_bytes == len(chunk)
+
+
+def test_vad_hears_speech_in_quarter_second_chunks():
+
+    # get_speech_timestamps() reported silence for every 250 ms call
+    # chunk, so a real call never produced an utterance.
+
+    import torch
+
+    from voice.vad import VoiceActivityDetector
+
+    clip = call_agent.speak_clip("Reminder, drink water.")
+
+    assert clip is not None
+
+    with wave.open(str(clip), "rb") as handle:
+
+        rate = handle.getframerate()
+        frames = handle.readframes(handle.getnframes())
+
+    samples = np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0
+
+    speech = call_agent.resample(samples, rate, call_agent.TARGET_RATE)
+
+    clip.unlink()
+
+    vad = VoiceActivityDetector()
+
+    chunk = speech[call_agent.TARGET_RATE // 2: call_agent.TARGET_RATE // 2 + 4000]
+
+    assert vad.has_speech(torch.from_numpy(chunk)) is True
+
+    assert vad.has_speech(torch.from_numpy(np.zeros(4000, dtype=np.float32))) is False

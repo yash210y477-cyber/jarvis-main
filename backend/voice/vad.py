@@ -1,49 +1,79 @@
+import logging
+
 import torch
-import torchaudio
-from silero_vad import load_silero_vad, get_speech_timestamps
+from silero_vad import load_silero_vad
+
+
+log = logging.getLogger(__name__)
 
 
 class VoiceActivityDetector:
+    """Silero VAD over short call chunks.
+
+    get_speech_timestamps() needs well over a quarter second of audio, so it
+    reported silence for every 250 ms call chunk. The model itself works on
+    512-sample windows at 16 kHz, so the windows are scored directly here.
+    """
+
+    window = 512
 
     def __init__(self):
 
         self.model = load_silero_vad()
 
         self.sample_rate = 16000
+        self.threshold = 0.5
+
+    def _probabilities(self, waveform):
+
+        try:
+
+            self.model.reset_states()
+
+        except Exception:
+
+            pass
+
+        for start in range(0, waveform.numel() - self.window + 1, self.window):
+
+            chunk = waveform[start: start + self.window]
+
+            yield float(self.model(chunk, self.sample_rate).detach())
 
     def has_speech(self, audio):
 
         try:
 
             if audio is None:
+
                 return False
 
-            if isinstance(audio, torch.Tensor):
-                waveform = audio
-            else:
-                waveform = torch.tensor(audio)
+            waveform = audio if isinstance(audio, torch.Tensor) else torch.tensor(audio)
 
             waveform = waveform.float()
 
             if waveform.ndim > 1:
+
                 waveform = waveform.mean(dim=1)
 
-            if waveform.numel() == 0:
+            if waveform.numel() < self.window:
+
                 return False
 
-            timestamps = get_speech_timestamps(
-                waveform,
-                self.model,
-                sampling_rate=self.sample_rate,
-                threshold=0.5,
-                min_speech_duration_ms=250,
-                min_silence_duration_ms=300
-            )
+            scores = list(self._probabilities(waveform))
 
-            return len(timestamps) > 0
+            if scores:
 
-        except Exception as e:
+                return max(scores) >= self.threshold
 
-            print("VAD Error:", e)
+        except Exception as error:
+
+            log.debug("VAD error, falling back to a volume gate: %s", error)
+
+        data = audio.detach().numpy() if isinstance(audio, torch.Tensor) else audio
+
+        if data is None or len(data) == 0:
 
             return False
+
+        return float(torch.tensor(data).float().pow(2).mean().sqrt()) > 0.02

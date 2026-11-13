@@ -163,6 +163,8 @@ class TelegramCallBridge:
         self.answered = 0
         self.messages = 0
         self.updates_seen = 0
+        self.frames = 0
+        self.frame_bytes = 0
         self.last_update = ""
 
         self.brain = None
@@ -203,6 +205,8 @@ class TelegramCallBridge:
             "answered": self.answered,
             "messages": self.messages,
             "updates_seen": self.updates_seen,
+            "frames": self.frames,
+            "frame_bytes": self.frame_bytes,
             "last_update": self.last_update,
             "talk": settings.TELEGRAM_CALL_CONVERSATION,
             "conversation": (
@@ -501,9 +505,14 @@ class TelegramCallBridge:
         if conversation is None or conversation.chat_id != update.chat_id:
             return
 
+        # pytgcalls Frame keeps its PCM in .frame; .data does not exist,
+        # so reading it silently yielded empty audio on every call.
         payload = b"".join(
-            getattr(frame, "data", b"") for frame in update.frames
+            getattr(frame, "frame", None) or b"" for frame in update.frames
         )
+
+        self.frames += len(update.frames)
+        self.frame_bytes += len(payload)
 
         for utterance in conversation.feed(payload):
 
