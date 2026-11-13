@@ -94,7 +94,12 @@ class TransformerEmbedder:
 
         self.name = model_name
         self.model = SentenceTransformer(model_name)
-        self.dim = int(self.model.get_sentence_embedding_dimension() or 384)
+        # sentence-transformers renamed this in 6.x; support both.
+        size = getattr(self.model, "get_embedding_dimension", None) or (
+            self.model.get_sentence_embedding_dimension
+        )
+
+        self.dim = int(size() or 384)
 
     def encode(self, texts):
 
