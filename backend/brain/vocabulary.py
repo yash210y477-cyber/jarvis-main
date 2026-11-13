@@ -13,14 +13,16 @@ import time
 from difflib import SequenceMatcher
 from pathlib import Path
 
+from memory.storage import data_dir
+
 logger = logging.getLogger(__name__)
 
-STORE = Path("data/vocabulary.json")
+STORE = data_dir() / "vocabulary.json"
 MAX_WORDS = 4000
 MIN_WORD = 4
 MIN_RATIO = 0.72
 
-_lock = threading.Lock()
+_lock = threading.RLock()
 _words = {}
 _loaded = False
 _last_save = 0.0
@@ -44,6 +46,8 @@ def _load():
 
     _loaded = True
 
+    _seed_from_history()
+
     try:
 
         if STORE.exists():
@@ -65,10 +69,45 @@ def _load():
         _words = {}
 
 
+def _seed_from_history() -> None:
+    """First run: learn from the chats that were saved before this store."""
+
+    if STORE.exists():
+
+        return
+
+    try:
+
+        from memory.storage import Storage
+
+        # Counted directly: learn() would re-enter this loader.
+        for row in Storage().messages(limit=500):
+
+            if row.get("role") != "user":
+
+                continue
+
+            for word in tokens(row.get("text", "")):
+
+                if len(word) < MIN_WORD or word in _COMMON:
+
+                    continue
+
+                _words[word] = _words.get(word, 0) + 1
+
+    except Exception as error:
+
+        logger.debug("Vocabulary seed skipped: %s", error)
+
+
 def _maybe_save(force: bool = False) -> None:
     global _last_save
 
     now = time.monotonic()
+
+    if not _words and not force:
+
+        return
 
     if not force and now - _last_save < 5.0:
 
@@ -102,11 +141,17 @@ def learn(message: str, force_save: bool = False) -> None:
 
             _load()
 
+            new_word = False
+
             for word in tokens(message):
 
                 if len(word) < MIN_WORD or word in _COMMON:
 
                     continue
+
+                if word not in _words:
+
+                    new_word = True
 
                 _words[word] = _words.get(word, 0) + 1
 
@@ -118,7 +163,8 @@ def learn(message: str, force_save: bool = False) -> None:
 
                 _words.update(dict(keep))
 
-            _maybe_save(force_save)
+            # A brand-new word is written at once; repeats are batched.
+            _maybe_save(force_save or new_word)
 
     except Exception as error:
 
