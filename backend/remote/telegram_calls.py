@@ -95,6 +95,12 @@ def greeting_file() -> Path:
     return GREETING_PATH
 
 
+async def _every_update(_filter, _client, _update) -> bool:
+    """Match every update; pytgcalls calls filters as (self, client, update)."""
+
+    return True
+
+
 class TelegramCallBridge:
 
     def __init__(self, session: TelegramUserSession = None):
@@ -263,7 +269,7 @@ class TelegramCallBridge:
         # Count every update, so /telegram-call/status shows whether a
         # call reaches the bridge at all.
         self.calls.add_handler(
-            self._on_any, filters.create(lambda _client, _update: True)
+            self._on_any, filters.create(_every_update)
         )
 
         # Texting this account used to be silent: answer it with the brain.
@@ -324,7 +330,7 @@ class TelegramCallBridge:
 
         self.last_update = f"{type(update).__name__}: {update!r}"[:200]
 
-        log.info("Telegram call update: %s", self.last_update)
+        log.debug("Telegram call update: %s", self.last_update)
 
     def _answer_text(self, text: str) -> str:
 

@@ -94,3 +94,11 @@ def test_status_counts_updates(monkeypatch):
     assert "dummy-update" in status["last_update"]
 
     assert status["messages"] == 0
+
+def test_update_filter_matches_the_library_signature():
+
+    # pytgcalls calls filter instances as (self, client, update); getting
+    # this wrong aborts every update, so calls were never handled.
+    from remote.telegram_calls import _every_update
+
+    assert asyncio.run(_every_update(None, None, None)) is True
