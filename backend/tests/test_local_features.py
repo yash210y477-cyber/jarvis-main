@@ -423,3 +423,31 @@ def test_site_search_prefers_the_installed_app_only_for_apps():
     assert browser._search_in_app("google", "song") is None
     assert browser._search_in_app("youtube", "song") is None
     assert browser._search_in_app("stackoverflow", "dict") is None
+
+
+def test_call_words_are_repaired_from_the_users_own_chat(tmp_path, monkeypatch):
+
+    from brain import vocabulary
+
+    monkeypatch.setattr(vocabulary, "STORE", tmp_path / "vocabulary.json")
+
+    monkeypatch.setattr(vocabulary, "_loaded", False)
+
+    monkeypatch.setattr(vocabulary, "_words", {})
+
+    vocabulary.learn("open postman", force_save=True)
+
+    assert "postman" in vocabulary._words
+
+    assert vocabulary.repair("open post man") == "open postman"
+
+    assert vocabulary.repair("open postmain") == "open postman"
+
+    # Ordinary sentences and already-correct words must never be rewritten.
+    assert vocabulary.repair("what is the time") == "what is the time"
+
+    assert vocabulary.repair("volume up please") == "volume up please"
+
+    assert vocabulary.repair("open postman") == "open postman"
+
+    assert vocabulary.repair("") == ""

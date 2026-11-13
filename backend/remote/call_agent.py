@@ -709,6 +709,17 @@ class CallConversation:
 
                 log.debug("Mono retry failed: %s", error)
 
+        # Fix words the user already typed in chat ("post man" -> "postman").
+        try:
+
+            from brain import vocabulary
+
+            text = vocabulary.repair(text)
+
+        except Exception as error:
+
+            log.debug("Vocabulary repair unavailable: %s", error)
+
         cleaned = text.strip().strip(".!?,").lower()
 
         if cleaned in PHANTOM_PHRASES or not any(

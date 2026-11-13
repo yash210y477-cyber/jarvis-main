@@ -5,6 +5,7 @@ from providers.manager import AIManager
 from brain.intent import IntentEngine
 from brain.router import Router
 from brain.summary_manager import SummaryManager
+from brain import vocabulary
 from brain import local_clock, memory_intent, smalltalk
 from brain.language import is_hinglish
 from brain.multi import split_commands
@@ -254,6 +255,9 @@ class Brain:
     def chat(self, message: str):
 
         message = (message or "").strip()
+
+        # Remember the user's own words so calls can repair misheard ones.
+        vocabulary.learn(message)
 
         # "close terminal and open calculator" runs both, in order.
         parts = split_commands(message)
