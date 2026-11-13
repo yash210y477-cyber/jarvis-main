@@ -207,6 +207,24 @@ def _soundex(word: str) -> str:
 def _best_match(word: str):
     """Closest typed word for a heard word, or None when unsure."""
 
+    # Only half the word made it through the line: "post" for "postman".
+    if len(word) >= 3:
+
+        starts = [
+            c
+            for c in _words
+            if c.startswith(word) and c != word and len(c) <= len(word) + 5
+        ]
+
+        if len(starts) == 1:
+
+            return starts[0]
+
+    # Very short words are only trusted as a prefix, never as a soft match.
+    if len(word) < 4:
+
+        return None
+
     best = None
     best_score = 0.0
     key = _soundex(word)
@@ -292,7 +310,7 @@ def repair(text: str) -> str:
 
                         continue
 
-                if len(word) < MIN_WORD or word in _COMMON or word in _words:
+                if len(word) < 3 or word in _COMMON or word in _words:
 
                     fixed.append(parts[index])
 
