@@ -6,6 +6,7 @@ from brain.intent import IntentEngine
 from brain.router import Router
 from brain.summary_manager import SummaryManager
 from brain import local_clock, memory_intent, smalltalk
+from brain.language import is_hinglish
 from brain.multi import split_commands
 
 from memory.manager import MemoryManager
@@ -110,6 +111,8 @@ class Brain:
     def _local_reply(self, message: str):
         """Return (provider, action, text) or None when AI is needed."""
 
+        hinglish = is_hinglish(message)
+
         command = self.intent.detect(message)
 
         # 0. Multi-fact remember: "my name is Yash and my city is Pune"
@@ -205,7 +208,7 @@ class Brain:
             return (
                 "local",
                 intent["tool"],
-                local_intents.render(intent["tool"], result),
+                local_intents.render(intent["tool"], result, hinglish),
             )
 
         # 4. Desktop intents: open app, system status, search
@@ -442,7 +445,9 @@ class Brain:
             **pending["arguments"],
         )
 
-        text = local_intents.render(pending["tool"], result)
+        text = local_intents.render(
+            pending["tool"], result, is_hinglish(message)
+        )
 
         self.memory.add_user_message(message)
         self.memory.add_assistant_message(text)

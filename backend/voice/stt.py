@@ -72,11 +72,12 @@ class SpeechToText:
         segments, info = self.model.transcribe(
             audio,
             language=language,
-            beam_size=2,
+            beam_size=1,  # greedy: half the CPU of a beam search
             # Call noise used to turn into invented sentences; whisper's
             # own VAD and the score thresholds below drop those segments.
-            vad_filter=True,
-            vad_parameters={"min_silence_duration_ms": 300},
+            # Silence is already filtered by the call VAD, so whisper
+            # does not need to run its own detector over the same audio.
+            vad_filter=False,
             initial_prompt=COMMAND_PROMPT,
             condition_on_previous_text=False,
             temperature=0,

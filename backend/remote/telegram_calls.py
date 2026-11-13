@@ -439,7 +439,7 @@ class TelegramCallBridge:
 
         except Exception as error:
 
-            return f"Kuch galat ho gaya: {error}"
+            return f"Something went wrong: {error}"
 
     async def _on_message(self, event) -> None:
         """Reply to normal text sent to the JARVIS account, like the bot."""

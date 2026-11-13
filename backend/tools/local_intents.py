@@ -626,15 +626,27 @@ def _after(text: str, markers):
     return ""
 
 
-def render(name: str, result: dict) -> str:
+def render(name: str, result: dict, hinglish: bool = False) -> str:
+
+    """Tool result as text, in the language the user asked with."""
 
     if not result.get("success"):
 
-        return f"That didn't work: {result.get('error') or 'unknown error'}."
+        error = result.get('error') or 'unknown error'
+
+        if hinglish:
+
+            return f"Ye nahi ho paya: {error}."
+
+        return f"That didn't work: {error}."
 
     data = result.get("result") if isinstance(result.get("result"), dict) else result
 
     if name == "screenshot":
+
+        if hinglish:
+
+            return f"Screenshot `{data.get('path')}` me save ho gaya."
 
         return f"Screenshot saved to `{data.get('path')}`."
 
@@ -646,7 +658,11 @@ def render(name: str, result: dict) -> str:
 
     if name == "set_clipboard":
 
-        return "Copied to your clipboard."
+        return (
+            "Clipboard me copy kar diya."
+            if hinglish
+            else "Copied to your clipboard."
+        )
 
     if name in (
         "media_control", "set_volume", "get_volume", "browser_control",

@@ -7,7 +7,7 @@ clock is read straight from the machine and rendered here.
 import datetime
 import re
 
-from config.settings import settings
+from brain.language import is_hinglish
 
 
 QUESTION_WORDS = (
@@ -103,14 +103,12 @@ def detect(text: str):
     return None
 
 
-def render(kind: str) -> str:
-    """Spoken answer for a clock question, in the configured language."""
+def render(kind: str, hinglish: bool = False) -> str:
+    """Spoken answer for a clock question, in the user's language."""
 
     moment = now()
 
-    hinglish = (getattr(settings, "JARVIS_LANGUAGE", "") or "").lower() in (
-        "hinglish", "hindi", "hi",
-    )
+
 
     if kind == "time":
 
@@ -195,7 +193,7 @@ def render(kind: str) -> str:
 
     return ""
 
-def reply(text: str):
+def reply(text: str, hinglish=None):
     """Return a clock answer for the message, or None."""
 
     kind = detect(text)
@@ -204,4 +202,8 @@ def reply(text: str):
 
         return None
 
-    return render(kind)
+    if hinglish is None:
+
+        hinglish = is_hinglish(text)
+
+    return render(kind, hinglish)

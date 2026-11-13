@@ -38,12 +38,14 @@ def test_clock_answers_without_any_provider(monkeypatch):
 
     assert local_clock.reply("tell me a joke") is None
 
-    # Same answers in Hinglish when that language is configured.
-    monkeypatch.setattr(settings, "JARVIS_LANGUAGE", "hinglish")
+    # The reply language follows the user's own message: an English
+    # question stays English, a Hinglish one is answered in Hinglish.
 
-    assert local_clock.reply("what is the date").startswith("Aaj")
+    assert local_clock.reply("what is the date").startswith("Today is")
 
-    assert local_clock.reply("what time is it").startswith("Abhi")
+    assert local_clock.reply("date kya hai").startswith("Aaj")
+
+    assert local_clock.reply("time kya hai").startswith("Abhi")
 
 
 def test_clock_tool_exposes_fields():

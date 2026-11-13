@@ -8,7 +8,7 @@ or an API key: they are answered here, before any network call.
 import datetime
 import re
 
-from config.settings import settings
+from brain.language import is_hinglish
 
 GREETINGS = (
     "hi",
@@ -82,12 +82,10 @@ CAPABILITIES_HINGLISH = """Main ye kar sakta hoon:
 - AI provider na ho tab bhi basic baatein"""
 
 
-def _hinglish() -> bool:
-    """Local replies follow JARVIS_LANGUAGE (hinglish by default)."""
+def _hinglish(text: str = "") -> bool:
+    """Hinglish reply only when the user wrote Hinglish."""
 
-    return (getattr(settings, "JARVIS_LANGUAGE", "") or "").lower() in (
-        "hinglish", "hindi", "hi", "hinglish/hindi",
-    )
+    return is_hinglish(text)
 
 
 def _greeting() -> str:
@@ -206,7 +204,7 @@ def local_reply(text: str, memory=None) -> str:
 
     who = f" {name}" if name else ""
 
-    hinglish = _hinglish()
+    hinglish = _hinglish(lowered)
 
     # "hey", "hi jarvis", "good morning jarvis"
     stripped = re.sub(r"\bjarvis\b", "", lowered).strip()

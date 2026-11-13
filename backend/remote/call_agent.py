@@ -328,6 +328,12 @@ class CallConversation:
 
         self.peak_rms = max(self.peak_rms, rms)
 
+        # Cheap gate first: a silent chunk skips the model entirely, which
+        # is most of the CPU during a call.
+        if rms < 0.004:
+
+            return False
+
         if self._vad:
 
             try:
@@ -342,8 +348,10 @@ class CallConversation:
 
                 log.debug("VAD check failed: %s", error)
 
-        # Loud audio is speech even when the detector is unsure.
-        return rms > (0.012 if not self._vad else 0.06)
+            # Loud audio is speech even when the detector is unsure.
+            return rms > 0.06
+
+        return rms > 0.012
 
     # ------------------------------------------------------------- listening
 
@@ -469,7 +477,7 @@ class CallConversation:
 
             if not reply:
 
-                reply = "Kuch samajh nahi aaya, phir se boliye."
+                reply = "Sorry, I did not catch that."
 
             self.last_reply = reply
             self.turns += 1
@@ -564,7 +572,7 @@ class CallConversation:
 
         if answer.strip() == FALLBACK_REPLY:
 
-            return "Ye mujhe samajh nahi aaya. Zara phir se boliye."
+            return "Sorry, I did not catch that."
 
         return clean_for_speech(answer)
 
