@@ -3,6 +3,16 @@ import logging
 import numpy as np
 from faster_whisper import WhisperModel
 
+from config.settings import settings
+
+# Callers speak short Hinglish commands, so the decoder is nudged
+# towards that vocabulary instead of guessing freely.
+COMMAND_PROMPT = (
+    "Jarvis, open chrome, open calculator, open notepad, volume up, "
+    "volume down, mute, screenshot lo, time kya hai, play music, "
+    "next track, pause, lock the screen."
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -13,10 +23,10 @@ class SpeechToText:
         logger.info("Loading Faster Whisper Model...")
 
         self.model = WhisperModel(
-            model_size_or_path="base",
+            model_size_or_path=(settings.STT_MODEL or "small"),
             device="cpu",
-            compute_type="int8",
-            cpu_threads=4,
+            compute_type=(settings.STT_COMPUTE_TYPE or "int8"),
+            cpu_threads=max(2, settings.STT_THREADS),
             num_workers=2,
         )
 
@@ -67,6 +77,7 @@ class SpeechToText:
             # own VAD and the score thresholds below drop those segments.
             vad_filter=True,
             vad_parameters={"min_silence_duration_ms": 300},
+            initial_prompt=COMMAND_PROMPT,
             condition_on_previous_text=False,
             temperature=0,
             no_speech_threshold=0.6,

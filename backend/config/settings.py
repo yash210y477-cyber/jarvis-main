@@ -94,6 +94,14 @@ class Settings:
         "TELEGRAM_CALL_CONVERSATION", "1"
     ) not in ("0", "false", "False", "no")
 
+    # Speech recognition model: "base" is fast but mishears Hinglish
+    # commands on phone audio, "small" is the accuracy/speed sweet spot.
+    STT_MODEL = os.getenv("STT_MODEL", "small")
+
+    STT_COMPUTE_TYPE = os.getenv("STT_COMPUTE_TYPE", "int8")
+
+    STT_THREADS = _int_env("STT_THREADS", 6)
+
     # "auto" lets Whisper guess (Hinglish works); or "en", "hi", ...
     TELEGRAM_CALL_LANGUAGE = os.getenv("TELEGRAM_CALL_LANGUAGE", "auto")
 
@@ -112,12 +120,17 @@ class Settings:
     ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+
     "http://localhost:5174",
     "http://127.0.0.1:5174",
 
     # Swagger UI
     "http://localhost:8000",
     "http://127.0.0.1:8000",
+
+    # Backend Swagger UI
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
 ]
 
     # ==========================================================

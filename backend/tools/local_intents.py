@@ -147,6 +147,25 @@ def detect(message: str):
 
             return {"tool": "set_volume", "arguments": {"percent": percent}}
 
+    if re.search(r"\b(volume|awaaz|awaz|sound)\b", text):
+
+        if any(word in text for word in ("kam", "ghata", "decrease", "down")):
+
+            return {
+                "tool": "media_control",
+                "arguments": {"action": "volume_down", "steps": _number(text) or 1},
+            }
+
+        if any(
+            word in text
+            for word in ("badha", "badhao", "zada", "zyada", "tez", "increase", "up")
+        ):
+
+            return {
+                "tool": "media_control",
+                "arguments": {"action": "volume_up", "steps": _number(text) or 1},
+            }
+
     if text.strip() in (
         "what is the volume", "volume kitna hai", "current volume",
         "how loud is it", "volume level",
@@ -273,13 +292,13 @@ def detect(message: str):
     # Reminders / alarms
     # -----------------------------
 
-    if re.search(r"reminders?", text) and any(
+    if re.search(r"\breminders?\b", text) and any(
         word in text for word in ("list", "show", "which", "kitne", "what")
     ):
 
         return {"tool": "list_reminders", "arguments": {}}
 
-    if re.search(r"reminders?", text) and any(
+    if re.search(r"\breminders?\b", text) and any(
         word in text for word in ("cancel", "delete", "remove", "clear", "hatao")
     ):
 
@@ -519,6 +538,46 @@ def detect(message: str):
 
         if target:
             return {"tool": "open_app", "arguments": {"app_name": target}}
+
+    # -----------------------------
+    # Hinglish word order: "chrome kholo", "notepad band karo"
+    # -----------------------------
+
+    match = re.match(
+        r"^(?:please\s+)?(.+?)\s+(?:kholo|khol\s+do|khol|chalu\s+karo|"
+        r"open\s+karo|open\s+kar\s+do)$",
+        text,
+    )
+
+    if match:
+
+        target = match.group(1).strip(" .")
+
+        if target and WEBSITE_PATTERN.match(target):
+
+            return {"tool": "open_website", "arguments": {"url": target}}
+
+        if target in SPECIAL_APP_WORDS:
+
+            return {"tool": "open_special", "arguments": {"app": target}}
+
+        if target:
+
+            return {"tool": "open_app", "arguments": {"app_name": target}}
+
+    match = re.match(
+        r"^(?:please\s+)?(.+?)\s+(?:band\s+karo|band\s+kar\s+do|close\s+karo|"
+        r"hata\s+do)$",
+        text,
+    )
+
+    if match:
+
+        target = match.group(1).strip(" .")
+
+        if target:
+
+            return {"tool": "close_app", "arguments": {"app_name": target}}
 
     # -----------------------------
     # Shell (always needs confirmation)
