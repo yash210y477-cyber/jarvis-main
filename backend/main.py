@@ -480,6 +480,11 @@ def stop_services():
 
         pass
 
+    # A reply still waiting on a provider must not keep Ctrl+C hanging.
+    from brain.brain import shutdown_pool
+
+    shutdown_pool()
+
 
 @app.post("/companion/start")
 def companion_start():

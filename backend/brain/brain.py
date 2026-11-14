@@ -31,6 +31,18 @@ AGENT_TIMEOUT_SECONDS = 60
 AI_POOL = concurrent.futures.ThreadPoolExecutor(max_workers=2)
 
 
+def shutdown_pool():
+    """Drop queued AI work so Ctrl+C does not wait on a stuck request."""
+
+    try:
+
+        AI_POOL.shutdown(wait=False, cancel_futures=True)
+
+    except Exception:
+
+        pass
+
+
 FALLBACK_REPLY = "ALL AI PROVIDER FAILED"
 
 
