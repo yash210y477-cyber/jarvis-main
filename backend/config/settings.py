@@ -188,6 +188,16 @@ class Settings:
     GROQ_MAX_TOKENS = int(os.getenv("GROQ_MAX_TOKENS", "2048"))
 
     # ==========================================================
+    # Z.AI (GLM models, OpenAI-compatible endpoint)
+    # ==========================================================
+
+    ZAI_BASE_URL = os.getenv("ZAI_BASE_URL", "https://api.z.ai/api/paas/v4/")
+
+    ZAI_MODEL = os.getenv("ZAI_MODEL", "glm-4.6")
+
+    ZAI_MAX_TOKENS = int(os.getenv("ZAI_MAX_TOKENS", "2048"))
+
+    # ==========================================================
     # CEREBRAS
     # ==========================================================
 
@@ -257,6 +267,8 @@ class Settings:
 
     ENABLE_DEEPSEEK = True
 
+    ENABLE_ZAI = True
+
     # ==========================================================
     # PROVIDER PRIORITY
     # ==========================================================
@@ -272,6 +284,8 @@ class Settings:
         "cerebras",
 
         "deepseek",
+
+        "zai",
 
         # Local fallback: answers when every cloud key above fails.
         "ollama"

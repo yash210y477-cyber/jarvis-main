@@ -7,6 +7,7 @@ from providers.openrouter import OpenRouterProvider
 from providers.groq import GroqProvider
 from providers.cerebras import CerebrasProvider
 from providers.deepseek import DeepSeekProvider
+from providers.zai import ZaiProvider
 from providers.ollama import OllamaProvider
 
 
@@ -58,6 +59,14 @@ class AIManager:
                 settings.ENABLE_DEEPSEEK,
 
                 DeepSeekProvider
+
+            ),
+
+            "zai": (
+
+                settings.ENABLE_ZAI,
+
+                ZaiProvider
 
             ),
 
