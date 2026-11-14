@@ -334,6 +334,15 @@ def detect(message: str):
 
         return {"tool": "ask_area", "arguments": {"question": message.strip()}}
 
+    # Dictation is checked before the screen agent so "type hello" types
+    # instead of being read as a screen task; "type this on the page" still
+    # falls through to the agent below.
+    early_typed = _typed_text(message)
+
+    if early_typed:
+
+        return {"tool": "type_here", "arguments": {"text": early_typed}}
+
     if any(phrase in text for phrase in GUIDED_PHRASES):
 
         return {
@@ -913,14 +922,78 @@ TYPED_PATTERNS = (
 )
 
 
+# "type this on the page" is screen work, not dictation.
+SCREENISH = (
+    "page", "screen", "button", "form", "field", "window", "app", "browser",
+    "menu", "link", "icon", "tab", "site", "website", "click", "scroll",
+)
+
+# "write a poem" / "write a function" are requests, not dictation.
+DICTATION_STOP = (
+    "a", "an", "the", "me", "my", "code", "function", "script", "program",
+    "email", "letter", "essay", "poem", "story", "python", "paragraph",
+)
+
+
+def _bare_dictation(content: str) -> str:
+    """Short \"type hello\" style speech; long or screen-bound text is not."""
+
+    content = content.strip(" \"'.,;:")
+
+    lower = content.lower()
+
+    if not content or "?" in content:
+
+        return ""
+
+    if len(content.split()) > 6:
+
+        return ""
+
+    if lower.split(" ")[0] in DICTATION_STOP:
+
+        return ""
+
+    if re.match(r"^(this|it|that)\b", lower):
+
+        return ""
+
+    if any(word in lower for word in SCREENISH):
+
+        return ""
+
+    return content
+
+
 def _typed_text(message: str) -> str:
-    """What to type, from "write hello here" / "hello likho" / "type here hi"."""
+    """What to type, from "type hello" / "write hello here" / "hello likho"."""
 
     raw = (message or "").strip()
 
     if not raw:
 
         return ""
+
+    # "type karo hello", "likho hello" — the verb comes first.
+    verb_first = re.match(
+        r"^(?:jarvis[,\s]+)?(?:please\s+)?(?:type|write)\s+(?:karo|kar\s+do)\s+(.+)$",
+        raw,
+        re.IGNORECASE,
+    )
+
+    if verb_first:
+
+        return _bare_dictation(verb_first.group(1))
+
+    hinglish_first = re.match(
+        r"^(?:jarvis[,\s]+)?(?:please\s+)?(?:likho|likh\s+do)\s+(.+)$",
+        raw,
+        re.IGNORECASE,
+    )
+
+    if hinglish_first:
+
+        return _bare_dictation(hinglish_first.group(1))
 
     for pattern in TYPED_PATTERNS:
 
@@ -937,6 +1010,17 @@ def _typed_text(message: str) -> str:
             return ""
 
         return content
+
+    # Finally the plain "type hello" / "write hello" form.
+    bare = re.match(
+        r"^(?:jarvis[,\s]+)?(?:please\s+)?(?:type|write)\s+(.+)$",
+        raw,
+        re.IGNORECASE,
+    )
+
+    if bare:
+
+        return _bare_dictation(bare.group(1))
 
     return ""
 

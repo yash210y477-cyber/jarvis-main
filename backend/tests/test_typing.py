@@ -23,7 +23,24 @@ def test_hinglish_dictation():
     )
 
 
+def test_short_bare_commands_type_without_here():
+    for message, expected in (
+        ("type hello", "hello"),
+        ("write hello", "hello"),
+        ("type karo hello", "hello"),
+        ("likho hello", "hello"),
+        ("type OK", "OK"),
+    ):
+        intent = local_intents.detect(message)
+
+        assert intent["tool"] == "type_here", message
+        assert intent["arguments"]["text"] == expected, message
+
+
 def test_a_normal_question_is_not_dictation():
+    assert local_intents.detect("write a poem") is None
+    assert local_intents.detect("type a python function") is None
+    assert local_intents.detect("type this on the page")["tool"] == "screen_task"
     assert local_intents.detect("write a python function to reverse a list") is None
     assert local_intents.detect("type this on the page")["tool"] == "screen_task"
     assert local_intents.detect("open spotify")["tool"] == "open_app"
