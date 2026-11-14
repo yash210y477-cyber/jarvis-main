@@ -520,6 +520,34 @@ def send_notification(data: dict):
     )
 
 
+@app.post("/screen/watch/start")
+def screen_watch_start():
+    from tools import screen_watch
+
+    return screen_watch.start()
+
+
+@app.post("/screen/watch/stop")
+def screen_watch_stop():
+    from tools import screen_watch
+
+    return screen_watch.stop()
+
+
+@app.get("/screen/watch/status")
+def screen_watch_status():
+    from tools import screen_watch
+
+    return screen_watch.status()
+
+
+@app.get("/screen/watch/events")
+def screen_watch_events(since: int = 0):
+    from tools import screen_watch
+
+    return {"success": True, "events": screen_watch.events(since)}
+
+
 @app.get("/telegram/status")
 def telegram_status():
     from remote.telegram import BRIDGE

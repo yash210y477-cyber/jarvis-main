@@ -16,6 +16,7 @@ from tools import (
     reverse_engineer,
     screen_agent,
     screen_reader,
+    screen_watch,
     screenshot,
     shell,
     timer,
@@ -194,6 +195,33 @@ def build_registry():
         permission=CONFIRM,
         category="screen",
         examples=["search python on this page", "login karo"],
+    )
+
+    registry.register(
+        "screen_watch_start",
+        screen_watch.start,
+        description=(
+            "Keep watching the screen in the background: explain new pages and"
+            " anything the user points at with the cursor."
+        ),
+        category="screen",
+        examples=["watch my screen"],
+    )
+
+    registry.register(
+        "screen_watch_stop",
+        screen_watch.stop,
+        description="Stop watching the screen.",
+        category="screen",
+        examples=["stop watching my screen"],
+    )
+
+    registry.register(
+        "screen_watch_status",
+        screen_watch.status,
+        description="Report whether the screen watcher is running.",
+        category="screen",
+        examples=["is screen watch on"],
     )
 
     # -----------------------------

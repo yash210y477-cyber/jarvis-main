@@ -199,6 +199,19 @@ class Settings:
 
     ZAI_VISION_MAX_TOKENS = int(os.getenv("ZAI_VISION_MAX_TOKENS", "900"))
 
+    # Screen watching: explain pages and pointed-at things without a command.
+    SCREEN_WATCH_INTERVAL = int(os.getenv("SCREEN_WATCH_INTERVAL", "8"))
+
+    SCREEN_WATCH_COOLDOWN = int(os.getenv("SCREEN_WATCH_COOLDOWN", "25"))
+
+    SCREEN_WATCH_PAGE_DIFF = float(os.getenv("SCREEN_WATCH_PAGE_DIFF", "18"))
+
+    SCREEN_WATCH_DWELL = float(os.getenv("SCREEN_WATCH_DWELL", "1.6"))
+
+    SCREEN_WATCH_CROP = int(os.getenv("SCREEN_WATCH_CROP", "420"))
+
+    SCREEN_WATCH_SPEAK = os.getenv("SCREEN_WATCH_SPEAK", "1")
+
     # ==========================================================
     # SILICONFLOW (open models over one OpenAI-compatible API)
     # ==========================================================

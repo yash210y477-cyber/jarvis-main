@@ -32,6 +32,24 @@ MEDIA_WORDS = {
 
 # Reading the screen needs a vision model, so it is matched before the
 # "screenshot" rule, which only saves a file.
+WATCH_STOP_PHRASES = (
+    "stop watching", "stop the screen watch", "watching band", "screen watch band",
+    "screen watching band", "screen dekhna band", "screen dekhna rok",
+    "watch band karo", "screen watch stop",
+)
+
+WATCH_STATUS_PHRASES = (
+    "screen watch status", "is screen watch on", "watching on hai",
+    "kya screen watch chal", "screen watching status",
+)
+
+WATCH_START_PHRASES = (
+    "watch my screen", "watch the screen", "screen watch start",
+    "start screen watch", "screen watching start", "screen dekhte raho",
+    "screen dekhna shuru", "screen par nazar", "nazar rakho screen",
+    "keep watching my screen", "watch screen",
+)
+
 REVERSE_PHRASES = (
     "reverse engineer", "reverse-engineer", "reverse eng", "re engineer",
     "reverse engineering", "reverse karo", "reverse kro", "code nikalo",
@@ -263,6 +281,22 @@ def detect(message: str):
     ):
 
         return {"tool": "cancel_reminder", "arguments": {}}
+
+    # -----------------------------
+    # Screen watching (background vision)
+    # -----------------------------
+
+    if any(phrase in text for phrase in WATCH_STOP_PHRASES):
+
+        return {"tool": "screen_watch_stop", "arguments": {}}
+
+    if any(phrase in text for phrase in WATCH_STATUS_PHRASES):
+
+        return {"tool": "screen_watch_status", "arguments": {}}
+
+    if any(phrase in text for phrase in WATCH_START_PHRASES):
+
+        return {"tool": "screen_watch_start", "arguments": {}}
 
     # -----------------------------
     # Reverse engineering (REA)
@@ -866,6 +900,21 @@ def render(name: str, result: dict, hinglish: bool = False) -> str:
             return f"Image ban gayi: `{data.get('path')}`"
 
         return f"Here is your image: `{data.get('path')}`"
+
+    if name in ("screen_watch_start", "screen_watch_stop"):
+
+        return data.get("message") or data.get("error") or "Done."
+
+    if name == "screen_watch_status":
+
+        if not data.get("watching"):
+
+            return "Screen watch band hai. \"watch my screen\" bolo to shuru karu."
+
+        return (
+            f"Screen watch chal raha hai ({data.get('frames')} frames, "
+            f"{data.get('events')} events)."
+        )
 
     if name == "reverse_engineer":
 
