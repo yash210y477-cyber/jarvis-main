@@ -200,9 +200,9 @@ def ask_area(question: str = "") -> dict:
 
     area = crop(picked["path"], rect)
 
-    from providers.zai import ZaiProvider
+    from tools import vision
 
-    answer = ZaiProvider().see(
+    answer = vision.see(
         question
         or "Explain this part of the screen to the user in a few short points.",
         str(area),

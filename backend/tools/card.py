@@ -44,7 +44,7 @@ screen_h = root.winfo_screenheight()
 x = screen_w - width - 48 if side == "right" else 48
 y = max(80, screen_h // 4)
 
-root.geometry("{{w}}x60+{{x}}+{{y}}".format(w=width, x=x, y=y))
+root.geometry("{}x60+{}+{}".format(width, x, y))
 
 frame = tk.Frame(root, bg="#04070d", highlightbackground="#00e5ff",
                  highlightthickness=1)
@@ -66,7 +66,7 @@ hint.pack(fill="x", padx=16, pady=(4, 10))
 
 root.update_idletasks()
 height = min(max(120, frame.winfo_reqheight()), int(screen_h * 0.6))
-root.geometry("{{w}}x{{h}}+{{x}}+{{y}}".format(w=width, h=height, x=x, y=y))
+root.geometry("{}x{}+{}+{}".format(width, height, x, y))
 
 def close(event=None):
     root.destroy()

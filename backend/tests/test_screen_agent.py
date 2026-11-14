@@ -42,7 +42,11 @@ def patch_environment(monkeypatch, replies, tmp_path):
     monkeypatch.setattr(
         screen_agent.screen_reader, "shrink", lambda path: Path(path)
     )
-    monkeypatch.setattr(screen_agent.screen_reader, "ZaiProvider", ScriptedVision)
+    monkeypatch.setattr(
+        screen_agent.screen_reader.vision,
+        "see",
+        lambda question, image_path: ScriptedVision().see(question, image_path),
+    )
     monkeypatch.setattr(screen_agent, "show_arrow", lambda *a, **k: None)
     monkeypatch.setattr(screen_agent.time, "sleep", lambda *a, **k: None)
 

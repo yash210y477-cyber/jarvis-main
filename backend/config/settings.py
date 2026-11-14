@@ -160,6 +160,17 @@ class Settings:
     # A small cap keeps a low-balance key usable.
     OPENROUTER_MAX_TOKENS = int(os.getenv("OPENROUTER_MAX_TOKENS", "512"))
 
+    # Free vision models used when z.ai has no balance for its vision models.
+    OPENROUTER_VISION_MODELS = tuple(
+        name.strip()
+        for name in os.getenv(
+            "OPENROUTER_VISION_MODELS",
+            "inclusionai/ling-3.2-flash:free,nvidia/nemotron-3.5-super-vl:free,"
+            "particle-ai/particle-1:free",
+        ).split(",")
+        if name.strip()
+    )
+
     # Research answers check the web through OpenRouter's :online models.
     RESEARCH_ONLINE = os.getenv("RESEARCH_ONLINE", "1")
 

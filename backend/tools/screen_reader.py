@@ -10,8 +10,7 @@ import logging
 from pathlib import Path
 
 from config.settings import settings
-from providers.zai import ZaiProvider
-from tools import screenshot
+from tools import screenshot, vision
 
 logger = logging.getLogger(__name__)
 
@@ -81,9 +80,7 @@ def read_screen(question: str = "", label: str = "vision") -> dict:
 
     image = shrink(shot["path"])
 
-    provider = ZaiProvider()
-
-    answer = provider.see(question or DEFAULT_QUESTION, str(image))
+    answer = vision.see(question or DEFAULT_QUESTION, str(image))
 
     if not answer.get("success"):
 
@@ -94,8 +91,9 @@ def read_screen(question: str = "", label: str = "vision") -> dict:
         if any(word in text for word in ("insufficient", "balance", "recharge", "402", "429")):
 
             error = (
-                "The z.ai account has no balance for the vision model. "
-                "Recharge z.ai and ask again."
+                "No vision model could answer: z.ai wants a recharge and the "
+                "free fallback failed as well. Check z.ai balance or "
+                "OPENROUTER_VISION_MODELS."
             )
 
         return {

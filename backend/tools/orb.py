@@ -67,8 +67,11 @@ def draw():
 
     point = Point()
     user32.GetCursorPos(ctypes.byref(point))
-    root.geometry("{{0}}x{{1}}+{{2}}+{{3}}".format(size, size, point.x + 18,
-                                                    point.y + 16))
+    screen_w = root.winfo_screenwidth()
+    screen_h = root.winfo_screenheight()
+    pos_x = min(max(0, point.x + 18), screen_w - size)
+    pos_y = min(max(0, point.y + 16), screen_h - size)
+    root.geometry("{{0}}x{{1}}+{{2}}+{{3}}".format(size, size, pos_x, pos_y))
 
     canvas.delete("all")
     canvas.create_oval(6, 6, 34, 34, outline="", fill="#0a1420")

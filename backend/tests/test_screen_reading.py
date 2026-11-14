@@ -61,12 +61,12 @@ def test_read_screen_returns_the_answer(monkeypatch, tmp_path):
 
     seen = {}
 
-    def fake_see(provider_self, question, image_path):
+    def fake_see(question, image_path):
         seen["question"] = question
         seen["image"] = image_path
         return {"success": True, "model": "glm-5v-turbo", "answer": "A browser page."}
 
-    monkeypatch.setattr(screen_reader.ZaiProvider, "see", fake_see)
+    monkeypatch.setattr(screen_reader.vision, "see", fake_see)
 
     result = screen_reader.read_screen("yeh page kya hai")
 
@@ -186,9 +186,9 @@ def test_empty_wallet_says_so_plainly(monkeypatch, tmp_path):
     )
 
     monkeypatch.setattr(
-        screen_reader.ZaiProvider,
+        screen_reader.vision,
         "see",
-        lambda provider_self, question, image_path: {
+        lambda question, image_path: {
             "success": False,
             "error": "Error code: 429 - {'error': {'code': '1113', 'message': 'Insufficient balance'}}",
         },
@@ -197,4 +197,4 @@ def test_empty_wallet_says_so_plainly(monkeypatch, tmp_path):
     result = screen_reader.read_screen("summarize this page")
 
     assert result["success"] is False
-    assert "Recharge z.ai" in result["error"]
+    assert "recharge" in result["error"].lower()

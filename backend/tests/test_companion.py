@@ -173,14 +173,11 @@ def test_guided_task_points_and_waits_instead_of_clicking(monkeypatch):
         {"thought": "Format menu", "action": "click", "x": 120, "y": 240}
     )
 
-    class FakeProvider:
-        def health(self):
-            return True
-
-        def see(self, prompt, image):
-            return {"success": True, "answer": plan, "model": "fake"}
-
-    monkeypatch.setattr(screen_agent.screen_reader, "ZaiProvider", FakeProvider)
+    monkeypatch.setattr(
+        screen_agent.screen_reader.vision,
+        "see",
+        lambda prompt, image: {"success": True, "answer": plan, "model": "fake"},
+    )
     monkeypatch.setattr(
         screen_agent.screen_reader.screenshot,
         "capture_screen",

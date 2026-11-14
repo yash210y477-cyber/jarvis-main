@@ -52,7 +52,16 @@ Rules:
 - Use "answer" when the goal was only to explain or read the screen.
 - Use "done" when the goal is finished.
 - Never invent coordinates outside the screenshot.
+{guided_rule}
 """
+
+GUIDED_RULE = (
+    "- This is a walkthrough: the user will do the clicking, so always use"
+    " \"click\" with the exact coordinates of the control and say what to click."
+    " Do not use \"answer\" unless there is nothing clickable on screen."
+)
+
+AUTO_RULE = ""
 
 
 # ------------------------------------------------------------------ windows
@@ -382,12 +391,6 @@ def run_task(
     click before moving to the next step, which is "show me how to do it".
     """
 
-    provider = screen_reader.ZaiProvider()
-
-    if not provider.health():
-
-        return {"success": False, "error": "ZAI_API_KEY is not set."}
-
     history = []
     steps = []
     answer = ""
@@ -407,9 +410,10 @@ def run_task(
             step=index,
             max_steps=max_steps,
             history="\n".join(history) or "(none)",
+            guided_rule=GUIDED_RULE if guided else AUTO_RULE,
         )
 
-        reply = provider.see(prompt, str(image))
+        reply = screen_reader.vision.see(prompt, str(image))
 
         if not reply.get("success"):
 
