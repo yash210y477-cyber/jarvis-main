@@ -26,6 +26,11 @@ MAX_STEPS = 4
 
 ARROW_MS = 1100
 
+# Guided mode rings the target and waits for the user's own click.
+GUIDED_TIMEOUT = 25
+GUIDED_RADIUS = 80
+GUIDED_MS = 3000
+
 PROMPT = """You are JARVIS operating a Windows desktop for the user.
 
 User goal: {goal}
@@ -78,6 +83,64 @@ def click(x: int, y: int) -> dict:
     user32.mouse_event(0x0004, 0, 0, 0, 0)
 
     return {"action": "click", "x": int(x), "y": int(y)}
+
+
+class _Point(ctypes.Structure):
+
+    _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+
+
+def _cursor_pos():
+
+    point = _Point()
+
+    try:
+
+        ctypes.windll.user32.GetCursorPos(ctypes.byref(point))
+
+    except Exception:
+
+        return (0, 0)
+
+    return (point.x, point.y)
+
+
+def _button_down() -> bool:
+
+    try:
+
+        return bool(ctypes.windll.user32.GetAsyncKeyState(0x01) & 0x8000)
+
+    except Exception:
+
+        return False
+
+
+def wait_for_click(x: int, y: int, timeout: float = GUIDED_TIMEOUT, radius: int = GUIDED_RADIUS) -> dict:
+    """Wait until the user clicks near (x, y) themselves."""
+
+    started = time.time()
+
+    # A press already happening must not count as the answer.
+    while _button_down() and time.time() - started < 2:
+
+        time.sleep(0.05)
+
+    while time.time() - started < timeout:
+
+        if _button_down():
+
+            cx, cy = _cursor_pos()
+
+            if (cx - x) ** 2 + (cy - y) ** 2 <= radius ** 2:
+
+                time.sleep(0.15)
+
+                return {"clicked": True, "x": cx, "y": cy}
+
+        time.sleep(0.05)
+
+    return {"clicked": False, "timeout": True}
 
 
 def scroll(amount: int) -> dict:
@@ -307,8 +370,17 @@ def _act(step: dict, dry_run: bool) -> dict:
     return {"action": action or "none", "dry_run": dry_run}
 
 
-def run_task(goal: str, max_steps: int = MAX_STEPS, dry_run: bool = False) -> dict:
-    """Look at the screen, act, look again — until the goal is done."""
+def run_task(
+    goal: str,
+    max_steps: int = MAX_STEPS,
+    dry_run: bool = False,
+    guided: bool = False,
+) -> dict:
+    """Look at the screen, act, look again — until the goal is done.
+
+    guided=True only points: it rings the target and waits for the user's own
+    click before moving to the next step, which is "show me how to do it".
+    """
 
     provider = screen_reader.ZaiProvider()
 
@@ -395,11 +467,86 @@ def run_task(goal: str, max_steps: int = MAX_STEPS, dry_run: bool = False) -> di
                 "path": shot["path"],
             }
 
+        # The screenshot can start left of the main monitor, so the plan's
+        # pixels need the desktop origin added before any real click.
+        left = int(shot.get("left") or 0)
+        top = int(shot.get("top") or 0)
+
         if action == "click" and plan.get("x") is not None:
 
-            show_arrow(int(plan.get("x") or 0), int(plan.get("y") or 0), thought)
+            x = int(plan.get("x") or 0)
+            y = int(plan.get("y") or 0)
+
+            plan["x"], plan["y"] = x + left, y + top
+
+            if guided:
+
+                waited = {"clicked": False}
+
+                deadline = time.time() + GUIDED_TIMEOUT
+
+                while not waited.get("clicked") and time.time() < deadline:
+
+                    show_arrow(x + left, y + top, thought, ms=GUIDED_MS)
+
+                    waited = wait_for_click(
+                        x + left, y + top, timeout=min(GUIDED_MS / 1000, max(1, deadline - time.time()))
+                    )
+
+                done = {
+                    "action": "guide",
+                    "x": x + left,
+                    "y": y + top,
+                    "clicked": bool(waited.get("clicked")),
+                }
+
+                steps.append(
+                    {
+                        "step": index,
+                        "thought": thought,
+                        "action": "click",
+                        "detail": done,
+                        "done": False,
+                    }
+                )
+
+                history.append(
+                    f"{index}. {thought} (pointed; user "
+                    f"{'clicked it' if waited.get('clicked') else 'did not click in time'})"
+                )
+
+                if not waited.get("clicked"):
+
+                    return {
+                        "success": True,
+                        "goal": goal,
+                        "answer": "User ne click nahi kiya, wahin ruk gaya.",
+                        "steps": steps,
+                        "finished": False,
+                        "guided": True,
+                        "path": shot["path"],
+                    }
+
+                continue
+
+            show_arrow(x + left, y + top, thought)
 
             time.sleep(min(0.9, ARROW_MS / 1000))
+
+        elif guided and action in ("type", "press", "scroll"):
+
+            # Nothing to ring for these; the walkthrough stays on clicks.
+            steps.append(
+                {
+                    "step": index,
+                    "thought": thought,
+                    "action": action,
+                    "detail": {"skipped": True, "guided": True},
+                    "done": False,
+                }
+            )
+
+            continue
 
         done = _act(plan, dry_run)
 
@@ -423,6 +570,7 @@ def run_task(goal: str, max_steps: int = MAX_STEPS, dry_run: bool = False) -> di
         "answer": "Itni steps me kaam poora nahi hua. Bolo to aage badhau.",
         "steps": steps,
         "finished": False,
+        "guided": bool(guided),
     }
 
 

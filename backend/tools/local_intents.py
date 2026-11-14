@@ -67,6 +67,19 @@ SCREEN_AGENT_PHRASES = (
     "yeh page pe karo", "is page pe karo", "kar ke dikhao",
 )
 
+AREA_PHRASES = (
+    "area samjhao", "area samjha", "is area", "yeh area", "ye area",
+    "this area", "select area", "screen ka hissa", "screen ka part",
+    "part samjhao", "hissa samjhao", "area explain", "explain this part",
+    "is part ko", "yeh part", "drag area", "area select karo",
+)
+
+GUIDED_PHRASES = (
+    "dikhao kaise", "dikha do kaise", "sikhao kaise", "show me how",
+    "kaise karte hain", "kaise karna hai", "kaise karu", "kaise karun",
+    "mujhe dikhao", "steps dikhao", "walkthrough",
+)
+
 SCREEN_READ_PHRASES = (
     "read my screen", "read the screen", "read screen", "look at my screen",
     "look at the screen", "what is on my screen", "whats on my screen",
@@ -316,6 +329,17 @@ def detect(message: str):
     # -----------------------------
     # Screen agent (acts on the screen)
     # -----------------------------
+
+    if any(phrase in text for phrase in AREA_PHRASES):
+
+        return {"tool": "ask_area", "arguments": {"question": message.strip()}}
+
+    if any(phrase in text for phrase in GUIDED_PHRASES):
+
+        return {
+            "tool": "screen_task",
+            "arguments": {"goal": message.strip(), "guided": True},
+        }
 
     if any(phrase in text for phrase in SCREEN_AGENT_PHRASES):
 
@@ -984,6 +1008,25 @@ def render(name: str, result: dict, hinglish: bool = False) -> str:
             return f"Image ban gayi: `{data.get('path')}`"
 
         return f"Here is your image: `{data.get('path')}`"
+
+    if name == "ask_area":
+
+        return data.get("answer") or "Area explained."
+
+    if name in ("companion_start", "companion_stop", "companion_status"):
+
+        if name == "companion_status":
+
+            return (
+                f"Push-to-talk: {'on' if data.get('running') else 'off'}, "
+                f"orb: {'on' if data.get('orb') else 'off'}."
+            )
+
+        return data.get("message") or data.get("error") or "Done."
+
+    if name in ("orb_start", "orb_stop", "show_card"):
+
+        return data.get("message") or "Done."
 
     if name == "type_here":
 

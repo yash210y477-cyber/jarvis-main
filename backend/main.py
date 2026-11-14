@@ -436,6 +436,21 @@ def start_services():
 
         pass
 
+    # Push-to-talk + orb: hold Ctrl+Alt anywhere and speak.
+    if settings.COMPANION_AUTOSTART:
+
+        try:
+
+            from api.voice import voice as voice_engine
+            from tools import companion
+
+            companion.configure(handler=brain.chat, speaker=voice_engine)
+            companion.start()
+
+        except Exception:
+
+            pass
+
 
 @app.on_event("shutdown")
 def stop_services():
@@ -454,6 +469,91 @@ def stop_services():
     except Exception:
 
         pass
+
+    try:
+
+        from tools import companion
+
+        companion.stop()
+
+    except Exception:
+
+        pass
+
+
+@app.post("/companion/start")
+def companion_start():
+
+    from tools import companion
+
+    companion.configure(handler=brain.chat, speaker=_voice_engine())
+
+    return companion.start()
+
+
+@app.post("/companion/stop")
+def companion_stop():
+
+    from tools import companion
+
+    return companion.stop()
+
+
+@app.get("/companion/status")
+def companion_status():
+
+    from tools import companion
+
+    return companion.status()
+
+
+@app.get("/companion/events")
+def companion_events():
+
+    from tools import companion
+
+    return companion.events()
+
+
+@app.post("/screen/area")
+def screen_area_ask(data: dict = None):
+
+    from tools import screen_area
+
+    question = ((data or {}).get("question") or "").strip()
+
+    return screen_area.ask_area(question)
+
+
+@app.post("/card/show")
+def card_show(data: dict):
+
+    from tools import card
+
+    text = (data.get("text") or "").strip()
+
+    if not text:
+
+        raise HTTPException(status_code=400, detail="text is required")
+
+    return card.show_card(
+        title=data.get("title") or "JARVIS",
+        text=text,
+        seconds=int(data.get("seconds") or 25),
+    )
+
+
+def _voice_engine():
+
+    try:
+
+        from api.voice import voice as engine
+
+        return engine
+
+    except Exception:
+
+        return None
 
 
 @app.get("/reminders")

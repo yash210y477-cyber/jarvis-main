@@ -7,14 +7,18 @@ from tools import (
     apps,
     browser,
     browser_control,
+    card,
     clipboard,
     clock,
+    companion,
     desktop,
     files,
     media,
     image_gen,
+    orb,
     reverse_engineer,
     screen_agent,
+    screen_area,
     screen_reader,
     screen_watch,
     screenshot,
@@ -190,12 +194,103 @@ def build_registry():
                     "type": "string",
                     "description": "What to do on screen, in the user's words.",
                 },
+                "guided": {
+                    "type": "boolean",
+                    "description": (
+                        "True to only point at each step and wait for the user's"
+                        " own click, instead of clicking for them."
+                    ),
+                },
             },
             ["goal"],
         ),
         permission=CONFIRM,
         category="screen",
-        examples=["search python on this page", "login karo"],
+        examples=["search python on this page", "dikhao kaise export karte hain"],
+    )
+
+    registry.register(
+        "ask_area",
+        screen_area.ask_area,
+        description=(
+            "Ask about one part of the screen: the user drags a box, then the"
+            " vision model explains just that area."
+        ),
+        schema=_schema(
+            {
+                "question": {
+                    "type": "string",
+                    "description": "What to know about the selected area.",
+                },
+            },
+        ),
+        category="screen",
+        examples=["yeh area samjhao", "explain this part"],
+    )
+
+    registry.register(
+        "show_card",
+        card.show_card,
+        description=(
+            "Show a small always-on-top answer card beside what the user is"
+            " reading, with a title and short text."
+        ),
+        schema=_schema(
+            {
+                "title": {"type": "string", "description": "Card heading."},
+                "text": {"type": "string", "description": "Card body."},
+                "seconds": {
+                    "type": "integer",
+                    "description": "How long the card stays, in seconds.",
+                },
+            },
+            ["text"],
+        ),
+        category="screen",
+        examples=["card me dikhao"],
+    )
+
+    registry.register(
+        "companion_start",
+        companion.start,
+        description=(
+            "Turn on push-to-talk: hold Ctrl+Alt in any app and speak, Ctrl+Shift+A"
+            " asks about a dragged screen area. Shows the orb by the cursor."
+        ),
+        category="screen",
+        examples=["push to talk on karo"],
+    )
+
+    registry.register(
+        "companion_stop",
+        companion.stop,
+        description="Turn push-to-talk and the orb off.",
+        category="screen",
+        examples=["push to talk band karo"],
+    )
+
+    registry.register(
+        "companion_status",
+        companion.status,
+        description="Report whether push-to-talk and the orb are running.",
+        category="screen",
+        examples=["push to talk status"],
+    )
+
+    registry.register(
+        "orb_start",
+        orb.start,
+        description="Show the small status orb that follows the cursor.",
+        category="screen",
+        examples=["orb dikhao"],
+    )
+
+    registry.register(
+        "orb_stop",
+        orb.stop,
+        description="Hide the status orb.",
+        category="screen",
+        examples=["orb hatao"],
     )
 
     registry.register(
