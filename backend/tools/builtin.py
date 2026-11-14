@@ -13,6 +13,7 @@ from tools import (
     files,
     media,
     image_gen,
+    screen_agent,
     screen_reader,
     screenshot,
     shell,
@@ -171,6 +172,27 @@ def build_registry():
         ),
         category="screen",
         examples=["summarize this page", "screen dekho kya hai"],
+    )
+
+    registry.register(
+        "screen_task",
+        screen_agent.run_task,
+        description=(
+            "Take control of the screen for one small goal: look, point at the"
+            " target, click, type and check the result, narrating each step."
+        ),
+        schema=_schema(
+            {
+                "goal": {
+                    "type": "string",
+                    "description": "What to do on screen, in the user's words.",
+                },
+            },
+            ["goal"],
+        ),
+        permission=CONFIRM,
+        category="screen",
+        examples=["search python on this page", "login karo"],
     )
 
     # -----------------------------

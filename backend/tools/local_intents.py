@@ -32,6 +32,16 @@ MEDIA_WORDS = {
 
 # Reading the screen needs a vision model, so it is matched before the
 # "screenshot" rule, which only saves a file.
+SCREEN_AGENT_PHRASES = (
+    "screen agent", "use the screen", "control my screen", "screen pe karo",
+    "screen par karo", "screen pe click", "screen par click", "click on ",
+    "click the ", "click karo", "button dabao", "button pe click",
+    "type this on", "yeh type karo", "type karo", "fill the form",
+    "form bharo", "form bhar do", "login karo", "log in karo",
+    "sign in karo", "search karo screen", "screen pe search",
+    "yeh page pe karo", "is page pe karo", "kar ke dikhao",
+)
+
 SCREEN_READ_PHRASES = (
     "read my screen", "read the screen", "read screen", "look at my screen",
     "look at the screen", "what is on my screen", "whats on my screen",
@@ -246,6 +256,17 @@ def detect(message: str):
     ):
 
         return {"tool": "cancel_reminder", "arguments": {}}
+
+    # -----------------------------
+    # Screen agent (acts on the screen)
+    # -----------------------------
+
+    if any(phrase in text for phrase in SCREEN_AGENT_PHRASES):
+
+        return {
+            "tool": "screen_task",
+            "arguments": {"goal": message.strip()},
+        }
 
     # -----------------------------
     # Screen reading (vision model)
@@ -823,6 +844,12 @@ def render(name: str, result: dict, hinglish: bool = False) -> str:
             return f"Image ban gayi: `{data.get('path')}`"
 
         return f"Here is your image: `{data.get('path')}`"
+
+    if name == "screen_task":
+
+        from tools import screen_agent
+
+        return screen_agent.narrate(data) or data.get("answer") or "Done."
 
     if name == "read_screen":
 
