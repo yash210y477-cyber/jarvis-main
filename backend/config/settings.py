@@ -178,7 +178,14 @@ class Settings:
     # GROQ
     # ==========================================================
 
-    GROQ_MODEL = "llama-3.3-70b-versatile"
+    GROQ_MODEL = os.getenv("GROQ_MODEL", "minimaxai/minimax-m2.7")
+
+    # Groq retires models; this one answers when the first choice is gone.
+    GROQ_FALLBACK_MODEL = os.getenv(
+        "GROQ_FALLBACK_MODEL", "llama-3.3-70b-versatile"
+    )
+
+    GROQ_MAX_TOKENS = int(os.getenv("GROQ_MAX_TOKENS", "2048"))
 
     # ==========================================================
     # CEREBRAS

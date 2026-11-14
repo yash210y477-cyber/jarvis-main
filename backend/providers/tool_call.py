@@ -81,7 +81,12 @@ class OpenAIToolMixin:
         try:
 
             response = self.client.chat.completions.create(
-                model=self.model,
+                # Providers that know their reachable models can answer here.
+                model=(
+                    self.resolve_model()
+                    if hasattr(self, "resolve_model")
+                    else self.model
+                ),
                 messages=messages,
                 tools=tools,
                 tool_choice="auto",
