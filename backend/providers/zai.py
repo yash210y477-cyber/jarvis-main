@@ -1,7 +1,9 @@
 """Z.ai (Zhipu GLM) through its OpenAI-compatible endpoint."""
 
+import base64
 import logging
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -113,6 +115,99 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
                 logger.info("Z.ai model %s did not answer: %s", model, error)
 
         raise last_error
+
+    # Vision models, best first: these read a screenshot.
+    VISION_MODELS = (
+        "glm-5v-turbo",
+        "glm-4.6v",
+        "glm-4.5v",
+    )
+
+    def _image_url(self, image_path: str) -> str:
+        """A data URL the OpenAI-style vision API accepts."""
+
+        path = Path(image_path)
+
+        data = base64.b64encode(path.read_bytes()).decode("ascii")
+
+        suffix = path.suffix.lower().lstrip(".") or "png"
+
+        mime = "jpeg" if suffix in ("jpg", "jpeg") else suffix
+
+        return f"data:image/{mime};base64,{data}"
+
+    def see(self, question: str, image_path: str) -> dict:
+        """Ask the vision model about a screenshot."""
+
+        if not self.health():
+
+            return {
+                "success": False,
+                "provider": self.name(),
+                "error": "ZAI_API_KEY is not set.",
+            }
+
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": question},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": self._image_url(image_path)},
+                    },
+                ],
+            }
+        ]
+
+        first = (settings.ZAI_VISION_MODEL or self.VISION_MODELS[0]).strip()
+
+        candidates = [first] + [
+            name for name in self.VISION_MODELS if name != first
+        ]
+
+        last_error = None
+
+        for model in candidates:
+
+            try:
+
+                reply = self.client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    max_tokens=int(settings.ZAI_VISION_MAX_TOKENS),
+                    temperature=0.3,
+                )
+
+                content = reply.choices[0].message.content
+
+                return {
+                    "success": True,
+                    "provider": self.name(),
+                    "model": getattr(reply, "model", model),
+                    "answer": content if isinstance(content, str) else str(content),
+                }
+
+            except Exception as error:
+
+                last_error = error
+
+                text = str(error).lower()
+
+                if any(
+                    word in text
+                    for word in ("401", "unauthorized", "invalid api key", "authentication")
+                ):
+
+                    break
+
+                logger.info("Z.ai vision model %s did not answer: %s", model, error)
+
+        return {
+            "success": False,
+            "provider": self.name(),
+            "error": str(last_error),
+        }
 
     def chat(self, prompt: str, model: str = None) -> dict:
 

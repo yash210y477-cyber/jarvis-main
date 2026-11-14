@@ -194,6 +194,11 @@ class Settings:
 
     ZAI_MAX_TOKENS = int(os.getenv("ZAI_MAX_TOKENS", "2048"))
 
+    # Vision: reads screenshots, including open web pages.
+    ZAI_VISION_MODEL = os.getenv("ZAI_VISION_MODEL", "glm-5v-turbo")
+
+    ZAI_VISION_MAX_TOKENS = int(os.getenv("ZAI_VISION_MAX_TOKENS", "900"))
+
     # ==========================================================
     # SILICONFLOW (open models over one OpenAI-compatible API)
     # ==========================================================

@@ -13,6 +13,7 @@ from tools import (
     files,
     media,
     image_gen,
+    screen_reader,
     screenshot,
     shell,
     timer,
@@ -151,6 +152,25 @@ def build_registry():
         ),
         category="screen",
         examples=["take a screenshot"],
+    )
+
+    registry.register(
+        "read_screen",
+        screen_reader.read_screen,
+        description=(
+            "Look at the user screen and explain it. Use this when the user asks"
+            " to summarise or explain an open page, article or window."
+        ),
+        schema=_schema(
+            {
+                "question": {
+                    "type": "string",
+                    "description": "What the user wants to know about the screen.",
+                },
+            },
+        ),
+        category="screen",
+        examples=["summarize this page", "screen dekho kya hai"],
     )
 
     # -----------------------------

@@ -30,6 +30,23 @@ MEDIA_WORDS = {
     "stop playback": "stop",
 }
 
+# Reading the screen needs a vision model, so it is matched before the
+# "screenshot" rule, which only saves a file.
+SCREEN_READ_PHRASES = (
+    "read my screen", "read the screen", "read screen", "look at my screen",
+    "look at the screen", "what is on my screen", "whats on my screen",
+    "screen dekho", "screen dekh", "screen padho", "screen padh",
+    "screen samjhao", "screen samjha", "screen read karo", "screen par kya",
+    "summarize this page", "summarise this page", "summarize the page",
+    "summarise the page", "summarize page", "page summarize", "page summary",
+    "summarize this website", "summarise this website", "summarize this article",
+    "this page kya", "yeh page", "ye page", "is page", "iss page", "es page",
+    "page ko samjhao", "page padho", "page padh", "page samjhao",
+    "explain this page", "what is this page", "what is this website",
+    "read this page", "read this website", "website samjhao", "page ka summary",
+    "summary do", "summary batao", "screen se batao",
+)
+
 SCREEN_WORDS = (
     "screenshot", "screen shot", "screengrab", "capture screen",
     "screen capture", "screenshot lo",
@@ -229,6 +246,17 @@ def detect(message: str):
     ):
 
         return {"tool": "cancel_reminder", "arguments": {}}
+
+    # -----------------------------
+    # Screen reading (vision model)
+    # -----------------------------
+
+    if any(phrase in text for phrase in SCREEN_READ_PHRASES):
+
+        return {
+            "tool": "read_screen",
+            "arguments": {"question": message.strip()},
+        }
 
     # -----------------------------
     # Screenshot
@@ -795,6 +823,12 @@ def render(name: str, result: dict, hinglish: bool = False) -> str:
             return f"Image ban gayi: `{data.get('path')}`"
 
         return f"Here is your image: `{data.get('path')}`"
+
+    if name == "read_screen":
+
+        answer = (data.get("answer") or "").strip()
+
+        return answer or "Screen dekha par kuch samajh nahi aaya."
 
     if name == "screenshot":
 
