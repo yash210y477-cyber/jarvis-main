@@ -8,7 +8,6 @@ from providers.groq import GroqProvider
 from providers.cerebras import CerebrasProvider
 from providers.deepseek import DeepSeekProvider
 from providers.zai import ZaiProvider
-from providers.siliconflow import SiliconFlowProvider
 from providers.ollama import OllamaProvider
 
 
@@ -63,15 +62,6 @@ class AIManager:
                 ZaiProvider
 
             ),
-
-            "siliconflow": (
-
-                settings.ENABLE_SILICONFLOW,
-
-                SiliconFlowProvider
-
-            ),
-
 
             "ollama": (
 
