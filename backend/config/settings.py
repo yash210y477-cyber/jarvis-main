@@ -164,6 +164,14 @@ class Settings:
     OPENROUTER_MODEL = "openrouter/auto"
 
     # ==========================================================
+    # IMAGE GENERATION (OpenRouter images endpoint)
+    # ==========================================================
+
+    IMAGE_MODEL = os.getenv(
+        "IMAGE_MODEL", "recraft/recraft-v4.1-flash-v2:free"
+    )
+
+    # ==========================================================
     # GROQ
     # ==========================================================
 
@@ -183,11 +191,6 @@ class Settings:
 
     DEEPSEEK_MODEL = "deepseek-chat"
 
-    # ==========================================================
-    # OPENAI
-    # ==========================================================
-
-    OPENAI_MODEL = "gpt-4.1-mini"
 
     # ==========================================================
     # LANGUAGE + SEMANTIC MEMORY
@@ -244,8 +247,6 @@ class Settings:
 
     ENABLE_DEEPSEEK = True
 
-    ENABLE_OPENAI = True
-
     # ==========================================================
     # PROVIDER PRIORITY
     # ==========================================================
@@ -261,8 +262,6 @@ class Settings:
         "cerebras",
 
         "deepseek",
-
-        "openai",
 
         # Local fallback: answers when every cloud key above fails.
         "ollama"

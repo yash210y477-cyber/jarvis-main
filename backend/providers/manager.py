@@ -7,7 +7,6 @@ from providers.openrouter import OpenRouterProvider
 from providers.groq import GroqProvider
 from providers.cerebras import CerebrasProvider
 from providers.deepseek import DeepSeekProvider
-from providers.openai import OpenAIProvider
 from providers.ollama import OllamaProvider
 
 
@@ -62,13 +61,6 @@ class AIManager:
 
             ),
 
-            "openai": (
-
-                settings.ENABLE_OPENAI,
-
-                OpenAIProvider
-
-            ),
 
             "ollama": (
 

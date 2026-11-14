@@ -10,12 +10,13 @@ from pathlib import Path
 
 import requests
 
+from config.settings import settings
 from memory.storage import data_dir
 
 log = logging.getLogger(__name__)
 
 URL = "https://openrouter.ai/api/v1/images"
-MODEL = "recraft/recraft-v4.1-flash-v2:free"
+MODEL = settings.IMAGE_MODEL
 
 
 def images_dir() -> Path:
