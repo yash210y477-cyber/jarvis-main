@@ -150,12 +150,6 @@ class Settings:
 ]
 
     # ==========================================================
-    # GEMINI
-    # ==========================================================
-
-    GEMINI_MODEL = "gemini-2.5-flash"
-
-    # ==========================================================
     # OPENROUTER
     # ==========================================================
 
@@ -260,8 +254,6 @@ class Settings:
     # ENABLE / DISABLE PROVIDERS
     # ==========================================================
 
-    ENABLE_GEMINI = True
-
     ENABLE_OPENROUTER = True
 
     ENABLE_GROQ = True
@@ -278,17 +270,15 @@ class Settings:
 
     PROVIDER_PRIORITY = [
 
-        "gemini",
+        "zai",
 
         "openrouter",
 
         "groq",
 
-        "cerebras",
-
         "deepseek",
 
-        "zai",
+        "cerebras",
 
         # Local fallback: answers when every cloud key above fails.
         "ollama"

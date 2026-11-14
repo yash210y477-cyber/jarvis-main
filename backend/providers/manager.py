@@ -3,7 +3,6 @@ import logging
 
 from config.settings import settings
 
-from providers.gemini import GeminiProvider
 from providers.openrouter import OpenRouterProvider
 from providers.groq import GroqProvider
 from providers.cerebras import CerebrasProvider
@@ -23,13 +22,6 @@ class AIManager:
 
         provider_map = {
 
-            "gemini": (
-
-                settings.ENABLE_GEMINI,
-
-                GeminiProvider
-
-            ),
 
             "openrouter": (
 

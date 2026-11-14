@@ -131,7 +131,7 @@ def test_ollama_is_the_last_provider_and_answers(monkeypatch):
     from providers.manager import AIManager
 
     for flag in (
-        "ENABLE_GEMINI", "ENABLE_OPENROUTER", "ENABLE_GROQ",
+        "ENABLE_OPENROUTER", "ENABLE_GROQ",
         "ENABLE_CEREBRAS", "ENABLE_DEEPSEEK", "ENABLE_ZAI",
     ):
         monkeypatch.setattr(ollama_module.settings, flag, False, raising=False)

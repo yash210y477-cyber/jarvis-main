@@ -40,7 +40,7 @@ def build_manager():
     manager = AIManager.__new__(AIManager)
 
     manager.providers = [
-        FakeProvider("gemini", "gemini answer"),
+        FakeProvider("cerebras", "cerebras answer"),
         FakeProvider("groq", "groq answer"),
         FakeProvider("openrouter", "openrouter answer"),
         FakeProvider("ollama", "local answer"),
@@ -72,6 +72,32 @@ def test_research_prefers_openrouter_and_asks_online():
 def test_a_chosen_provider_still_wins():
     manager = build_manager()
 
-    result = manager.chat("write a python function", provider="gemini", task="coding")
+    result = manager.chat("write a python function", provider="cerebras", task="coding")
 
-    assert result["provider"] == "gemini"
+    assert result["provider"] == "cerebras"
+
+
+def test_priority_list_runs_from_cloud_to_local():
+    from config.settings import settings
+
+    assert settings.PROVIDER_PRIORITY == [
+        "zai",
+        "openrouter",
+        "groq",
+        "deepseek",
+        "cerebras",
+        "ollama",
+    ]
+
+
+def test_manager_keeps_the_priority_order():
+    from providers.manager import AIManager
+
+    assert [p.name() for p in AIManager().providers] == [
+        "zai",
+        "openrouter",
+        "groq",
+        "deepseek",
+        "cerebras",
+        "ollama",
+    ]
