@@ -325,6 +325,16 @@ def detect(message: str):
         }
 
     # -----------------------------
+    # Typing (dictation into the focused window)
+    # -----------------------------
+
+    typed = _typed_text(message)
+
+    if typed:
+
+        return {"tool": "type_here", "arguments": {"text": typed}}
+
+    # -----------------------------
     # Screen reading (vision model)
     # -----------------------------
 
@@ -870,6 +880,43 @@ def _tab_index(word: str) -> int:
     return TAB_WORDS.get(word, 1)
 
 
+TYPED_PATTERNS = (
+    r"^(?:jarvis[,\s]+)?(?:please\s+)?(?:write|type)\s+(.+?)\s+(?:here|yahan)$",
+    r"^(?:jarvis[,\s]+)?(?:please\s+)?(?:write|type)\s+(?:here|yahan)\s*[:\-]?\s*(.+)$",
+    r"^(?:yahan|here)\s+(?:likho|likh\s+do|type\s+karo)\s*[:\-]?\s*(.+)$",
+    r"^(?:yahan|here)\s+(.+?)\s+(?:likho|likh\s+do|type\s+karo)$",
+    r"^(.+?)\s+(?:yahan\s+)?(?:likho|likh\s+do|type\s+karo)$",
+)
+
+
+def _typed_text(message: str) -> str:
+    """What to type, from "write hello here" / "hello likho" / "type here hi"."""
+
+    raw = (message or "").strip()
+
+    if not raw:
+
+        return ""
+
+    for pattern in TYPED_PATTERNS:
+
+        match = re.match(pattern, raw, re.IGNORECASE)
+
+        if not match:
+
+            continue
+
+        content = match.group(1).strip(" \"'.,;:")
+
+        if not content or re.fullmatch(r"(?:this|it|that)", content, re.IGNORECASE):
+
+            return ""
+
+        return content
+
+    return ""
+
+
 def _clipboard_content(text: str) -> str:
     """The text to copy, with the clipboard words and the verb taken out."""
 
@@ -937,6 +984,10 @@ def render(name: str, result: dict, hinglish: bool = False) -> str:
             return f"Image ban gayi: `{data.get('path')}`"
 
         return f"Here is your image: `{data.get('path')}`"
+
+    if name == "type_here":
+
+        return data.get("message") or "Typed."
 
     if name in ("screen_watch_start", "screen_watch_stop"):
 

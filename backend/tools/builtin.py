@@ -20,6 +20,7 @@ from tools import (
     screenshot,
     shell,
     timer,
+    typing,
     power,
     windows,
 )
@@ -222,6 +223,25 @@ def build_registry():
         description="Report whether the screen watcher is running.",
         category="screen",
         examples=["is screen watch on"],
+    )
+
+    registry.register(
+        "type_here",
+        typing.type_here,
+        description=(
+            "Type the given text into whichever window has focus, for dictation."
+        ),
+        schema=_schema(
+            {
+                "text": {
+                    "type": "string",
+                    "description": "Exactly what should be typed.",
+                },
+            },
+            ["text"],
+        ),
+        category="desktop",
+        examples=["write hello here"],
     )
 
     # -----------------------------
