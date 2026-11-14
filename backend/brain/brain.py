@@ -252,7 +252,7 @@ class Brain:
     # Chat entry point
     # -----------------------------
 
-    def chat(self, message: str):
+    def chat(self, message: str, model=None):
 
         message = (message or "").strip()
 
@@ -280,9 +280,9 @@ class Brain:
                 "response": "\n".join(lines),
             }
 
-        return self._chat_single(message)
+        return self._chat_single(message, model=model)
 
-    def _chat_single(self, message: str):
+    def _chat_single(self, message: str, model=None):
 
         message = (message or "").strip()
 
@@ -399,7 +399,8 @@ class Brain:
 
             ai_response = AI_POOL.submit(
                 self.ai.chat,
-                prompt
+                prompt,
+                model,
             ).result(timeout=AI_TIMEOUT_SECONDS)
 
         except concurrent.futures.TimeoutError:

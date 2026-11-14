@@ -75,3 +75,15 @@ def test_image_sentences_reach_the_tool():
 
     # Searching the web for a picture is not drawing one.
     assert nlu.interpret("search image on google") is None
+
+
+def test_model_picker_maps_to_a_provider():
+    from providers.manager import AIManager
+
+    manager = AIManager()
+
+    assert manager.find("auto") is None
+    assert manager.find("") is None
+    assert manager.find("llama3 (local)").name() == "ollama"
+    assert manager.find("openrouter").name() == "openrouter"
+    assert manager.find("nonsense") is None

@@ -211,7 +211,7 @@ def chat(data: dict):
     if not message:
         raise HTTPException(status_code=400, detail="message is required")
 
-    return brain.chat(message)
+    return brain.chat(message, model=data.get("model"))
 
 
 @app.get("/stats")

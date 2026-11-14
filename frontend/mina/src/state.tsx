@@ -18,7 +18,7 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
     { role: 'jarvis', text: "I'm JARVIS. How may I assist you today?" },
   ]);
   const [status, setStatus] = useState<Status>('idle');
-  const [model, setModel] = useState('gemini');
+  const [model, setModel] = useState('auto');
   const [mode, setMode] = useState('Assistant');
   const [voiceReplies, setVoiceReplies] = useState(true);
   const rec = useRef<any>(null);

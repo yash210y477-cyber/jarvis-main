@@ -110,9 +110,49 @@ class AIManager:
 
         ]
 
-    def chat(self, prompt: str):
+    # What the model picker in the UI sends, and the provider it means.
+    ALIASES = {
+        "llama3 (local)": "ollama",
+        "llama3": "ollama",
+        "local": "ollama",
+        "gpt-4o": "openrouter",
+        "claude": "openrouter",
+    }
+
+    def find(self, name):
+        """The provider for a picked name, or None for auto/unknown."""
+
+        key = (name or "").strip().lower()
+
+        if key in ("", "auto", "default"):
+
+            return None
+
+        key = self.ALIASES.get(key, key)
+
+        for provider in self.providers:
+
+            if provider.name().lower() == key:
+
+                return provider
+
+        return None
+
+    def chat(self, prompt: str, provider=None):
 
         errors = []
+
+        chosen = self.find(provider) if isinstance(provider, str) else provider
+
+        if chosen is not None:
+
+            order = [chosen] + [
+                item for item in self.providers if item is not chosen
+            ]
+
+        else:
+
+            order = list(self.providers)
 
         if not self.providers:
 
@@ -126,7 +166,7 @@ class AIManager:
 
             }
 
-        for provider in self.providers:
+        for provider in order:
 
             logger.info(f"Trying {provider.name()}")
 
