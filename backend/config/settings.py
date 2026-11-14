@@ -166,6 +166,9 @@ class Settings:
     # A small cap keeps a low-balance key usable.
     OPENROUTER_MAX_TOKENS = int(os.getenv("OPENROUTER_MAX_TOKENS", "512"))
 
+    # Research answers check the web through OpenRouter's :online models.
+    RESEARCH_ONLINE = os.getenv("RESEARCH_ONLINE", "1")
+
     # ==========================================================
     # IMAGE GENERATION (OpenRouter images endpoint)
     # ==========================================================

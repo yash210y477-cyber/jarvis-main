@@ -5,7 +5,7 @@ from providers.manager import AIManager
 from brain.intent import IntentEngine
 from brain.router import Router
 from brain.summary_manager import SummaryManager
-from brain import vocabulary
+from brain import tasks, vocabulary
 from brain import local_clock, memory_intent, smalltalk
 from brain.language import is_hinglish
 from brain.multi import split_commands
@@ -401,6 +401,7 @@ class Brain:
                 self.ai.chat,
                 prompt,
                 model,
+                tasks.detect(message),
             ).result(timeout=AI_TIMEOUT_SECONDS)
 
         except concurrent.futures.TimeoutError:

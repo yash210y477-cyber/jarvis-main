@@ -1,3 +1,4 @@
+import inspect
 import logging
 
 from config.settings import settings
@@ -147,7 +148,46 @@ class AIManager:
 
         return None
 
-    def chat(self, prompt: str, provider=None):
+    # Which providers are tried first for a kind of work.
+    TASK_ORDER = {
+        "coding": ("groq", "openrouter", "zai", "deepseek", "cerebras"),
+        "research": ("openrouter", "groq", "zai", "deepseek"),
+    }
+
+    def model_for(self, provider_name: str, task):
+        """A task-specific model id, or None to keep the provider default."""
+
+        if task == "research" and provider_name == "openrouter":
+
+            online = str(getattr(settings, "RESEARCH_ONLINE", "1")).lower()
+
+            if online not in ("0", "false", "no"):
+
+                base = settings.OPENROUTER_MODEL
+
+                return base if base.endswith(":online") else base + ":online"
+
+        return None
+
+    @staticmethod
+    def takes_model(provider) -> bool:
+        """True when a provider accepts a per-call model id."""
+
+        try:
+
+            params = inspect.signature(provider.chat).parameters
+
+        except (TypeError, ValueError):
+
+            return False
+
+        return "model" in params or any(
+
+            param.kind is param.VAR_KEYWORD for param in params.values()
+
+        )
+
+    def chat(self, prompt: str, provider=None, task=None):
 
         errors = []
 
@@ -162,6 +202,22 @@ class AIManager:
         else:
 
             order = list(self.providers)
+
+            # Coding and research lean on the providers that do them best.
+            if task in self.TASK_ORDER:
+
+                first = [
+                    item
+                    for name in self.TASK_ORDER[task]
+                    for item in self.providers
+                    if item.name() == name
+                ]
+
+                if first:
+
+                    order = first + [
+                        item for item in self.providers if item not in first
+                    ]
 
         if not self.providers:
 
@@ -181,7 +237,13 @@ class AIManager:
 
             try:
 
-                result = provider.chat(prompt)
+                wanted_model = self.model_for(provider.name(), task)
+
+                result = (
+                    provider.chat(prompt, model=wanted_model)
+                    if wanted_model and self.takes_model(provider)
+                    else provider.chat(prompt)
+                )
 
                 if result.get("success"):
 

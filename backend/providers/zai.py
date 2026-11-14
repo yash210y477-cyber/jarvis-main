@@ -61,12 +61,14 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
 
         return (self.model or self.MODELS[0]).strip()
 
-    def _ask(self, messages, tools=None):
+    def _ask(self, messages, tools=None, model=None):
 
         """Ask every candidate model until one answers; remember the winner."""
 
-        candidates = [self.resolve_model()] + [
-            name for name in self.MODELS if name != self.resolve_model()
+        first = (model or self.resolve_model()).strip()
+
+        candidates = [first] + [
+            name for name in self.MODELS if name != first
         ]
 
         last_error = None
@@ -112,7 +114,7 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
 
         raise last_error
 
-    def chat(self, prompt: str) -> dict:
+    def chat(self, prompt: str, model: str = None) -> dict:
 
         if not self.health():
 
@@ -124,7 +126,9 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
 
         try:
 
-            reply = self._ask([{"role": "user", "content": prompt}])
+            reply = self._ask(
+                [{"role": "user", "content": prompt}], model=model
+            )
 
             return {
                 "success": True,

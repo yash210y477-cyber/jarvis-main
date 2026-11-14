@@ -34,7 +34,7 @@ class OpenRouterProvider(BaseProvider):
 
         return bool(self.api_key)
 
-    def chat(self, prompt: str) -> dict:
+    def chat(self, prompt: str, model: str = None) -> dict:
 
         if not self.health():
 
@@ -64,7 +64,7 @@ class OpenRouterProvider(BaseProvider):
 
             payload = {
 
-                "model": self.model,
+                "model": (model or self.model),
 
                 "max_tokens": max(64, int(getattr(settings, "OPENROUTER_MAX_TOKENS", 512))),
 

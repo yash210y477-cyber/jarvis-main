@@ -45,7 +45,7 @@ class GroqProvider(OpenAIToolMixin, BaseProvider):
 
         return self.client is not None
 
-    def chat(self, prompt: str) -> dict:
+    def chat(self, prompt: str, model: str = None) -> dict:
 
         if not self.health():
 
@@ -61,7 +61,7 @@ class GroqProvider(OpenAIToolMixin, BaseProvider):
 
         try:
 
-            response = self._complete(prompt, self.resolve_model())
+            response = self._complete(prompt, model or self.resolve_model())
 
             return {
 
