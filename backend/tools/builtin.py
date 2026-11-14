@@ -13,6 +13,7 @@ from tools import (
     files,
     media,
     image_gen,
+    reverse_engineer,
     screen_agent,
     screen_reader,
     screenshot,
@@ -193,6 +194,30 @@ def build_registry():
         permission=CONFIRM,
         category="screen",
         examples=["search python on this page", "login karo"],
+    )
+
+    # -----------------------------
+    # Reverse engineering (REA)
+    # -----------------------------
+
+    registry.register(
+        "reverse_engineer",
+        reverse_engineer.reverse_engineer,
+        description=(
+            "Reverse engineer a website URL: capture its bundles and report chunks,"
+            " routes, endpoints and source maps. Also reads one local file."
+        ),
+        schema=_schema(
+            {
+                "target": {
+                    "type": "string",
+                    "description": "Website URL, domain, or a local file path.",
+                },
+            },
+            ["target"],
+        ),
+        category="analysis",
+        examples=["reverse engineer https://www.igloo.inc/"],
     )
 
     # -----------------------------

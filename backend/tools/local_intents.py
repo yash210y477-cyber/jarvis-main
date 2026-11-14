@@ -32,6 +32,13 @@ MEDIA_WORDS = {
 
 # Reading the screen needs a vision model, so it is matched before the
 # "screenshot" rule, which only saves a file.
+REVERSE_PHRASES = (
+    "reverse engineer", "reverse-engineer", "reverse eng", "re engineer",
+    "reverse engineering", "reverse karo", "reverse kro", "code nikalo",
+)
+
+REVERSE_TARGET = re.compile(r"((?:https?://)?[\w-]+(?:\.[\w-]+)+\S*)")
+
 SCREEN_AGENT_PHRASES = (
     "screen agent", "use the screen", "control my screen", "screen pe karo",
     "screen par karo", "screen pe click", "screen par click", "click on ",
@@ -256,6 +263,21 @@ def detect(message: str):
     ):
 
         return {"tool": "cancel_reminder", "arguments": {}}
+
+    # -----------------------------
+    # Reverse engineering (REA)
+    # -----------------------------
+
+    if any(phrase in text for phrase in REVERSE_PHRASES):
+
+        match = REVERSE_TARGET.search(message.strip())
+
+        if match:
+
+            return {
+                "tool": "reverse_engineer",
+                "arguments": {"target": match.group(1).strip(" .,")},
+            }
 
     # -----------------------------
     # Screen agent (acts on the screen)
@@ -844,6 +866,10 @@ def render(name: str, result: dict, hinglish: bool = False) -> str:
             return f"Image ban gayi: `{data.get('path')}`"
 
         return f"Here is your image: `{data.get('path')}`"
+
+    if name == "reverse_engineer":
+
+        return data.get("summary") or "Analysis finished."
 
     if name == "screen_task":
 
