@@ -1,4 +1,5 @@
 import base64
+from pathlib import Path
 
 import pytest
 
@@ -87,3 +88,30 @@ def test_model_picker_maps_to_a_provider():
     assert manager.find("llama3 (local)").name() == "ollama"
     assert manager.find("openrouter").name() == "openrouter"
     assert manager.find("nonsense") is None
+
+
+def test_a_webp_reply_is_stored_as_real_png(tmp_path, monkeypatch):
+    import io
+
+    from PIL import Image
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setattr(image_gen, "images_dir", lambda: tmp_path)
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (8, 8), "red").save(buffer, format="WEBP")
+    webp_b64 = base64.b64encode(buffer.getvalue()).decode()
+
+    def fake_post(url, headers=None, data=None, timeout=None):
+        return FakeResponse({"data": [{"b64_json": webp_b64}]})
+
+    monkeypatch.setattr(image_gen.requests, "post", fake_post)
+
+    result = image_gen.generate_image("a red square", show=False)
+
+    assert result["success"] is True
+
+    saved = tmp_path / Path(result["paths"][0]).name
+
+    with Image.open(saved) as picture:
+        assert picture.format == "PNG"

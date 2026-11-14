@@ -112,7 +112,23 @@ def generate_image(prompt: str, model: str = "", show: bool = True):
 
         try:
 
-            path.write_bytes(base64.b64decode(encoded))
+            raw = base64.b64decode(encoded)
+
+            # Providers answer webp/jpeg as often as png, so a decodable image
+            # is re-saved as real PNG and the .png name stays honest.
+            import io
+
+            from PIL import Image
+
+            try:
+
+                picture = Image.open(io.BytesIO(raw))
+
+                picture.convert("RGB").save(path, format="PNG")
+
+            except Exception:
+
+                path.write_bytes(raw)
 
         except Exception as error:
 

@@ -347,11 +347,19 @@ def detect(message: str):
     # Clipboard
     # -----------------------------
 
-    if "clipboard" in text:
+    if "clipboard" in text or re.match(r"^(?:please\s+)?copy\s+\S", text):
 
-        if any(word in text for word in ("copy", "set", "put", "daal", "likh")):
-            content = _after(text, ("copy", "clipboard pe", "clipboard par"))
-            return {"tool": "set_clipboard", "arguments": {"text": content}}
+        wants_write = "clipboard" not in text or any(
+            word in text for word in ("copy", "set", "put", "daal", "likh")
+        )
+
+        if wants_write:
+
+            content = _clipboard_content(text)
+
+            if content:
+
+                return {"tool": "set_clipboard", "arguments": {"text": content}}
 
         return {"tool": "get_clipboard", "arguments": {}}
 
@@ -860,6 +868,35 @@ def _tab_index(word: str) -> int:
         return max(1, min(9, int(word)))
 
     return TAB_WORDS.get(word, 1)
+
+
+def _clipboard_content(text: str) -> str:
+    """The text to copy, with the clipboard words and the verb taken out."""
+
+    content = text
+
+    # Longest phrases first: "into the clipboard" must not leave a stray "in".
+    for phrase in (
+        "into the clipboard", "in my clipboard", "on the clipboard",
+        "to the clipboard", "to clipboard", "clipboard me", "clipboard pe",
+        "clipboard par", "clipboard",
+    ):
+
+        content = content.replace(phrase, " ")
+
+    content = re.sub(r"\b(?:please|pls)\b", " ", content)
+
+    content = re.sub(r"^\s*copy\b", " ", content, count=1)
+
+    content = re.sub(r"\s+(?:copy|karo|kar|kro|do)\s*$", " ", content)
+
+    content = re.sub(r"\s+(?:copy|karo|kar|kro|do)\s*$", " ", content)
+
+    content = re.sub(r"\s+to\s*$", " ", content)
+
+    content = re.sub(r"^\s*(?:the\s+)?text\s+", "", content)
+
+    return re.sub(r"\s+", " ", content).strip(" .,")
 
 
 def _after(text: str, markers):
