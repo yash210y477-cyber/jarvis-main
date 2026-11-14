@@ -85,6 +85,7 @@ def test_priority_list_runs_from_cloud_to_local():
         "openrouter",
         "groq",
         "deepseek",
+        "siliconflow",
         "cerebras",
         "ollama",
     ]
@@ -98,6 +99,7 @@ def test_manager_keeps_the_priority_order():
         "openrouter",
         "groq",
         "deepseek",
+        "siliconflow",
         "cerebras",
         "ollama",
     ]

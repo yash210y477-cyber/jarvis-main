@@ -195,6 +195,20 @@ class Settings:
     ZAI_MAX_TOKENS = int(os.getenv("ZAI_MAX_TOKENS", "2048"))
 
     # ==========================================================
+    # SILICONFLOW (open models over one OpenAI-compatible API)
+    # ==========================================================
+
+    SILICONFLOW_BASE_URL = os.getenv(
+        "SILICONFLOW_BASE_URL", "https://api.siliconflow.com/v1/"
+    )
+
+    SILICONFLOW_MODEL = os.getenv(
+        "SILICONFLOW_MODEL", "deepseek-ai/DeepSeek-V4.1-Flash"
+    )
+
+    SILICONFLOW_MAX_TOKENS = int(os.getenv("SILICONFLOW_MAX_TOKENS", "2048"))
+
+    # ==========================================================
     # CEREBRAS
     # ==========================================================
 
@@ -264,6 +278,8 @@ class Settings:
 
     ENABLE_ZAI = True
 
+    ENABLE_SILICONFLOW = True
+
     # ==========================================================
     # PROVIDER PRIORITY
     # ==========================================================
@@ -277,6 +293,8 @@ class Settings:
         "groq",
 
         "deepseek",
+
+        "siliconflow",
 
         "cerebras",
 
