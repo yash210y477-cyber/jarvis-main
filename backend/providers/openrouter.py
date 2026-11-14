@@ -66,6 +66,10 @@ class OpenRouterProvider(BaseProvider):
 
                 "model": self.model,
 
+                "max_tokens": max(64, int(getattr(settings, "OPENROUTER_MAX_TOKENS", 512))),
+
+                "max_tokens": max(64, int(getattr(settings, "OPENROUTER_MAX_TOKENS", 512))),
+
                 "messages": [
 
                     {
@@ -150,6 +154,7 @@ class OpenRouterProvider(BaseProvider):
 
             payload = {
                 "model": self.model,
+                "max_tokens": max(64, int(getattr(settings, "OPENROUTER_MAX_TOKENS", 512))),
                 "messages": messages,
                 "tools": tools,
                 "tool_choice": "auto"

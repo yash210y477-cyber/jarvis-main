@@ -163,6 +163,9 @@ class Settings:
 
     OPENROUTER_MODEL = "openrouter/auto"
 
+    # A small cap keeps a low-balance key usable.
+    OPENROUTER_MAX_TOKENS = int(os.getenv("OPENROUTER_MAX_TOKENS", "512"))
+
     # ==========================================================
     # IMAGE GENERATION (OpenRouter images endpoint)
     # ==========================================================
