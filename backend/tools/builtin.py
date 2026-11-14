@@ -12,6 +12,7 @@ from tools import (
     desktop,
     files,
     media,
+    image_gen,
     screenshot,
     shell,
     timer,
@@ -150,6 +151,28 @@ def build_registry():
         ),
         category="screen",
         examples=["take a screenshot"],
+    )
+
+    # -----------------------------
+    # Images (OpenRouter)
+    # -----------------------------
+
+    registry.register(
+        "generate_image",
+        image_gen.generate_image,
+        description="Draw a picture from a text description and save the PNG.",
+        schema=_schema(
+            {
+                "prompt": {
+                    "type": "string",
+                    "description": "What the picture should show.",
+                },
+                "model": {"type": "string", "description": "Optional model id."},
+            },
+            ["prompt"],
+        ),
+        category="images",
+        examples=["generate an image of a sunset over mountains"],
     )
 
     # -----------------------------

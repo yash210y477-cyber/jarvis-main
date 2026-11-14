@@ -772,9 +772,15 @@ def render(name: str, result: dict, hinglish: bool = False) -> str:
 
     """Tool result as text, in the language the user asked with."""
 
-    if not result.get("success"):
+    data = result.get("result") if isinstance(result.get("result"), dict) else result
 
-        error = result.get('error') or 'unknown error'
+    inner = result.get("result") if isinstance(result.get("result"), dict) else {}
+
+    if not result.get("success") or inner.get("success") is False:
+
+        error = (
+            result.get('error') or inner.get('error') or 'unknown error'
+        ).strip().rstrip('.')
 
         if hinglish:
 
@@ -782,7 +788,13 @@ def render(name: str, result: dict, hinglish: bool = False) -> str:
 
         return f"That didn't work: {error}."
 
-    data = result.get("result") if isinstance(result.get("result"), dict) else result
+    if name == "generate_image":
+
+        if hinglish:
+
+            return f"Image ban gayi: `{data.get('path')}`"
+
+        return f"Here is your image: `{data.get('path')}`"
 
     if name == "screenshot":
 

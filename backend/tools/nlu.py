@@ -51,6 +51,73 @@ FILLER = {
 }
 
 
+
+IMAGE_NOUNS = {
+    "image", "images", "picture", "pictures", "pic", "photo", "wallpaper",
+    "drawing", "sketch", "painting",
+}
+
+IMAGE_VERBS = {
+    "generate", "create", "make", "draw", "paint", "render", "design",
+    "banao", "bana", "banado", "banade", "banaao", "banaa",
+}
+
+# Dropped from the description so the prompt reads like a description.
+# "draw a dragon": the verb alone is enough to mean a picture.
+DRAW_VERBS = {
+    "draw", "paint", "sketch", "render", "banao", "banado", "banade",
+    "banaao", "banaa",
+}
+
+ARTICLES = {"a", "an", "the"}
+
+IMAGE_NOISE = {
+    "jarvis", "please", "pls", "plz", "for", "me", "mujhe", "do", "of",
+}
+
+
+def _picture_prompt(message: str):
+    """The description inside "generate an image of a cat", or None."""
+
+    words = _words(message)
+
+    # "search for an image of ..." is a web search, not a drawing.
+    if any(word in SEARCH_WORDS for word in words):
+
+        return None
+
+    wants_picture = any(word in IMAGE_NOUNS for word in words) or any(
+        word in DRAW_VERBS for word in words
+    )
+
+    if not wants_picture:
+
+        return None
+
+    keep = [
+        word
+        for word in words
+        if word not in IMAGE_NOUNS
+        and word not in IMAGE_VERBS
+        and word not in IMAGE_NOISE
+    ]
+
+    # "an a cat" reads badly, so a run of articles keeps only its last.
+    tidy = []
+
+    for word in keep:
+
+        if word in ARTICLES and tidy and tidy[-1] in ARTICLES:
+
+            tidy[-1] = word
+
+            continue
+
+        tidy.append(word)
+
+    return " ".join(tidy).strip()
+
+
 def _words(text):
     return re.findall(r"[a-z0-9+.#&'-]+", (text or "").lower())
 
@@ -107,6 +174,12 @@ def _match_site(token):
 
 def interpret(message: str):
     """Return a tool intent for a loosely spoken sentence, or None."""
+
+    picture = _picture_prompt(message)
+
+    if picture:
+
+        return {"tool": "generate_image", "arguments": {"prompt": picture}}
 
     words = _words(message)
 
