@@ -6,6 +6,7 @@ the user says yes.
 """
 
 import json
+import re
 
 from tools.approvals import describe
 
@@ -13,6 +14,29 @@ from tools.approvals import describe
 MAX_STEPS = 5
 
 MAX_RESULT_CHARS = 4000
+
+# A pasted code block cannot be downloaded, so the model is asked once to put it
+# in a file instead of into the reply.
+CODE_BLOCK = re.compile(r"```[\s\S]+?```")
+CREATE_WORDS = re.compile(
+    r"\b(write|create|make|save|build|generate|banao|bana|banaao|likho|likh)\b",
+    re.IGNORECASE,
+)
+FILE_WORDS = re.compile(
+    r"\b(file|files|script|program|game|app|application|project|code|page|website)\b",
+    re.IGNORECASE,
+)
+FILE_NUDGE = (
+    "Don't paste the code into the reply: the user cannot download a code block. "
+    "Call write_file now with a sensible file name and the complete code, then "
+    "answer in one short line."
+)
+
+
+def wants_a_file(message: str) -> bool:
+    """True when the request is asking for a program or file, not an explanation."""
+
+    return bool(CREATE_WORDS.search(message) and FILE_WORDS.search(message))
 
 TOOL_GUIDE = """
 You can use tools when the request needs real actions instead of words.
@@ -25,6 +49,9 @@ Rules:
   one short question first; never invent them, and never send a message the
   user has not seen.
 - Paths are relative to the workspace root.
+- When the user asks for a program, page, script or any file, write it with
+  write_file instead of pasting the code into the reply: the chat shows the
+  file with a Download button. Keep the reply to what you made and how to run it.
 - run_command and write_file ask the user for confirmation first.
 - After the tool results arrive, answer the user in plain language.
 """
@@ -66,6 +93,7 @@ class AgentLoop:
         tools = self.registry.schemas()
 
         steps = []
+        nudged = False
 
         for _ in range(MAX_STEPS):
 
@@ -80,6 +108,21 @@ class AgentLoop:
             if not calls:
 
                 content = (response.get("content") or "").strip()
+
+                if (
+                    content
+                    and not nudged
+                    and wants_a_file(message)
+                    and CODE_BLOCK.search(content)
+                ):
+
+                    nudged = True
+
+                    messages.append({"role": "assistant", "content": content})
+
+                    messages.append({"role": "system", "content": FILE_NUDGE})
+
+                    continue
 
                 if not content:
 

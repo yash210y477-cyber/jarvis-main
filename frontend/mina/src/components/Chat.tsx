@@ -1,23 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bot, Download, Mic, Send, User } from 'lucide-react';
+import { Bot, Download, FileCode, Mic, Send, User } from 'lucide-react';
 import { FadeIn } from './ui';
 import { useJarvis } from '../state';
 import { MODES } from '../config';
-import { imageSrc, saveImage } from '../lib/jarvis';
+import { fileHref, imageSrc, saveFile, saveImage } from '../lib/jarvis';
 
 const GRAD = 'linear-gradient(123deg, #1B120A 7%, #6B3F1D 37%, #A8651F 72%, #D9963A 100%)';
-const IMAGE_MD = /!\[[^\]]*\]\(([^)]+)\)/g;
+const IMAGE_OR_FILE = /!\[[^\]]*\]\(([^)]+)\)|\[file\](\S+)/g;
 
-// A reply can carry pictures: "![image](/images/file.png)". They are shown in
-// the chat, and only copied to Downloads/Jarvis when the button is pressed.
-function parts(text: string): { text?: string; image?: string }[] {
-  const out: { text?: string; image?: string }[] = [];
-  const re = new RegExp(IMAGE_MD.source, 'g');
+// A reply can carry pictures ("![image](/images/file.png)") and files
+// ("[file]chess.py"). Both are shown in the chat, and only copied to
+// Downloads/Jarvis when the download button is pressed.
+function parts(text: string): { text?: string; image?: string; file?: string }[] {
+  const out: { text?: string; image?: string; file?: string }[] = [];
+  const re = new RegExp(IMAGE_OR_FILE.source, 'g');
   let last = 0;
   let found: RegExpExecArray | null;
   while ((found = re.exec(text))) {
     if (found.index > last) out.push({ text: text.slice(last, found.index) });
-    out.push({ image: found[1] });
+    if (found[1]) out.push({ image: found[1] });
+    else out.push({ file: found[2] });
     last = found.index + found[0].length;
   }
   if (last < text.length) out.push({ text: text.slice(last) });
@@ -39,12 +41,32 @@ function Picture({ url }: { url: string }) {
   );
 }
 
+function FileCard({ path }: { path: string }) {
+  const [note, setNote] = useState('');
+  const name = decodeURIComponent(path.split('/').pop() || 'file');
+  const save = async () => { setNote('Saving…'); setNote(await saveFile(path)); };
+  return (
+    <div className="flex flex-col gap-2 my-1">
+      <div className="flex items-center gap-3 rounded-2xl border border-[#D7E2EA]/40 px-4 py-3">
+        <FileCode size={22} />
+        <a href={fileHref(path)} download={name} className="text-sm break-all underline decoration-dotted">{name}</a>
+      </div>
+      <button onClick={save} className="self-start flex items-center gap-2 rounded-full border-2 border-[#D7E2EA]/60 px-4 py-1.5 text-[11px] uppercase tracking-widest bg-transparent cursor-pointer hover:bg-[#D7E2EA]/10">
+        <Download size={13} /> Download
+      </button>
+      {note && <span className="text-[11px] opacity-70 break-all">{note}</span>}
+    </div>
+  );
+}
+
 function Bubble({ text }: { text: string }) {
   return (
     <>
       {parts(text).map((part, i) => part.image
         ? <Picture key={i} url={part.image} />
-        : <span key={i} className="whitespace-pre-wrap">{part.text}</span>)}
+        : part.file
+          ? <FileCard key={i} path={part.file} />
+          : <span key={i} className="whitespace-pre-wrap">{part.text}</span>)}
     </>
   );
 }

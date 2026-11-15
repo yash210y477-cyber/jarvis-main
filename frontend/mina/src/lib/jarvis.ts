@@ -27,8 +27,19 @@ export async function saveImage(name: string): Promise<string> {
   } catch { return 'Could not reach the backend to save the image.'; }
 }
 
-/** Message text without the image markup, for speaking aloud. */
-export const plainText = (text: string) => text.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\n{3,}/g, '\n\n').trim();
+// ---- generated files: same idea, saved only when the button is pressed ----
+export const fileHref = (path: string) => (/^https?:/i.test(path) ? path : `${API}/files/${path}`);
+
+export async function saveFile(path: string): Promise<string> {
+  try {
+    const r = await fetch(`${API}/files/${path}/download`, { method: 'POST', headers: auth() });
+    const d = await r.json();
+    return d.success ? `Saved to ${d.path}` : (d.error ?? 'Could not save the file.');
+  } catch { return 'Could not reach the backend to save the file.'; }
+}
+
+/** Message text without the image and file markup, for speaking aloud. */
+export const plainText = (text: string) => text.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[file\]\S+/g, '').replace(/\n{3,}/g, '\n\n').trim();
 
 // ---- the six voices offered in Settings ----
 export type Voice = { id: string; name: string; gender: string; accent: string };

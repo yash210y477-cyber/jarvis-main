@@ -31,6 +31,28 @@ AGENT_TIMEOUT_SECONDS = 60
 AI_POOL = concurrent.futures.ThreadPoolExecutor(max_workers=2)
 
 
+def file_markers(steps):
+    """One `[file]name` line per file the agent wrote, for the chat card."""
+
+    from urllib.parse import quote
+
+    marks = []
+
+    for step in steps or []:
+
+        if step.get("tool") != "write_file" or not step.get("success"):
+
+            continue
+
+        path = str((step.get("arguments") or {}).get("path") or "").strip()
+
+        if path:
+
+            marks.append(f"[file]{quote(path)}")
+
+    return marks
+
+
 def shutdown_pool():
     """Drop queued AI work so Ctrl+C does not wait on a stuck request."""
 
@@ -373,11 +395,22 @@ class Brain:
 
         try:
 
+                        # The agent gets the same context a plain reply would, minus the
+            # current message (the agent sends that one itself).
+            agent_context = self.context.build(message).split(
+                "### Current User Message"
+            )[0].strip()
+
             agent_result = AI_POOL.submit(
+
                 self.agent.run,
+
                 message,
-                self.context.prompts.get_prompt(),
-                self.context.history_text(),
+
+                agent_context,
+
+                "",
+
             ).result(timeout=AGENT_TIMEOUT_SECONDS)
 
         except Exception:
@@ -387,6 +420,12 @@ class Brain:
         if agent_result and agent_result.get("success"):
 
             text = agent_result.get("response") or ""
+
+            marks = file_markers(agent_result.get("steps"))
+
+            if marks:
+
+                text = "\n".join([text, *marks]).strip()
 
             self.memory.add_assistant_message(text)
 
@@ -485,6 +524,16 @@ class Brain:
         text = local_intents.render(
             pending["tool"], result, is_hinglish(message)
         )
+
+        marks = file_markers([{
+            "tool": pending["tool"],
+            "arguments": pending["arguments"],
+            "success": bool(result.get("success")),
+        }])
+
+        if marks:
+
+            text = "\n".join([text, *marks]).strip()
 
         self.memory.add_user_message(message)
         self.memory.add_assistant_message(text)

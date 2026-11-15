@@ -1344,6 +1344,16 @@ def render(name: str, result: dict, hinglish: bool = False) -> str:
 
         return data.get("message") or "Timer cancelled."
 
+    if name == "write_file":
+
+        if not data.get("success", True):
+
+            return data.get("error") or "I couldn't write that file."
+
+        path = data.get("path") or "the file"
+
+        return f"Saved `{path}`. Press Download in the chat to keep a copy."
+
     if name == "run_command":
 
         output = (data.get("stdout") or data.get("stderr") or "").strip()

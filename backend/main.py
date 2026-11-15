@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
 from brain.brain import Brain
+from api.files import router as files_router
 from api.voice import router as voice_router
 from config.security import check_request
 from config.settings import settings
@@ -54,6 +55,9 @@ async def origin_guard(request, call_next):
 
 # Voice API
 app.include_router(voice_router)
+
+# Generated files, downloadable from the chat
+app.include_router(files_router)
 
 MEMORY_FILE = Path(__file__).parent / "data" / "memory.json"
 
