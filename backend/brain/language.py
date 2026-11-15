@@ -1,10 +1,22 @@
-"""Pick the reply language from what the user actually typed.
+"""Which language JARVIS answers in.
 
-Hinglish only when the message looks like Hinglish; English otherwise, so a
-plain English sentence is never answered in Hinglish.
+Settings offers three modes: english (always English), hinglish (always
+Hinglish) and auto (follow whatever the user wrote). Auto is the default, so a
+plain English sentence is never answered in Hinglish unless the user chose it.
 """
 
 import re
+from pathlib import Path
+
+MODES = ("auto", "english", "hinglish")
+
+LABELS = {
+    "auto": "Auto (match the user's language)",
+    "english": "English",
+    "hinglish": "Hinglish",
+}
+
+DEFAULT = "auto"
 
 DEVANAGARI = re.compile(r"[\u0900-\u097F]")
 
@@ -23,6 +35,73 @@ STRONG = frozenset({
 
 # Romanised words that also appear in normal English.
 WEAK = frozenset({"hai", "hain", "hoon", "kar", "band", "kam", "tez", "sab", "kal"})
+
+
+def _file() -> Path:
+    """Where the chosen mode is kept, next to the other data files."""
+
+    from memory.storage import data_dir
+
+    return Path(data_dir()) / "language.txt"
+
+
+def current() -> str:
+    """The mode in use: auto, english or hinglish."""
+
+    try:
+
+        saved = _file().read_text(encoding="utf-8").strip().lower()
+
+    except Exception:
+
+        saved = ""
+
+    if saved in MODES:
+
+        return saved
+
+    # Nothing chosen yet: the env var (if any) still decides, auto otherwise.
+    from config.settings import settings
+
+    fallback = (getattr(settings, "JARVIS_LANGUAGE", "") or "").strip().lower()
+
+    return fallback if fallback in MODES else DEFAULT
+
+
+def set_language(mode: str) -> str:
+    """Remember the user's choice; it survives a restart."""
+
+    wanted = (mode or "").strip().lower()
+
+    if wanted not in MODES:
+
+        raise ValueError(f"Unknown reply language: {mode}")
+
+    path = _file()
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    path.write_text(wanted, encoding="utf-8")
+
+    return wanted
+
+
+def options() -> list:
+    """The three choices Settings shows, in order."""
+
+    return [{"id": mode, "label": LABELS[mode]} for mode in MODES]
+
+
+def reply_language(message: str) -> str:
+    """english or hinglish, for this message and the chosen mode."""
+
+    mode = current()
+
+    if mode == "auto":
+
+        return "hinglish" if is_hinglish(message) else "english"
+
+    return mode
 
 
 def is_hinglish(text: str) -> bool:

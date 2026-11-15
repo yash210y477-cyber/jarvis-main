@@ -7,7 +7,7 @@ clock is read straight from the machine and rendered here.
 import datetime
 import re
 
-from brain.language import is_hinglish
+from brain.language import reply_language
 
 
 QUESTION_WORDS = (
@@ -204,6 +204,6 @@ def reply(text: str, hinglish=None):
 
     if hinglish is None:
 
-        hinglish = is_hinglish(text)
+        hinglish = reply_language(text) == "hinglish"
 
     return render(kind, hinglish)

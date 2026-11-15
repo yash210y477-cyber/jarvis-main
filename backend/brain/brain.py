@@ -7,6 +7,7 @@ from brain.router import Router
 from brain.summary_manager import SummaryManager
 from brain import tasks, vocabulary
 from brain import local_clock, memory_intent, smalltalk
+from brain import language
 from brain.language import is_hinglish
 from brain.multi import split_commands
 
@@ -146,7 +147,7 @@ class Brain:
     def _local_reply(self, message: str):
         """Return (provider, action, text) or None when AI is needed."""
 
-        hinglish = is_hinglish(message)
+        hinglish = language.reply_language(message) == "hinglish"
 
         command = self.intent.detect(message)
 
@@ -522,7 +523,7 @@ class Brain:
         )
 
         text = local_intents.render(
-            pending["tool"], result, is_hinglish(message)
+            pending["tool"], result, language.reply_language(message) == "hinglish"
         )
 
         marks = file_markers([{

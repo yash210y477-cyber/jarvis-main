@@ -41,6 +41,18 @@ export async function saveFile(path: string): Promise<string> {
 /** Message text without the image and file markup, for speaking aloud. */
 export const plainText = (text: string) => text.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[file\]\S+/g, '').replace(/\n{3,}/g, '\n\n').trim();
 
+// ---- reply language: english, hinglish, or auto (match the user) ----
+export type LanguageOption = { id: string; label: string };
+
+export async function getLanguage(): Promise<{ mode: string; options: LanguageOption[] } | null> {
+  try { const r = await fetch(`${API}/language`); const d = await r.json(); return d.success ? { mode: d.mode, options: d.options ?? [] } : null; }
+  catch { return null; }
+}
+
+export async function setLanguage(mode: string) {
+  try { return await post('/language', { mode }); } catch { return { success: false, error: 'Backend is not running.' }; }
+}
+
 // ---- the six voices offered in Settings ----
 export type Voice = { id: string; name: string; gender: string; accent: string };
 

@@ -4,7 +4,7 @@ import { Brain, Trash2, Plus, Check } from 'lucide-react';
 import { FadeIn } from './ui';
 import { useJarvis } from '../state';
 import { MODELS } from '../config';
-import { getMemory, addMemoryNote, deleteMemoryNote, deleteMemoryFact, getVoices, setJarvisVoice, previewVoice, type MemoryFact, type Voice } from '../lib/jarvis';
+import { getMemory, addMemoryNote, deleteMemoryNote, deleteMemoryFact, getVoices, getLanguage, setJarvisVoice, setLanguage, previewVoice, type LanguageOption, type MemoryFact, type Voice } from '../lib/jarvis';
 
 const Head = ({ children }: { children: ReactNode }) => (
   <FadeIn><h2 className="hero-heading font-black uppercase leading-none tracking-tight text-center mb-10 sm:mb-14" style={{ fontSize: 'clamp(3rem, 12vw, 160px)' }}>{children}</h2></FadeIn>
@@ -86,10 +86,24 @@ function SettingsPanel() {
   const [voice, setVoice] = useState('');
   const [inUse, setInUse] = useState('');
   const [note, setNote] = useState('');
+  const [languages, setLanguages] = useState<LanguageOption[]>([]);
+  const [mode, setMode] = useState('');
+  const [langNote, setLangNote] = useState('');
 
   useEffect(() => {
     getVoices().then((d) => { if (d) { setVoices(d.voices); setVoice(d.current); setInUse(d.current); } });
+    getLanguage().then((d) => { if (d) { setLanguages(d.options); setMode(d.mode); } });
   }, []);
+
+  const chooseLanguage = async (id: string) => {
+    const d = await setLanguage(id);
+    if (d?.success) {
+      setMode(id);
+      setLangNote(`Replies will be in ${languages.find((l) => l.id === id)?.label ?? id}.`);
+    } else {
+      setLangNote(d?.error ?? 'Could not change the reply language.');
+    }
+  };
 
   const label = (id: string) => {
     const v = voices.find((item) => item.id === id);
@@ -124,6 +138,17 @@ function SettingsPanel() {
     <div id="settings">
       <Head>Settings</Head>
       <div className={box + ' flex flex-col gap-4'}>
+        {languages.length > 0 && (
+          <label className="flex flex-col gap-2 font-medium uppercase tracking-widest text-sm sm:text-base">
+            Reply language
+            <div className="flex flex-wrap gap-3 items-center">
+              <select value={mode} onChange={(e) => chooseLanguage(e.target.value)} className="bg-[#0C0C0C] border border-[#D7E2EA]/40 rounded-full px-4 py-2 text-sm cursor-pointer">
+                {languages.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+              </select>
+            </div>
+            {langNote && <span className="text-[11px] normal-case tracking-normal opacity-70">{langNote}</span>}
+          </label>
+        )}
         <label className="flex justify-between items-center gap-4 cursor-pointer font-medium uppercase tracking-widest text-sm sm:text-base">
           Spoken replies
           <input type="checkbox" checked={voiceReplies} onChange={(e) => setVoiceReplies(e.target.checked)} className="w-5 h-5 accent-[#A8651F]" />

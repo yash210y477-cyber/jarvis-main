@@ -39,8 +39,10 @@ class ContextBuilder:
         # Reply Language
         # -------------------------
 
+        from brain import language
+
         rule = LANGUAGE_RULES.get(
-            settings.JARVIS_LANGUAGE, LANGUAGE_RULES["hinglish"]
+            language.reply_language(current_message), LANGUAGE_RULES["english"]
         )
 
         prompt.append("### Reply Language")

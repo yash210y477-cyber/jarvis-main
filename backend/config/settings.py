@@ -267,7 +267,8 @@ class Settings:
     # ==========================================================
 
     # hinglish (default), english or hindi.
-    JARVIS_LANGUAGE = os.getenv("JARVIS_LANGUAGE", "hinglish")
+    # auto / english / hinglish — the final say is the choice saved in Settings.
+    JARVIS_LANGUAGE = os.getenv("JARVIS_LANGUAGE", "auto")
 
     SEMANTIC_MEMORY = os.getenv("SEMANTIC_MEMORY", "1") not in (
         "0", "false", "False", "no"

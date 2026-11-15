@@ -120,21 +120,26 @@ class OllamaProvider(OpenAIToolMixin, BaseProvider):
     def _system(self) -> str:
         """Instructions a small local model needs spelled out."""
 
-        language = (settings.JARVIS_LANGUAGE or "hinglish").lower()
+        from brain import language as reply_language
 
-        if language == "english":
+        mode = reply_language.current()
+
+        if mode == "english":
 
             style = "Answer in English."
 
-        elif language == "hindi":
-
-            style = "Answer in Hindi (Devanagari)."
-
-        else:
+        elif mode == "hinglish":
 
             style = (
                 "Answer in Hinglish: Hindi and English mixed in Roman script, "
                 "the way friends talk in India."
+            )
+
+        else:
+
+            style = (
+                "Answer in the language the user wrote in: English for English, "
+                "Hinglish for Hinglish."
             )
 
         return (

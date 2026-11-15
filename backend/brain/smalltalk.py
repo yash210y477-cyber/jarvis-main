@@ -83,9 +83,11 @@ CAPABILITIES_HINGLISH = """Main ye kar sakta hoon:
 
 
 def _hinglish(text: str = "") -> bool:
-    """Hinglish reply only when the user wrote Hinglish."""
+    """The chosen reply language, not just what the user happened to type."""
 
-    return is_hinglish(text)
+    from brain.language import reply_language
+
+    return reply_language(text) == "hinglish"
 
 
 def _greeting() -> str:

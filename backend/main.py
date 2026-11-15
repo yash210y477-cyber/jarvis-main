@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from brain.brain import Brain
 from api.files import router as files_router
+from api.preferences import router as preferences_router
 from api.voice import router as voice_router
 from config.security import check_request
 from config.settings import settings
@@ -58,6 +59,9 @@ app.include_router(voice_router)
 
 # Generated files, downloadable from the chat
 app.include_router(files_router)
+
+# Reply language choice
+app.include_router(preferences_router)
 
 MEMORY_FILE = Path(__file__).parent / "data" / "memory.json"
 
