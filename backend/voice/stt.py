@@ -1,29 +1,107 @@
+"""Speech to text that hears Hindi and Hinglish, not just English.
+
+An English-only model (base.en) turned Hindi speech into invented English
+("kholo suba sart bajhe mujhe kutadina"), so the multilingual model is used and
+the language is detected per clip. Hindi comes back in Devanagari, which the
+rest of Jarvis cannot match against its Hinglish words, so the transcript is
+written the way people type it in chat.
+"""
+
 import logging
+import re
+from collections import Counter
 
 import numpy as np
 from faster_whisper import WhisperModel
+from faster_whisper.audio import decode_audio
 
 from config.settings import settings
+from voice import speech
 
 # Callers speak short Hinglish commands, so the decoder is nudged
 # towards that vocabulary instead of guessing freely.
 COMMAND_PROMPT = (
     "Jarvis, open Spotify, play a song on Spotify, search Arijit Singh "
     "on YouTube, volume up, volume down, mute, screenshot lo, "
-    "time kya hai, gaana bajao, next track, pause, lock the screen."
+    "time kya hai, gaana bajao, screen band karo, next track, pause, "
+    "lock the screen, mujhe kya karna hai, bhej do, kholo."
 )
 
+DEVANAGARI = re.compile(r"[\u0900-\u097F]")
+
+REPEATED_CHAR = re.compile(r"(\S)\1{4,}")
+REPEATED_WORD = re.compile(r"\b(\S+)(?:\s+\1){3,}\b", re.IGNORECASE)
+
 logger = logging.getLogger(__name__)
+
+
+def model_name() -> str:
+    """The multilingual model, even when the config names an English-only one."""
+
+    name = (settings.STT_MODEL or "small").strip()
+
+    # base.en / small.en / medium.en hear only English.
+    if name.endswith(".en"):
+        name = name[:-3]
+
+    return name or "small"
+
+
+def resolve_language(language=None) -> str | None:
+    """None means "detect it", which is what Hindi and Hinglish need."""
+
+    wanted = (language if language is not None else settings.STT_LANGUAGE) or "auto"
+    wanted = str(wanted).strip().lower()
+
+    if wanted in ("", "auto", "none", "detect"):
+        return None
+
+    return wanted
+
+
+def repetitive(text: str) -> bool:
+    """True for a hallucinated line such as \"om om om om\" or \"aaaaaaaa\"."""
+
+    sample = (text or "").strip()
+
+    if len(sample) < 8:
+        return False
+
+    return bool(REPEATED_CHAR.search(sample) or REPEATED_WORD.search(sample))
+
+
+def looks_broken(text: str) -> bool:
+    """A decoder loop, not speech: almost no variety in the characters."""
+
+    sample = (text or "").strip()
+
+    if not sample:
+        return True
+
+    if repetitive(sample):
+        return True
+
+    letters = [char for char in sample if not char.isspace()]
+
+    if len(letters) < 20:
+        return False
+
+    if len(set(letters)) / len(letters) < 0.25:
+        return True
+
+    return max(Counter(letters).values()) / len(letters) > 0.35
 
 
 class SpeechToText:
 
     def __init__(self):
 
-        logger.info("Loading Faster Whisper Model...")
+        self.name = model_name()
+
+        logger.info("Loading Faster Whisper Model (%s)...", self.name)
 
         self.model = WhisperModel(
-            model_size_or_path=(settings.STT_MODEL or "small"),
+            model_size_or_path=self.name,
             device="cpu",
             compute_type=(settings.STT_COMPUTE_TYPE or "int8"),
             cpu_threads=max(2, settings.STT_THREADS),
@@ -31,6 +109,8 @@ class SpeechToText:
         )
 
         logger.info("Whisper Model Loaded Successfully.")
+
+        self.last_language = None
 
         self.replacements = {
             "hallo": "hello",
@@ -60,14 +140,25 @@ class SpeechToText:
 
         return text
 
-    def transcribe(self, audio, language="en"):
+    def detect_language(self, samples):
+        """The spoken language, or None when the detector is unsure."""
 
-        logger.info("Transcribing Audio...")
+        try:
 
-        # Call audio arrives as float32 samples, mic recordings as a path.
-        if isinstance(audio, np.ndarray):
+            found, probability, _ = self.model.detect_language(samples)
 
-            audio = np.ascontiguousarray(audio, dtype=np.float32)
+            logger.info("Detected %s (%.2f)", found, probability)
+
+            return found if probability >= 0.4 else None
+
+        except Exception as error:
+
+            logger.warning("Language detection failed: %s", error)
+
+            return None
+
+    def _decode(self, audio, language, prompt, repetition_penalty=1.0):
+        """One decoder pass; returns the joined text of the kept segments."""
 
         segments, info = self.model.transcribe(
             audio,
@@ -78,12 +169,16 @@ class SpeechToText:
             # Silence is already filtered by the call VAD, so whisper
             # does not need to run its own detector over the same audio.
             vad_filter=False,
-            initial_prompt=COMMAND_PROMPT,
+            initial_prompt=prompt,
             condition_on_previous_text=False,
             temperature=0,
             no_speech_threshold=0.6,
             log_prob_threshold=-1.0,
+            compression_ratio_threshold=2.4,
+            repetition_penalty=repetition_penalty,
         )
+
+        self.last_language = getattr(info, "language", language)
 
         parts = []
 
@@ -97,13 +192,56 @@ class SpeechToText:
 
                 continue
 
+            if repetitive(segment.text):
+
+                logger.info("Dropped a repeated segment: %r", segment.text[:40])
+
+                continue
+
             parts.append(segment.text.strip())
 
-        text = " ".join(parts)
+        return " ".join(parts).strip()
+
+    def transcribe(self, audio, language=None):
+
+        logger.info("Transcribing Audio...")
+
+        # Call audio arrives as float32 samples, mic recordings as a path.
+        if isinstance(audio, np.ndarray):
+
+            audio = np.ascontiguousarray(audio, dtype=np.float32)
+        else:
+
+            audio = decode_audio(audio, sampling_rate=16000)
+
+        language = resolve_language(language)
+
+        if language is None:
+
+            language = self.detect_language(audio)
+
+        # The Hinglish prompt keeps the transcript in Latin letters, but on
+        # some clips it makes the decoder loop ("om om om"). A retry without
+        # it gets the plain Hindi words.
+        text = self._decode(audio, language, COMMAND_PROMPT)
+
+        if looks_broken(text):
+
+            logger.info("Decode looked broken (%r); retrying plainly.", text[:40])
+
+            retry = self._decode(audio, language, None, repetition_penalty=1.15)
+
+            if not looks_broken(retry) or not text:
+
+                text = retry
+
+        if DEVANAGARI.search(text):
+
+            text = speech.to_hinglish(text)
 
         text = self.clean_text(text)
 
-        logger.info(f"Recognized: {text}")
+        logger.info("Recognized: %s", text)
 
         return text
 

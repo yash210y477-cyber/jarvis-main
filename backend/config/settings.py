@@ -96,7 +96,11 @@ class Settings:
 
     # Speech recognition model: "base" is fast but mishears Hinglish
     # commands on phone audio, "small" is the accuracy/speed sweet spot.
-    STT_MODEL = os.getenv("STT_MODEL", "base.en")
+    STT_MODEL = os.getenv("STT_MODEL", "small")
+
+    # "auto" lets Whisper decide per clip, so Hindi and Hinglish are heard as
+    # they are instead of being forced through English.
+    STT_LANGUAGE = os.getenv("STT_LANGUAGE", "auto")
 
     STT_COMPUTE_TYPE = os.getenv("STT_COMPUTE_TYPE", "int8")
 
@@ -134,7 +138,7 @@ class Settings:
     )
 
     # "auto" lets Whisper guess (Hinglish works); or "en", "hi", ...
-    TELEGRAM_CALL_LANGUAGE = os.getenv("TELEGRAM_CALL_LANGUAGE", "en")
+    TELEGRAM_CALL_LANGUAGE = os.getenv("TELEGRAM_CALL_LANGUAGE", "auto")
 
     # Only these Telegram user ids may reach JARVIS (empty = anyone).
     TELEGRAM_CALL_ALLOWED = [

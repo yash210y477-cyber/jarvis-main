@@ -166,6 +166,84 @@ def to_devanagari(text: str) -> str:
     )
 
 
+LATIN_VOWELS = {
+    "अ": "a", "आ": "aa", "इ": "i", "ई": "i", "उ": "u", "ऊ": "u",
+    "ऋ": "ri", "ए": "e", "ऐ": "ai", "ओ": "o", "औ": "au",
+}
+
+LATIN_CONSONANTS = {
+    "क": "k", "ख": "kh", "ग": "g", "घ": "gh", "ङ": "n", "च": "ch",
+    "छ": "chh", "ज": "j", "झ": "jh", "ञ": "n", "ट": "t", "ठ": "th",
+    "ड": "d", "ढ": "dh", "ण": "n", "त": "t", "थ": "th", "द": "d",
+    "ध": "dh", "न": "n", "प": "p", "फ": "ph", "ब": "b", "भ": "bh",
+    "म": "m", "य": "y", "र": "r", "ल": "l", "व": "v", "श": "sh",
+    "ष": "sh", "स": "s", "ह": "h", "ळ": "l", "क़": "q", "ख़": "kh",
+    "ग़": "g", "ज़": "z", "ड़": "r", "ढ़": "rh", "फ़": "f", "य़": "y",
+}
+
+LATIN_MATRAS = {
+    "ा": "aa", "ि": "i", "ी": "i", "ु": "u", "ू": "u", "ृ": "ri",
+    "े": "e", "ै": "ai", "ो": "o", "ौ": "au", "ॉ": "o", "ॅ": "e",
+}
+
+ANUSVARA = {"ं": "n", "ँ": "n", "ः": "h", "़": ""}
+
+
+def to_hinglish(text: str) -> str:
+    """Devanagari speech written the way Hinglish is typed in chat."""
+
+    out = []
+    index = 0
+
+    while index < len(text):
+        char = text[index]
+
+        if char in LATIN_CONSONANTS:
+            out.append(LATIN_CONSONANTS[char])
+            index += 1
+
+            if index < len(text) and text[index] in LATIN_MATRAS:
+                out.append(LATIN_MATRAS[text[index]])
+                index += 1
+            elif index < len(text) and text[index] == "्":
+                # Halant joins the next consonant: no vowel in between.
+                index += 1
+            elif index < len(text) and text[index] in ANUSVARA:
+                out.append("a" + ANUSVARA[text[index]])
+                index += 1
+            elif index < len(text) and (
+                text[index] in LATIN_CONSONANTS or text[index] in LATIN_VOWELS
+            ):
+                # No mark after the consonant: the inherent "a" is spoken.
+                out.append("a")
+
+            continue
+
+        if char in LATIN_VOWELS:
+            out.append(LATIN_VOWELS[char])
+            index += 1
+            continue
+
+        if char in ANUSVARA:
+            out.append(ANUSVARA[char])
+            index += 1
+            continue
+
+        out.append(char)
+        index += 1
+
+    written = "".join(out)
+
+    # "gaanaa" / "bajaao" are spelled the way people type them ("gana",
+    # "bajao"), but a doubled vowel at the start of a word is real ("aaj").
+    words = [
+        word[:1] + re.sub(r"([aiueo])\1+", r"\1", word[1:])
+        for word in written.split()
+    ]
+
+    return " ".join(words)
+
+
 def is_hinglish(text: str) -> bool:
     """Latin text that is really Hindi written in English letters."""
 
