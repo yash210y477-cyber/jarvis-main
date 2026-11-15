@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { usePolling } from '../lib/usePolling';
 import { Brain, Trash2, Plus, Check } from 'lucide-react';
 import { FadeIn } from './ui';
 import { useJarvis } from '../state';
@@ -22,7 +23,7 @@ function Memory() {
     if (!m) { setOffline(true); return; }
     setOffline(false); setNotes(m.notes); setFacts(m.facts);
   };
-  useEffect(() => { load(); const id = setInterval(load, 5000); return () => clearInterval(id); }, []);
+  usePolling(load, 20000);
 
   const add = async () => {
     const text = t.trim(); if (!text) return;

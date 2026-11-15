@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { usePolling } from '../lib/usePolling';
 import type { LucideIcon } from 'lucide-react';
 import { Globe, Code2, FolderOpen, Terminal, Calculator, Settings, Cpu, MemoryStick, HardDrive, Wifi, Mic } from 'lucide-react';
 import { FadeIn } from './ui';
@@ -21,15 +22,12 @@ export default function Dashboard() {
   const [stats, setStats] = useState<Stats>({ cpu: 41, memory: 87, storage: 34 });
   const [demo, setDemo] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
-  useEffect(() => {
-    const tick = async () => {
-      const s = await getStats();
-      if (s) { setStats(s); setDemo(false); }
-      else { setDemo(true); setStats((p) => ({ cpu: clamp(p.cpu + (Math.random() - .5) * 6), memory: clamp(p.memory + (Math.random() - .5) * 2), storage: p.storage })); }
-      setOnline(navigator.onLine);
-    };
-    tick(); const t = setInterval(tick, 3000); return () => clearInterval(t);
-  }, []);
+  usePolling(async () => {
+    const s = await getStats();
+    if (s) { setStats(s); setDemo(false); }
+    else { setDemo(true); setStats((p) => ({ cpu: clamp(p.cpu + (Math.random() - .5) * 6), memory: clamp(p.memory + (Math.random() - .5) * 2), storage: p.storage })); }
+    setOnline(navigator.onLine);
+  }, 15000);
   const clamp = (n: number) => Math.max(5, Math.min(99, Math.round(n)));
   const rows: [string, string, number, LucideIcon][] = [
     ['CPU Usage', `${stats.cpu}%`, stats.cpu, Cpu], ['Memory', `${stats.memory}%`, stats.memory, MemoryStick],
