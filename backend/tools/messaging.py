@@ -22,6 +22,22 @@ logger = logging.getLogger(__name__)
 BACKEND = Path(__file__).resolve().parents[1]
 CONTACTS = BACKEND / "data" / "contacts.json"
 
+# The message that is typed but not sent yet, so "send" can confirm it.
+_PENDING: dict = {}
+
+
+def pending() -> dict:
+    """What is waiting in a compose box right now (empty when nothing is)."""
+
+    return dict(_PENDING)
+
+
+def _remember(entry: dict) -> None:
+    _PENDING.clear()
+
+    if entry:
+        _PENDING.update(entry)
+
 PLATFORMS = {
     "whatsapp": {
         "strategy": "search",
@@ -178,6 +194,21 @@ def _title_matches(title: str, spec: dict) -> bool:
     return any(word and word in (title or "").lower() for word in wanted)
 
 
+def _ensure_front(spec: dict, platform: str) -> tuple[int, str, bool]:
+    """The target window in front, taking it back once if something stole it."""
+
+    hwnd, title = _foreground()
+
+    if spec.get("window") and not _title_matches(title, spec):
+        _focus(spec.get("window") or (platform,))
+        time.sleep(0.6)
+        hwnd, title = _foreground()
+
+    ok = not spec.get("window") or _title_matches(title, spec)
+
+    return hwnd, title, ok
+
+
 def _tap(vk: int) -> None:
     _key(vk)
     _key(vk, up=True)
@@ -308,6 +339,10 @@ def _search_and_open(platform: str, spec: dict, contact: str) -> dict:
     # Ctrl+F opens the in-app search in WhatsApp and Telegram Desktop.
     _combo(VK["ctrl"], 0x46)
     time.sleep(0.7)
+    # Whatever the last search left in the box would be glued to this name.
+    _combo(VK["ctrl"], 0x41)
+    _tap(0x08)
+    time.sleep(0.2)
     typing.type_here(contact)
     time.sleep(1.1)
     _tap(VK["down"])
@@ -450,9 +485,9 @@ def send_message(
                 "error": result.get("error") or f"Could not reach the chat on {platform_key}.",
             }
 
-    hwnd, title = _foreground()
+    hwnd, title, in_front = _ensure_front(spec, platform_key)
 
-    if spec.get("window") and not _title_matches(title, spec):
+    if not in_front:
         return {
             "success": False,
             "platform": platform_key,
@@ -476,8 +511,31 @@ def send_message(
             "sent": False,
             "screen": view,
             "error": (
-                f"No chat is open on {platform_key}: it looks signed out. Open it "
-                f"and log in once, then ask again."
+                f"No chat opened on {platform_key} for \"{contact}\": the search "
+                f"found nothing, or the app is signed out. Nothing was typed."
+            ),
+        }
+
+    chat_name = _chat_title(view) or contact
+    wanted = contact.lower()
+    looks_right = (
+        not chat_name
+        or wanted in chat_name.lower()
+        or chat_name.lower() in wanted
+    )
+
+    if not looks_right:
+        return {
+            "success": False,
+            "platform": platform_key,
+            "contact": contact,
+            "chat": chat_name,
+            "text": text,
+            "sent": False,
+            "screen": view,
+            "error": (
+                f"The chat that opened is \"{chat_name}\", which does not look like "
+                f"\"{contact}\", so nothing was typed. Name the contact more exactly."
             ),
         }
 
@@ -485,32 +543,142 @@ def send_message(
 
     # The clipboard write happens in another process: make sure the chat is
     # still in front before pasting into it.
-    if spec.get("window") and not _title_matches(_foreground()[1], spec):
-        _focus(spec.get("window") or (platform_key,))
-        time.sleep(0.4)
+    _hwnd, _title, still_front = _ensure_front(spec, platform_key)
+
+    if not still_front:
+        return {
+            "success": False,
+            "platform": platform_key,
+            "contact": contact,
+            "text": text,
+            "sent": False,
+            "error": f"{platform_key} lost the foreground again, so I did not type anything.",
+        }
 
     typing.type_here(text)
-    time.sleep(0.5)
+    time.sleep(0.6)
 
     shot = screenshot.capture_screen("message", persist=False)
+    crop = _window_crop(shot.get("path") or "", hwnd, title)
+
+    _remember(
+        {
+            "platform": platform_key,
+            "contact": contact,
+            "chat": chat_name,
+            "text": text,
+            "window": spec.get("window") or (platform_key,),
+            "hwnd": hwnd,
+        }
+    )
 
     if confirm:
-        _tap(VK["enter"])
-        time.sleep(0.4)
+        return confirm_send()
 
     return {
         "success": True,
         "platform": platform_key,
         "contact": contact,
+        "chat": chat_name,
         "text": text,
-        "sent": bool(confirm),
+        "sent": False,
+        "prepared": True,
         "via": strategy,
-        "screen": shot.get("path"),
-        "message": _describe(
-            platform_key,
-            contact,
-            text,
-            bool(confirm),
-            "" if confirm else "Say send and I'll press enter.",
+        "screen": crop,
+        "message": (
+            f"Draft ready in chat \"{chat_name}\" on {platform_key}: “{text}”. "
+            f"Say send and I'll press enter; say cancel to drop it."
         ),
+    }
+
+
+def _chat_title(view: str) -> str:
+    """The name at the top of the open conversation, as a sanity check."""
+
+    if not view:
+        return ""
+
+    from tools import vision
+
+    answer = vision.see(
+        "Answer with only the contact or chat name written at the top of this "
+        "conversation, nothing else.",
+        view,
+    )
+
+    if not answer.get("success"):
+        return ""
+
+    name = (answer.get("answer") or "").strip().strip('\'"').splitlines()[0]
+
+    return name[:40] if len(name) <= 40 else ""
+
+
+def confirm_send() -> dict:
+    """Press enter on the prepared message (nothing is sent without this)."""
+
+    entry = pending()
+
+    if not entry:
+        return {
+            "success": False,
+            "error": "Nothing is waiting to be sent.",
+        }
+
+    titles = entry.get("window") or (entry.get("platform"),)
+
+    if not _title_matches(_foreground()[1], {"window": titles}):
+        _focus(titles)
+        time.sleep(0.4)
+
+    if not _title_matches(_foreground()[1], {"window": titles}):
+        return {
+            "success": False,
+            "error": f"{entry.get('platform')} is not in front, so the draft was not sent.",
+        }
+
+    _tap(VK["enter"])
+    time.sleep(0.5)
+
+    _remember({})
+
+    return {
+        "success": True,
+        "sent": True,
+        "platform": entry.get("platform"),
+        "contact": entry.get("contact"),
+        "chat": entry.get("chat"),
+        "text": entry.get("text"),
+        "message": (
+            f"Sent to {entry.get('chat') or entry.get('contact')} "
+            f"on {entry.get('platform')}: “{entry.get('text')}”"
+        ),
+    }
+
+
+def cancel_send() -> dict:
+    """Clear the drafted message out of the compose box."""
+
+    entry = pending()
+
+    if not entry:
+        return {"success": False, "error": "Nothing is waiting to be sent."}
+
+    titles = entry.get("window") or (entry.get("platform"),)
+
+    if not _title_matches(_foreground()[1], {"window": titles}):
+        _focus(titles)
+        time.sleep(0.4)
+
+    _combo(VK["ctrl"], 0x41)
+    time.sleep(0.15)
+    _tap(0x08)
+    time.sleep(0.2)
+
+    _remember({})
+
+    return {
+        "success": True,
+        "sent": False,
+        "message": f"Draft for {entry.get('chat') or entry.get('contact')} cleared.",
     }

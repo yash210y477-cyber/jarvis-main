@@ -659,9 +659,10 @@ def build_registry():
             "Send a message to a contact on a chat app: whatsapp, telegram, "
             "instagram, messenger, facebook, discord, slack, linkedin, x, reddit, "
             "sms or email. Anything else opens its website and finds the chat there. "
-            "Opens the chat and types the text; only presses send when confirm=true, "
-            "so pass confirm=true when the user asks to send it, and leave it false "
-            "to prepare the message for them to check."
+            "Opens the chat, types the text and reports the chat name it matched "
+            "and the draft; it does NOT send until confirm_send is called. Ask the "
+            "user for any content you do not have (what the party is for, the date, "
+            "the place) before drafting, and never invent those details."
         ),
         schema=_schema(
             {
@@ -677,6 +678,27 @@ def build_registry():
             "message hey to mumma on whatsapp",
             "send hi to rahul on telegram",
         ],
+    )
+
+    registry.register(
+        "confirm_send",
+        messaging.confirm_send,
+        description=(
+            "Press send on the message that is waiting in the chat, after the user "
+            "has seen the draft and said to send it."
+        ),
+        schema=_schema({}),
+        category="desktop",
+        examples=["send it", "haan bhej do"],
+    )
+
+    registry.register(
+        "cancel_send",
+        messaging.cancel_send,
+        description="Clear the drafted message out of the chat without sending it.",
+        schema=_schema({}),
+        category="desktop",
+        examples=["cancel message", "mat bhejo"],
     )
 
     registry.register(

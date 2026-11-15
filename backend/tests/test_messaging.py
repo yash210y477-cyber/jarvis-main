@@ -15,9 +15,32 @@ def test_message_to_intent_names_platform():
             "platform": "telegram",
             "contact": "mumma",
             "text": "hey",
-            "confirm": True,
+            "confirm": False,
         },
     }
+
+
+def test_send_it_confirms_the_prepared_message():
+    assert local_intents.detect("send it")["tool"] == "confirm_send"
+    assert local_intents.detect("haan bhej do")["tool"] == "confirm_send"
+
+
+def test_cancel_clears_the_draft():
+    assert local_intents.detect("mat bhejo")["tool"] == "cancel_send"
+    assert local_intents.detect("cancel message")["tool"] == "cancel_send"
+
+
+def test_nothing_is_sent_without_a_draft():
+    messaging._PENDING.clear()
+
+    assert messaging.confirm_send()["success"] is False
+    assert messaging.cancel_send()["success"] is False
+
+
+def test_message_intent_never_sends_by_itself():
+    got = local_intents.detect("message hey to mumma")
+
+    assert got["arguments"]["confirm"] is False
 
 
 def test_message_intent_defaults_to_whatsapp():

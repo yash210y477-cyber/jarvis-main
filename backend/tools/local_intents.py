@@ -295,6 +295,18 @@ MESSAGE_HINGLISH = re.compile(
     re.I,
 )
 
+SEND_CONFIRM = re.compile(
+    r"^(?:haan,?\s*)?(?:send(?:\s+it|\s+the\s+message|\s*kar\s*do)?|bhej\s*do|bhejdo|"
+    r"ok\s*send|go\s*ahead|yes\s*send)$",
+    re.I,
+)
+
+SEND_CANCEL = re.compile(
+    r"^(?:cancel(?:\s+the)?\s+message|message\s+cancel|mat\s+bhejo|rehne\s+do|"
+    r"hata\s*do|drop\s+it)$",
+    re.I,
+)
+
 
 def _message_intent(message: str):
     """"message hey to mumma on telegram" and friends, or None."""
@@ -326,7 +338,7 @@ def _message_intent(message: str):
                 "platform": platform,
                 "contact": contact,
                 "text": text,
-                "confirm": True,
+                "confirm": False,
             },
         }
 
@@ -343,6 +355,14 @@ def detect(message: str):
     # -----------------------------
     # Messaging (before app opening: "whatsapp par mumma ko ... bhejo")
     # -----------------------------
+
+    if SEND_CONFIRM.match(message.strip()):
+
+        return {"tool": "confirm_send", "arguments": {}}
+
+    if SEND_CANCEL.match(message.strip()):
+
+        return {"tool": "cancel_send", "arguments": {}}
 
     if "message" in text or "msg" in text or text.startswith("text "):
 
@@ -1217,6 +1237,10 @@ def render(name: str, result: dict, hinglish: bool = False) -> str:
         from tools import screen_agent
 
         return screen_agent.narrate(data) or data.get("answer") or "Done."
+
+    if name in ("send_message", "confirm_send", "cancel_send"):
+
+        return data.get("message") or data.get("error") or "Done."
 
     if name == "read_screen":
 
