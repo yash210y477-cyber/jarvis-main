@@ -252,8 +252,26 @@ def is_hinglish(text: str) -> bool:
     return detect(text)
 
 
+def reply_mode() -> str:
+    """The reply language chosen in Settings: auto, english or hinglish."""
+
+    try:
+
+        from brain.language import current
+
+        return current()
+
+    except Exception:
+
+        return "auto"
+
+
 def plan(text: str, voice: str, male: str, female: str) -> list[tuple[str, str]]:
-    """Split a reply into (voice, text) pieces: Hindi for Hindi, the rest as is."""
+    """The (voice, text) to speak: Hindi lines get a Hindi voice.
+
+    English is spoken by the user's chosen voice, Hinglish by the matching
+    Hindi voice, and Auto decides from the reply itself.
+    """
 
     text = clean(text)
 
@@ -261,11 +279,23 @@ def plan(text: str, voice: str, male: str, female: str) -> list[tuple[str, str]]
         return []
 
     hindi = male if _is_male(voice) else female
+    mode = reply_mode()
 
     if DEVANAGARI.search(text):
         return [(hindi, text)]
 
+    if mode == "english":
+        return [(voice, text)]
+
+    if mode == "hinglish":
+        # Hinglish is spoken by the Hindi voice; only real Hinglish words are
+        # rewritten, so an English file name stays readable.
+        spoken = to_devanagari(text) if is_hinglish(text) else text
+
+        return [(hindi, spoken)]
+
     if LATIN.search(text) and is_hinglish(text):
+
         spoken = to_devanagari(text)
 
         if DEVANAGARI.search(spoken):
