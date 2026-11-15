@@ -20,6 +20,9 @@ def _run(args, stdin=None):
         capture_output=True,
         text=True,
         timeout=15,
+        # A visible console window steals the foreground, so a paste after a
+        # clipboard write would land in whatever the console pushed forward.
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
 
 

@@ -272,12 +272,84 @@ def app_action(text: str):
     return action, _canonical_app(spoken)
 
 
+PLATFORM_WORDS = (
+    "whatsapp", "telegram", "instagram", "insta", "messenger", "facebook", "fb",
+    "discord", "slack", "linkedin", "twitter", "reddit", "sms", "email", "gmail",
+)
+
+MESSAGE_SAYING = re.compile(
+    r"^(?:please\s+)?(?:send\s+(?:a\s+)?)?(?:message|msg|text)\s+(?:to\s+)?"
+    r"(?P<contact>.+?)\s+(?:saying|that|ki)\s+(?P<text>.+)$",
+    re.I,
+)
+
+MESSAGE_TO = re.compile(
+    r"^(?:please\s+)?(?:send\s+(?:a\s+)?)?(?:message|msg|text)\s+(?P<text>.+?)\s+"
+    r"(?:to|ko)\s+(?P<contact>.+?)(?:\s+(?:on|par|pe|via)\s+(?P<platform>.+))?$",
+    re.I,
+)
+
+MESSAGE_HINGLISH = re.compile(
+    r"^(?P<contact>.+?)\s+ko\s+(?P<text>.+?)\s+(?:ka\s+)?(?:message|msg)\s+"
+    r"(?:bhejo|bhej\s*do|karo|send\s*karo|bhejna)(?:\s+(?P<platform>.+))?$",
+    re.I,
+)
+
+
+def _message_intent(message: str):
+    """"message hey to mumma on telegram" and friends, or None."""
+
+    for pattern in (MESSAGE_SAYING, MESSAGE_TO, MESSAGE_HINGLISH):
+
+        found = pattern.match(message.strip())
+
+        if not found:
+            continue
+
+        contact = (found.group("contact") or "").strip(" .,")
+        text = (found.group("text") or "").strip()
+
+        if not contact or not text:
+            continue
+
+        platform = (found.groupdict().get("platform") or "").strip().lower()
+
+        if not platform:
+            platform = next(
+                (word for word in PLATFORM_WORDS if word in message.lower()),
+                "whatsapp",
+            )
+
+        return {
+            "tool": "send_message",
+            "arguments": {
+                "platform": platform,
+                "contact": contact,
+                "text": text,
+                "confirm": True,
+            },
+        }
+
+    return None
+
+
 def detect(message: str):
 
     text = (message or "").strip().lower()
 
     if not text:
         return None
+
+    # -----------------------------
+    # Messaging (before app opening: "whatsapp par mumma ko ... bhejo")
+    # -----------------------------
+
+    if "message" in text or "msg" in text or text.startswith("text "):
+
+        messaged = _message_intent(message)
+
+        if messaged:
+            return messaged
 
     # -----------------------------
     # Reminders (checked before timers)

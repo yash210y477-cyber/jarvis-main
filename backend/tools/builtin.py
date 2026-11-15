@@ -14,6 +14,7 @@ from tools import (
     desktop,
     files,
     media,
+    messaging,
     image_gen,
     reverse_engineer,
     screen_agent,
@@ -643,6 +644,33 @@ def build_registry():
         ),
         category="desktop",
         examples=["open chrome", "open whatsapp", "open telegram"],
+    )
+
+    registry.register(
+        "send_message",
+        messaging.send_message,
+        description=(
+            "Send a message to a contact on a chat app: whatsapp, telegram, "
+            "instagram, messenger, facebook, discord, slack, linkedin, x, reddit, "
+            "sms or email. Anything else opens its website and finds the chat there. "
+            "Opens the chat and types the text; only presses send when confirm=true, "
+            "so pass confirm=true when the user asks to send it, and leave it false "
+            "to prepare the message for them to check."
+        ),
+        schema=_schema(
+            {
+                "platform": {"type": "string", "description": "whatsapp, telegram, instagram, ..."},
+                "contact": {"type": "string", "description": "Chat or contact name."},
+                "text": {"type": "string", "description": "What the message should say."},
+                "confirm": {"type": "boolean", "description": "Press send. Default false."},
+            },
+            ["platform", "contact", "text"],
+        ),
+        category="desktop",
+        examples=[
+            "message hey to mumma on whatsapp",
+            "send hi to rahul on telegram",
+        ],
     )
 
     registry.register(
