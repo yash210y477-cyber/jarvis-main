@@ -351,6 +351,66 @@ def clear_memory(data: dict | None = None):
     }
 
 
+def _chat_when(stamp) -> str:
+    """A chat's date in a form a person reads."""
+
+    from datetime import datetime
+
+    try:
+
+        moment = datetime.fromtimestamp(float(stamp or 0))
+
+    except (ValueError, OSError, OverflowError):
+
+        return ""
+
+    return moment.strftime("%d %b %Y, %I:%M %p").replace(" 0", " ")
+
+
+@app.get("/chats")
+def chats(limit: int = 60):
+    """Past conversations, newest first, each with its date."""
+
+    items = brain.memory.chats(limit)
+
+    for item in items:
+
+        item["date"] = _chat_when(item.get("started_at"))
+        item["updated"] = _chat_when(item.get("updated_at"))
+
+    return {"success": True, "chats": items, "count": len(items)}
+
+
+@app.get("/chats/{chat_id}")
+def chat_detail(chat_id: int):
+
+    messages = brain.memory.chat_messages(chat_id)
+
+    for message in messages:
+
+        message["time"] = _chat_when(message.get("at"))
+
+    return {"success": True, "id": chat_id, "messages": messages}
+
+
+@app.post("/chats/new")
+def chat_new(data: dict | None = None):
+
+    title = ((data or {}).get("title") or "").strip()
+
+    chat_id = brain.memory.start_chat(title)
+
+    return {"success": True, "id": chat_id, "date": _chat_when(__import__("time").time())}
+
+
+@app.delete("/chats/{chat_id}")
+def chat_delete(chat_id: int):
+
+    removed = brain.memory.delete_chat(chat_id)
+
+    return {"success": removed, "id": chat_id}
+
+
 @app.get("/tools")
 def list_tools():
     """Tool catalogue the agent can call, with schemas and permissions."""

@@ -27,6 +27,26 @@ class MemoryManager:
 
         return self.memory.message_count()
 
+    # -----------------------------
+    # Chat history (dated)
+    # -----------------------------
+
+    def chats(self, limit: int = 60) -> list:
+
+        return self.memory.chats(limit)
+
+    def chat_messages(self, chat_id) -> list:
+
+        return self.memory.chat_messages(chat_id)
+
+    def start_chat(self, title: str = "") -> int:
+
+        return self.memory.start_chat(title)
+
+    def delete_chat(self, chat_id) -> bool:
+
+        return self.memory.delete_chat(chat_id)
+
     def trim_messages(self, keep: int) -> int:
 
         return self.memory.trim_conversation(keep)

@@ -45,7 +45,13 @@ class Storage:
         "message_count INTEGER NOT NULL DEFAULT 0)",
         "CREATE TABLE IF NOT EXISTS meta ("
         "key TEXT PRIMARY KEY, value TEXT NOT NULL)",
+        "CREATE TABLE IF NOT EXISTS chats ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL DEFAULT '', "
+        "created_at REAL NOT NULL DEFAULT 0, updated_at REAL NOT NULL DEFAULT 0)",
     )
+
+    # A long pause starts a new chat, the way a chat app does.
+    CHAT_GAP = 6 * 3600
 
     def __init__(self, path=None):
 
@@ -79,6 +85,8 @@ class Storage:
         for statement in self.SCHEMA:
 
             self.conn.execute(statement)
+
+        self._ensure_message_columns()
 
         for field in PROFILE_FIELDS:
 
@@ -316,24 +324,191 @@ class Storage:
         return True
 
     # -----------------------------
-    # CONVERSATION
+    # CHATS (dated history)
     # -----------------------------
 
-    def add_message(self, role: str, text: str) -> int:
+    def _ensure_message_columns(self):
 
-        if "created_at" in self.columns("messages"):
+        columns = self.columns("messages")
 
-            cursor = self.conn.execute(
-                "INSERT INTO messages (role, text, created_at) VALUES (?, ?, ?)",
-                (role, text, time.time()),
+        if "created_at" not in columns:
+
+            self.conn.execute(
+                "ALTER TABLE messages ADD COLUMN created_at REAL NOT NULL DEFAULT 0"
+            )
+
+        if "chat_id" not in columns:
+
+            self.conn.execute("ALTER TABLE messages ADD COLUMN chat_id INTEGER")
+
+        self.conn.commit()
+
+        self._adopt_orphan_messages()
+
+    def _adopt_orphan_messages(self):
+        """Older messages have no chat; put them in one dated chat."""
+
+        row = self.conn.execute(
+            "SELECT COUNT(*) AS total FROM messages WHERE chat_id IS NULL"
+        ).fetchone()
+
+        if not row or not int(row["total"] or 0):
+
+            return
+
+        try:
+
+            started = Path(self.path).stat().st_mtime
+
+        except OSError:
+
+            started = time.time()
+
+        cursor = self.conn.execute(
+            "INSERT INTO chats (title, created_at, updated_at) VALUES ('', ?, ?)",
+            (started, started),
+        )
+
+        self.conn.execute(
+            "UPDATE messages SET chat_id = ? WHERE chat_id IS NULL", (cursor.lastrowid,)
+        )
+
+        self._touch_chat(cursor.lastrowid, self._first_user_text(cursor.lastrowid))
+
+        self.conn.commit()
+
+    def _first_user_text(self, chat_id) -> str:
+
+        row = self.conn.execute(
+            "SELECT text FROM messages WHERE chat_id = ? AND role = 'user' "
+            "ORDER BY id LIMIT 1",
+            (chat_id,),
+        ).fetchone()
+
+        return (row["text"] if row else "") or ""
+
+    def _touch_chat(self, chat_id, title: str = ""):
+
+        now = time.time()
+
+        if title:
+
+            self.conn.execute(
+                "UPDATE chats SET updated_at = ?, "
+                "title = CASE WHEN title = '' THEN ? ELSE title END WHERE id = ?",
+                (now, title.strip()[:80], chat_id),
             )
 
         else:
 
-            cursor = self.conn.execute(
-                "INSERT INTO messages (role, text) VALUES (?, ?)",
-                (role, text),
+            self.conn.execute(
+                "UPDATE chats SET updated_at = ? WHERE id = ?", (now, chat_id)
             )
+
+    def start_chat(self, title: str = "") -> int:
+
+        now = time.time()
+
+        cursor = self.conn.execute(
+            "INSERT INTO chats (title, created_at, updated_at) VALUES (?, ?, ?)",
+            ((title or "").strip()[:80], now, now),
+        )
+
+        self.conn.commit()
+
+        return int(cursor.lastrowid)
+
+    def current_chat(self, gap=None) -> int:
+        """The chat this message belongs to; a long pause starts a new one."""
+
+        gap = self.CHAT_GAP if gap is None else gap
+
+        row = self.conn.execute(
+            "SELECT id, updated_at FROM chats ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+
+        if row and (time.time() - float(row["updated_at"] or 0)) < gap:
+
+            return int(row["id"])
+
+        return self.start_chat()
+
+    def chats(self, limit: int = 60) -> list:
+        """Every chat, newest first, with its date and last line."""
+
+        rows = self.conn.execute(
+            "SELECT c.id, c.title, c.created_at, c.updated_at, "
+            "COUNT(m.id) AS total FROM chats c "
+            "LEFT JOIN messages m ON m.chat_id = c.id "
+            "GROUP BY c.id ORDER BY c.updated_at DESC LIMIT ?",
+            (int(limit),),
+        ).fetchall()
+
+        items = []
+
+        for row in rows:
+
+            last = self.conn.execute(
+                "SELECT text FROM messages WHERE chat_id = ? ORDER BY id DESC LIMIT 1",
+                (row["id"],),
+            ).fetchone()
+
+            items.append(
+                {
+                    "id": int(row["id"]),
+                    "title": (row["title"] or "").strip()
+                    or (self._first_user_text(row["id"])[:60] or "New chat"),
+                    "started_at": float(row["created_at"] or 0),
+                    "updated_at": float(row["updated_at"] or 0),
+                    "messages": int(row["total"] or 0),
+                    "preview": (last["text"] if last else "")[:120],
+                }
+            )
+
+        return items
+
+    def chat_messages(self, chat_id) -> list:
+
+        rows = self.conn.execute(
+            "SELECT id, role, text, created_at FROM messages "
+            "WHERE chat_id = ? ORDER BY id",
+            (int(chat_id),),
+        ).fetchall()
+
+        return [
+            {
+                "id": row["id"],
+                "role": row["role"],
+                "text": row["text"],
+                "at": float(row["created_at"] or 0),
+            }
+            for row in rows
+        ]
+
+    def delete_chat(self, chat_id) -> bool:
+
+        self.conn.execute("DELETE FROM messages WHERE chat_id = ?", (int(chat_id),))
+
+        cursor = self.conn.execute("DELETE FROM chats WHERE id = ?", (int(chat_id),))
+
+        self.conn.commit()
+
+        return cursor.rowcount > 0
+
+    # -----------------------------
+    # CONVERSATION
+    # -----------------------------
+
+    def add_message(self, role: str, text: str, chat_id=None) -> int:
+
+        chat_id = int(chat_id or self.current_chat())
+
+        cursor = self.conn.execute(
+            "INSERT INTO messages (role, text, created_at, chat_id) VALUES (?, ?, ?, ?)",
+            (role, text, time.time(), chat_id),
+        )
+
+        self._touch_chat(chat_id, text if role == "user" else "")
 
         self.conn.commit()
 
@@ -409,6 +584,8 @@ class Storage:
 
         self.conn.execute("DELETE FROM messages")
 
+        self.conn.execute("DELETE FROM chats")
+
         self.conn.commit()
 
     # -----------------------------
@@ -461,7 +638,7 @@ class Storage:
 
     def reset(self):
 
-        for table in ("messages", "notes", "summaries", "facts"):
+        for table in ("messages", "notes", "summaries", "facts", "chats"):
 
             self.conn.execute(f"DELETE FROM {table}")
 

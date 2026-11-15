@@ -144,6 +144,26 @@ class Memory:
         return self.conversation.trim(keep)
 
     # -----------------------------
+    # Chat history (dated, like a chat app)
+    # -----------------------------
+
+    def chats(self, limit: int = 60) -> list:
+
+        return self.storage.chats(limit)
+
+    def chat_messages(self, chat_id) -> list:
+
+        return self.storage.chat_messages(chat_id)
+
+    def start_chat(self, title: str = "") -> int:
+
+        return self.storage.start_chat(title)
+
+    def delete_chat(self, chat_id) -> bool:
+
+        return self.storage.delete_chat(chat_id)
+
+    # -----------------------------
     # Utility
     # -----------------------------
 
