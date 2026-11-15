@@ -10,6 +10,8 @@ from pathlib import Path
 import edge_tts
 import pygame
 
+from voice import speech
+
 
 BACKEND = Path(__file__).resolve().parents[1]
 
@@ -110,6 +112,28 @@ class TextToSpeech:
         return os.getenv("TTS_VOICE", "en-US-AndrewMultilingualNeural")
 
     def speak(self, text):
+
+        if not text:
+            return
+
+        pieces = speech.plan(text, self.voice, speech.HINDI_MALE, speech.HINDI_FEMALE)
+
+        if not pieces:
+            return
+
+        original = self.voice
+
+        try:
+            for voice_name, chunk in pieces:
+                if self.stop_requested:
+                    break
+
+                self.voice = voice_name
+                self._speak_chunk(chunk)
+        finally:
+            self.voice = original
+
+    def _speak_chunk(self, text):
 
         if not text:
             return
