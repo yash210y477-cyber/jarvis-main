@@ -77,7 +77,20 @@ class TextToSpeech:
 
         name = (name or "").strip()
 
-        if not name or name == self.voice:
+        if not name:
+            return self.voice
+
+        if name == "default":
+            self.voice = self.default_voice
+
+            try:
+                (BACKEND / "data" / "voice.txt").unlink(missing_ok=True)
+            except Exception:
+                pass
+
+            return self.voice
+
+        if name == self.voice:
             return self.voice
 
         self.voice = name
@@ -89,6 +102,12 @@ class TextToSpeech:
             pass
 
         return self.voice
+
+    @property
+    def default_voice(self):
+        """The voice the app ships with, before any choice is made."""
+
+        return os.getenv("TTS_VOICE", "en-US-AndrewMultilingualNeural")
 
     def speak(self, text):
 

@@ -525,7 +525,7 @@ def run_task(
                     return {
                         "success": True,
                         "goal": goal,
-                        "answer": "User ne click nahi kiya, wahin ruk gaya.",
+                        "answer": "The user did not click, so I stopped there.",
                         "steps": steps,
                         "finished": False,
                         "guided": True,

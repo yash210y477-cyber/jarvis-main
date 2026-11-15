@@ -9,7 +9,14 @@ router = APIRouter()
 voice = VoiceEngine()
 command = CommandController()
 
-SAMPLE = "Namaste Yash. Main Jarvis hoon, aapka personal assistant. Ye meri awaaz hai."
+SAMPLE = "Hello Yash. I'm Jarvis, your personal assistant. This is how I sound."
+
+DEFAULT = {
+    "id": "default",
+    "name": "Default",
+    "gender": "",
+    "accent": "system default voice",
+}
 
 
 @router.post("/voice")
@@ -38,7 +45,8 @@ def voice_options():
     return {
         "success": True,
         "current": voice.tts.voice,
-        "voices": list(settings.VOICE_OPTIONS),
+        "default": voice.tts.default_voice,
+        "voices": [DEFAULT] + list(settings.VOICE_OPTIONS),
     }
 
 
@@ -47,7 +55,7 @@ def set_voice(data: dict):
     """Pick one of the offered voices; it is used from the next sentence."""
 
     wanted = (data.get("voice") or "").strip()
-    allowed = {item["id"] for item in settings.VOICE_OPTIONS}
+    allowed = {"default"} | {item["id"] for item in settings.VOICE_OPTIONS}
 
     if wanted not in allowed:
         return {
@@ -64,7 +72,7 @@ def preview_voice(data: dict):
     """Say a sample line in a voice, so the choice can be heard first."""
 
     wanted = (data.get("voice") or voice.tts.voice).strip()
-    allowed = {item["id"] for item in settings.VOICE_OPTIONS}
+    allowed = {"default"} | {item["id"] for item in settings.VOICE_OPTIONS}
 
     if wanted not in allowed:
         return {"success": False, "error": "That voice is not one of the six options."}
@@ -81,3 +89,29 @@ def preview_voice(data: dict):
         voice.tts.set_voice(previous)
 
     return {"success": True, "voice": wanted, "text": text}
+
+
+@router.post("/voice/say")
+def say(data: dict):
+    """Speak a line in the confirmed voice (this is how Mina talks)."""
+
+    text = (data.get("text") or "").strip()
+
+    if not text:
+        return {"success": False, "error": "Nothing to say."}
+
+    try:
+        voice.tts.speak(text[:1500])
+    except Exception as error:
+        return {"success": False, "error": str(error)}
+
+    return {"success": True, "voice": voice.tts.voice}
+
+
+@router.post("/voice/stop")
+def stop_speaking():
+    """Stop whatever is being said right now."""
+
+    voice.tts.stop_speaking()
+
+    return {"success": True}

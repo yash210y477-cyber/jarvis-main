@@ -81,25 +81,43 @@ function Models() {
 }
 
 function SettingsPanel() {
-  const { voiceReplies, setVoiceReplies, jarvisSays } = useJarvis();
+  const { voiceReplies, setVoiceReplies } = useJarvis();
   const [voices, setVoices] = useState<Voice[]>([]);
   const [voice, setVoice] = useState('');
+  const [inUse, setInUse] = useState('');
   const [note, setNote] = useState('');
 
   useEffect(() => {
-    getVoices().then((d) => { if (d) { setVoices(d.voices); setVoice(d.current); } });
+    getVoices().then((d) => { if (d) { setVoices(d.voices); setVoice(d.current); setInUse(d.current); } });
   }, []);
 
-  const pick = async (id: string) => {
+  const label = (id: string) => {
+    const v = voices.find((item) => item.id === id);
+    if (!v) return id;
+    return v.gender ? `${v.name} (${v.gender}, ${v.accent})` : `${v.name} (${v.accent})`;
+  };
+
+  // Choosing is free; Confirm is what the assistant actually uses.
+  const pick = (id: string) => {
     setVoice(id);
-    const d = await setJarvisVoice(id);
-    setNote(d?.success ? 'Voice switched — next sentence uses it.' : d?.error ?? 'Could not switch the voice.');
+    setNote(id === inUse ? 'Already in use.' : 'Selected — press Confirm to use this voice.');
+  };
+
+  const confirm = async () => {
+    const d = await setJarvisVoice(voice);
+
+    if (d?.success) {
+      setInUse(voice);
+      setNote(`Voice confirmed: ${label(voice)}`);
+    } else {
+      setNote(d?.error ?? 'Could not switch the voice.');
+    }
   };
 
   const preview = async () => {
     setNote('Playing…');
     const d = await previewVoice(voice);
-    setNote(d?.success ? 'That was the selected voice.' : d?.error ?? 'Preview failed.');
+    setNote(d?.success ? 'That was the selected voice. Press Confirm to keep it.' : d?.error ?? 'Preview failed.');
   };
 
   return (
@@ -115,14 +133,17 @@ function SettingsPanel() {
             Voice
             <div className="flex flex-wrap gap-3 items-center">
               <select value={voice} onChange={(e) => pick(e.target.value)} className="bg-[#0C0C0C] border border-[#D7E2EA]/40 rounded-full px-4 py-2 text-sm cursor-pointer">
-                {voices.map((v) => <option key={v.id} value={v.id}>{v.name} — {v.gender === 'male' ? 'male' : 'female'}, {v.accent}</option>)}
+                {voices.map((v) => (
+                  <option key={v.id} value={v.id}>{v.gender ? `${v.name} — ${v.gender}, ${v.accent}` : `${v.name} — ${v.accent}`}</option>
+                ))}
               </select>
               <button className={ghost} onClick={preview}>Preview voice</button>
+              <button className={ghost + ' !border-[#A8651F]'} onClick={confirm}>Confirm</button>
             </div>
+            {inUse && <span className="text-[11px] normal-case tracking-normal opacity-60">In use: {label(inUse)}</span>}
             {note && <span className="text-[11px] normal-case tracking-normal opacity-70">{note}</span>}
           </label>
         )}
-        <button className={ghost + ' self-start'} onClick={() => jarvisSays("Hi, I'm Jarvis. This is how I sound when I speak.")}>Test voice</button>
       </div>
     </div>
   );

@@ -56,16 +56,40 @@ export async function getStats(): Promise<Stats | null> {
 // ---- speaking: drives Mina's mouth through the engine hook ----
 const faceSpeak = (on: boolean) => (window as any).__faceSpeak?.(on);
 let token = 0, timer = 0;
-export function stopSpeaking() { token++; window.clearTimeout(timer); if ('speechSynthesis' in window) speechSynthesis.cancel(); faceSpeak(false); }
+export function stopSpeaking() {
+  token++;
+  window.clearTimeout(timer);
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  stopBackendVoice();
+  faceSpeak(false);
+}
 export function say(text: string, voice: boolean, cb: (on: boolean) => void = () => {}) {
   const t = ++token; window.clearTimeout(timer);
   const set = (on: boolean) => { if (t !== token) return; faceSpeak(on); cb(on); };
   if ('speechSynthesis' in window) speechSynthesis.cancel();
-  if (voice && 'speechSynthesis' in window) {
-    const u = new SpeechSynthesisUtterance(text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, ''));
-    u.onstart = () => set(true); u.onend = () => set(false); u.onerror = () => set(false);
-    speechSynthesis.speak(u);
-  } else { set(true); timer = window.setTimeout(() => set(false), Math.min(8000, 800 + text.length * 50)); }
+  const line = text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').trim();
+  if (!voice || !line) { set(true); timer = window.setTimeout(() => set(false), Math.min(8000, 800 + text.length * 50)); return; }
+  // The confirmed voice lives in the backend engine; the browser voice is only
+  // a fallback for when the backend is not running.
+  set(true);
+  sayOnBackend(line).then((ok) => {
+    if (t !== token) return;
+    if (ok) { set(false); return; }
+    if ('speechSynthesis' in window) {
+      const u = new SpeechSynthesisUtterance(line);
+      u.onend = () => set(false); u.onerror = () => set(false);
+      speechSynthesis.speak(u);
+    } else set(false);
+  });
+}
+
+async function sayOnBackend(text: string): Promise<boolean> {
+  try { const r = await fetch(`${API}/voice/say`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...auth() }, body: JSON.stringify({ text }) }); return r.ok; }
+  catch { return false; }
+}
+
+function stopBackendVoice() {
+  fetch(`${API}/voice/stop`, { method: 'POST', headers: auth() }).catch(() => {});
 }
 
 // ---- memory: stored on the backend, shared with chat ----
