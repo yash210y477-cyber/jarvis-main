@@ -11,11 +11,23 @@ import edge_tts
 import pygame
 
 
+BACKEND = Path(__file__).resolve().parents[1]
+
+
 class TextToSpeech:
 
     def __init__(self):
 
         self.voice = os.getenv("TTS_VOICE", "en-US-AndrewMultilingualNeural")
+
+        # A voice picked in Settings stays picked after a restart.
+        try:
+            saved = (BACKEND / "data" / "voice.txt").read_text(encoding="utf-8").strip()
+
+            if saved:
+                self.voice = saved
+        except Exception:
+            pass
 
         self.current_file = None
 
@@ -59,6 +71,24 @@ class TextToSpeech:
     # ---------------------------------
     # SPEAK
     # ---------------------------------
+
+    def set_voice(self, name):
+        """Switch voice for the next sentence, no restart needed."""
+
+        name = (name or "").strip()
+
+        if not name or name == self.voice:
+            return self.voice
+
+        self.voice = name
+
+        try:
+            (BACKEND / "data").mkdir(parents=True, exist_ok=True)
+            (BACKEND / "data" / "voice.txt").write_text(name, encoding="utf-8")
+        except Exception:
+            pass
+
+        return self.voice
 
     def speak(self, text):
 

@@ -1,10 +1,10 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { usePolling } from '../lib/usePolling';
 import { Brain, Trash2, Plus, Check } from 'lucide-react';
 import { FadeIn } from './ui';
 import { useJarvis } from '../state';
 import { MODELS } from '../config';
-import { getMemory, addMemoryNote, deleteMemoryNote, deleteMemoryFact, type MemoryFact } from '../lib/jarvis';
+import { getMemory, addMemoryNote, deleteMemoryNote, deleteMemoryFact, getVoices, setJarvisVoice, previewVoice, type MemoryFact, type Voice } from '../lib/jarvis';
 
 const Head = ({ children }: { children: ReactNode }) => (
   <FadeIn><h2 className="hero-heading font-black uppercase leading-none tracking-tight text-center mb-10 sm:mb-14" style={{ fontSize: 'clamp(3rem, 12vw, 160px)' }}>{children}</h2></FadeIn>
@@ -82,6 +82,26 @@ function Models() {
 
 function SettingsPanel() {
   const { voiceReplies, setVoiceReplies, jarvisSays } = useJarvis();
+  const [voices, setVoices] = useState<Voice[]>([]);
+  const [voice, setVoice] = useState('');
+  const [note, setNote] = useState('');
+
+  useEffect(() => {
+    getVoices().then((d) => { if (d) { setVoices(d.voices); setVoice(d.current); } });
+  }, []);
+
+  const pick = async (id: string) => {
+    setVoice(id);
+    const d = await setJarvisVoice(id);
+    setNote(d?.success ? 'Voice switched — next sentence uses it.' : d?.error ?? 'Could not switch the voice.');
+  };
+
+  const preview = async () => {
+    setNote('Playing…');
+    const d = await previewVoice(voice);
+    setNote(d?.success ? 'That was the selected voice.' : d?.error ?? 'Preview failed.');
+  };
+
   return (
     <div id="settings">
       <Head>Settings</Head>
@@ -90,6 +110,18 @@ function SettingsPanel() {
           Spoken replies
           <input type="checkbox" checked={voiceReplies} onChange={(e) => setVoiceReplies(e.target.checked)} className="w-5 h-5 accent-[#A8651F]" />
         </label>
+        {voices.length > 0 && (
+          <label className="flex flex-col gap-2 font-medium uppercase tracking-widest text-sm sm:text-base">
+            Voice
+            <div className="flex flex-wrap gap-3 items-center">
+              <select value={voice} onChange={(e) => pick(e.target.value)} className="bg-[#0C0C0C] border border-[#D7E2EA]/40 rounded-full px-4 py-2 text-sm cursor-pointer">
+                {voices.map((v) => <option key={v.id} value={v.id}>{v.name} — {v.gender === 'male' ? 'male' : 'female'}, {v.accent}</option>)}
+              </select>
+              <button className={ghost} onClick={preview}>Preview voice</button>
+            </div>
+            {note && <span className="text-[11px] normal-case tracking-normal opacity-70">{note}</span>}
+          </label>
+        )}
         <button className={ghost + ' self-start'} onClick={() => jarvisSays("Hi, I'm Jarvis. This is how I sound when I speak.")}>Test voice</button>
       </div>
     </div>

@@ -29,6 +29,22 @@ export async function saveImage(name: string): Promise<string> {
 
 /** Message text without the image markup, for speaking aloud. */
 export const plainText = (text: string) => text.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\n{3,}/g, '\n\n').trim();
+
+// ---- the six voices offered in Settings ----
+export type Voice = { id: string; name: string; gender: string; accent: string };
+
+export async function getVoices(): Promise<{ voices: Voice[]; current: string } | null> {
+  try { const r = await fetch(`${API}/voice/options`); const d = await r.json(); return d.success ? { voices: d.voices ?? [], current: d.current ?? '' } : null; }
+  catch { return null; }
+}
+
+export async function setJarvisVoice(voice: string) {
+  try { return await post('/voice/voice', { voice }); } catch { return { success: false, error: 'Backend is not running.' }; }
+}
+
+export async function previewVoice(voice: string) {
+  try { return await post('/voice/preview', { voice }); } catch { return { success: false, error: 'Backend is not running.' }; }
+}
 export async function launchApp(app: string): Promise<string> {
   try { const d = await post('/launch', { app }); return d.reply ?? d.error ?? `Opening ${app}.`; }
   catch { return `Couldn't open ${app}: backend at ${API} isn't responding.`; }

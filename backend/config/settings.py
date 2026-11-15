@@ -107,6 +107,17 @@ class Settings:
 
     TTS_VOICE = os.getenv("TTS_VOICE", "en-US-AndrewNeural")
 
+    # The six voices offered in Settings: three male, three female, with one
+    # Indian voice of each.
+    VOICE_OPTIONS = (
+        {"id": "en-IN-PrabhatNeural", "name": "Prabhat", "gender": "male", "accent": "Indian English"},
+        {"id": "en-US-AndrewMultilingualNeural", "name": "Andrew", "gender": "male", "accent": "US English, multilingual"},
+        {"id": "en-GB-RyanNeural", "name": "Ryan", "gender": "male", "accent": "British English"},
+        {"id": "en-IN-NeerjaNeural", "name": "Neerja", "gender": "female", "accent": "Indian English"},
+        {"id": "en-US-JennyNeural", "name": "Jenny", "gender": "female", "accent": "US English"},
+        {"id": "en-US-AriaNeural", "name": "Aria", "gender": "female", "accent": "US English, expressive"},
+    )
+
     # Where the screenshots the user asked for are kept. Empty means
     # Downloads/jarvis_screenshot.
     SCREENSHOT_DIR = os.getenv("SCREENSHOT_DIR", "")
