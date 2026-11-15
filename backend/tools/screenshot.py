@@ -7,13 +7,31 @@ awareness on first, then copies the whole virtual screen (every monitor).
 """
 
 import subprocess
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
 from config.settings import settings
 
 
-SCREENSHOT_DIR = Path(settings.WORKSPACE_ROOT) / "backend" / "data" / "screenshots"
+def shots_dir() -> Path:
+    """Where a screenshot the user asked for belongs.
+
+    Downloads/jarvis_screenshot, unless SCREENSHOT_DIR points somewhere else.
+    """
+
+    custom = (getattr(settings, "SCREENSHOT_DIR", "") or "").strip()
+
+    if custom:
+        return Path(custom).expanduser()
+
+    return Path.home() / "Downloads" / "jarvis_screenshot"
+
+
+def scratch_dir() -> Path:
+    """Working pictures for the tools themselves, thrown away by the OS."""
+
+    return Path(tempfile.gettempdir()) / "jarvis-shots"
 
 SCRIPT = r"""
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
@@ -49,10 +67,18 @@ def _enable_dpi_awareness():
         pass
 
 
-def capture_screen(label: str = "") -> dict:
-    """Grab the whole virtual desktop and return its path and pixel bounds."""
+def capture_screen(label: str = "", persist: bool = True) -> dict:
+    """Grab the whole virtual desktop and return its path and pixel bounds.
 
-    SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
+    persist=True keeps the picture in the user's screenshot folder. Internal
+    looks (checking that a chat really opened, one step of a screen task) pass
+    persist=False and land in the scratch folder instead, so the user's folder
+    only holds screenshots they actually asked for.
+    """
+
+    folder = shots_dir() if persist else scratch_dir()
+
+    folder.mkdir(parents=True, exist_ok=True)
 
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
 
@@ -63,7 +89,7 @@ def capture_screen(label: str = "") -> dict:
 
     name = f"screenshot-{stamp}{'-' + safe if safe else ''}.png"
 
-    target = SCREENSHOT_DIR / name
+    target = folder / name
 
     try:
 
@@ -75,6 +101,7 @@ def capture_screen(label: str = "") -> dict:
             capture_output=True,
             text=True,
             timeout=30,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
 
     except Exception as error:

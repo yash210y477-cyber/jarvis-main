@@ -154,7 +154,11 @@ def build_registry():
     registry.register(
         "screenshot",
         screenshot.capture_screen,
-        description="Capture the primary screen to a PNG file and return its path.",
+        description=(
+            "Capture the primary screen to a PNG file and return its path. Only"
+            " when the user asks for a screenshot themselves; never take one"
+            " on your own."
+        ),
         schema=_schema(
             {"label": {"type": "string", "description": "Optional short label."}},
         ),
@@ -166,8 +170,9 @@ def build_registry():
         "read_screen",
         screen_reader.read_screen,
         description=(
-            "Look at the user screen and explain it. Use this when the user asks"
-            " to summarise or explain an open page, article or window."
+            "Look at the user screen and explain it. Only when the user asks to"
+            " summarise or explain an open page, article or window; never look"
+            " at the screen on your own."
         ),
         schema=_schema(
             {
@@ -282,7 +287,8 @@ def build_registry():
         screen_watch.start,
         description=(
             "Keep watching the screen in the background: explain new pages and"
-            " anything the user points at with the cursor."
+            " anything the user points at with the cursor. Only start this when"
+            " the user explicitly asks for it; it reads the screen constantly."
         ),
         category="screen",
         examples=["watch my screen"],

@@ -87,7 +87,9 @@ root.mainloop()
 def select_region(ms: int = SELECT_MS) -> dict:
     """Let the user drag a rectangle on the whole desktop; return it or None."""
 
-    shot = screenshot.capture_screen("area")
+    # The full frame is only a coordinate reference; the cropped selection is
+    # what the user asked for, so only that one is kept.
+    shot = screenshot.capture_screen("area", persist=False)
 
     if not shot.get("success"):
 
@@ -176,7 +178,9 @@ def crop(path: str, rect: dict, left: int = 0, top: int = 0) -> Path:
 
         piece = image.crop(box)
 
-        target = source.with_name(source.stem + "-area.png")
+        target = screenshot.shots_dir() / (source.stem + "-area.png")
+
+        target.parent.mkdir(parents=True, exist_ok=True)
 
         piece.save(target, format="PNG")
 

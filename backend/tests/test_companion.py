@@ -176,7 +176,7 @@ def test_guided_task_points_and_waits_instead_of_clicking(monkeypatch):
     monkeypatch.setattr(
         screen_agent.screen_reader.screenshot,
         "capture_screen",
-        lambda label="": {
+        lambda label="", persist=True: {
             "success": True,
             "path": "fake.png",
             "left": -100,

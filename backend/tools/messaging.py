@@ -386,7 +386,7 @@ def send_message(
 
             from tools import screenshot
 
-            shot = screenshot.capture_screen("message-chat")
+            shot = screenshot.capture_screen("message-chat", persist=False)
 
             if not _chat_ready(shot.get("path") or ""):
                 return {
@@ -464,7 +464,7 @@ def send_message(
 
     from tools import screenshot
 
-    before = screenshot.capture_screen("message-chat")
+    before = screenshot.capture_screen("message-chat", persist=False)
     view = _window_crop(before.get("path") or "", hwnd, title)
 
     if not _chat_ready(view):
@@ -492,7 +492,7 @@ def send_message(
     typing.type_here(text)
     time.sleep(0.5)
 
-    shot = screenshot.capture_screen("message")
+    shot = screenshot.capture_screen("message", persist=False)
 
     if confirm:
         _tap(VK["enter"])

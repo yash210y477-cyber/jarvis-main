@@ -37,7 +37,7 @@ def patch_environment(monkeypatch, replies, tmp_path):
     monkeypatch.setattr(
         screen_agent.screen_reader.screenshot,
         "capture_screen",
-        lambda label="": {"success": True, "path": str(shot)},
+        lambda label="", persist=True: {"success": True, "path": str(shot)},
     )
     monkeypatch.setattr(
         screen_agent.screen_reader, "shrink", lambda path: Path(path)

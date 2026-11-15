@@ -107,6 +107,10 @@ class Settings:
 
     TTS_VOICE = os.getenv("TTS_VOICE", "en-US-AndrewNeural")
 
+    # Where the screenshots the user asked for are kept. Empty means
+    # Downloads/jarvis_screenshot.
+    SCREENSHOT_DIR = os.getenv("SCREENSHOT_DIR", "")
+
     # Windows speech keeps call replies instant; edge sounds natural but
     # needs the network and about two seconds before it can speak.
     TTS_SAPI_VOICE = os.getenv("TTS_SAPI_VOICE", "Microsoft Zira Desktop")

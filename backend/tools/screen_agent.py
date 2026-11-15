@@ -397,7 +397,8 @@ def run_task(
 
     for index in range(1, max_steps + 1):
 
-        shot = screen_reader.screenshot.capture_screen("agent")
+        # One look per step is for the agent itself, not for the user's folder.
+        shot = screen_reader.screenshot.capture_screen("agent", persist=False)
 
         if not shot.get("success"):
 
