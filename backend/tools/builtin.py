@@ -162,6 +162,7 @@ def build_registry():
         schema=_schema(
             {"label": {"type": "string", "description": "Optional short label."}},
         ),
+        permission=CONFIRM,
         category="screen",
         examples=["take a screenshot"],
     )
@@ -182,6 +183,7 @@ def build_registry():
                 },
             },
         ),
+        permission=CONFIRM,
         category="screen",
         examples=["summarize this page", "screen dekho kya hai"],
     )
@@ -229,6 +231,7 @@ def build_registry():
                 },
             },
         ),
+        permission=CONFIRM,
         category="screen",
         examples=["yeh area samjhao", "explain this part"],
     )
@@ -260,8 +263,10 @@ def build_registry():
         companion.start,
         description=(
             "Turn on push-to-talk: hold Ctrl+Alt in any app and speak, Ctrl+Shift+A"
-            " asks about a dragged screen area."
+            " asks about a dragged screen area. It listens and reads the screen,"
+            " so ask the user first."
         ),
+        permission=CONFIRM,
         category="screen",
         examples=["push to talk on karo"],
     )
@@ -287,9 +292,10 @@ def build_registry():
         screen_watch.start,
         description=(
             "Keep watching the screen in the background: explain new pages and"
-            " anything the user points at with the cursor. Only start this when"
-            " the user explicitly asks for it; it reads the screen constantly."
+            " anything the user points at with the cursor. It reads the screen"
+            " constantly, so only after the user agrees."
         ),
+        permission=CONFIRM,
         category="screen",
         examples=["watch my screen"],
     )

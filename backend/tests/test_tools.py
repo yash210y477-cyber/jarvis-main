@@ -41,7 +41,8 @@ def test_destructive_tools_need_confirmation():
 
     assert builtin.REGISTRY.get("run_command")["permission"] == CONFIRM
     assert builtin.REGISTRY.get("write_file")["permission"] == CONFIRM
-    assert builtin.REGISTRY.get("screenshot")["permission"] != CONFIRM
+    # Capture is the user's call: nothing looks at the screen on its own.
+    assert builtin.REGISTRY.get("screenshot")["permission"] == CONFIRM
 
 
 def test_files_stay_inside_the_workspace(workspace):

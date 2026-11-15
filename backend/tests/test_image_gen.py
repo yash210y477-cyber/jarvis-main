@@ -33,7 +33,7 @@ def test_image_is_saved_from_the_openrouter_reply(tmp_path, monkeypatch, png_b64
 
     monkeypatch.setattr(image_gen.requests, "post", fake_post)
 
-    result = image_gen.generate_image("a cat on the moon", show=False)
+    result = image_gen.generate_image("a cat on the moon")
 
     assert result["success"] is True
     assert result["prompt"] == "a cat on the moon"
@@ -50,7 +50,7 @@ def test_image_is_saved_from_the_openrouter_reply(tmp_path, monkeypatch, png_b64
 def test_missing_key_is_reported_not_crashed(monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
 
-    result = image_gen.generate_image("a cat", show=False)
+    result = image_gen.generate_image("a cat")
 
     assert result["success"] is False
     assert "OPENROUTER_API_KEY" in result["error"]
@@ -59,7 +59,7 @@ def test_missing_key_is_reported_not_crashed(monkeypatch):
 def test_empty_prompt_is_refused(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
 
-    result = image_gen.generate_image("   ", show=False)
+    result = image_gen.generate_image("   ")
 
     assert result["success"] is False
 
@@ -107,7 +107,7 @@ def test_a_webp_reply_is_stored_as_real_png(tmp_path, monkeypatch):
 
     monkeypatch.setattr(image_gen.requests, "post", fake_post)
 
-    result = image_gen.generate_image("a red square", show=False)
+    result = image_gen.generate_image("a red square")
 
     assert result["success"] is True
 

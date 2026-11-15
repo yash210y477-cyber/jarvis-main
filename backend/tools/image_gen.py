@@ -4,7 +4,6 @@ import base64
 import json
 import logging
 import os
-import subprocess
 import time
 from pathlib import Path
 
@@ -25,29 +24,12 @@ def images_dir() -> Path:
     return folder
 
 
-def _show(path: Path) -> None:
-    """Open the finished picture, so the request ends with a visible result."""
-
-    try:
-
-        if os.name == "nt":
-
-            os.startfile(str(path))
-
-        else:
-
-            subprocess.Popen(["xdg-open", str(path)], stdout=subprocess.DEVNULL)
-
-    except Exception as error:
-
-        log.debug("Could not open %s: %s", path, error)
-
-
-def generate_image(prompt: str, model: str = "", show: bool = False):
+def generate_image(prompt: str, model: str = ""):
     """Generate one image from a text prompt (OpenRouter images API)."""
 
-    # Nothing is opened or copied anywhere: the picture goes back to the chat,
-    # where the user decides whether to download it.
+    # Nothing is opened or copied anywhere: the picture stays in the data
+    # folder and goes back to the chat, where the user decides whether to
+    # download it.
 
     prompt = (prompt or "").strip()
 
@@ -154,10 +136,6 @@ def generate_image(prompt: str, model: str = "", show: bool = False):
             }
 
         return {"success": False, "error": "OpenRouter sent no image back."}
-
-    if show:
-
-        _show(saved[0])
 
     return {
         "success": True,
