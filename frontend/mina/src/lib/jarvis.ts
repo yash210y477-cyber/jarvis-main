@@ -41,6 +41,20 @@ export async function saveFile(path: string): Promise<string> {
 /** Message text without the image and file markup, for speaking aloud. */
 export const plainText = (text: string) => text.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[file\]\S+/g, '').replace(/\n{3,}/g, '\n\n').trim();
 
+// ---- past conversations, listed in the Memory panel ----
+export type ChatSummary = { id: number; title: string; date: string; updated: string; messages: number; preview: string };
+export type ChatLine = { role: string; text: string; time: string };
+
+export async function getChats(): Promise<ChatSummary[] | null> {
+  try { const r = await fetch(`${API}/chats`); const d = await r.json(); return d.success ? (d.chats ?? []) : null; }
+  catch { return null; }
+}
+
+export async function getChat(id: number): Promise<ChatLine[] | null> {
+  try { const r = await fetch(`${API}/chats/${id}`); const d = await r.json(); return d.success ? (d.messages ?? []) : null; }
+  catch { return null; }
+}
+
 // ---- reply language: english, hinglish, or auto (match the user) ----
 export type LanguageOption = { id: string; label: string };
 

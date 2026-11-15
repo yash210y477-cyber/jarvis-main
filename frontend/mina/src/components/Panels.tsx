@@ -4,7 +4,7 @@ import { Brain, Trash2, Plus, Check } from 'lucide-react';
 import { FadeIn } from './ui';
 import { useJarvis } from '../state';
 import { MODELS } from '../config';
-import { getMemory, addMemoryNote, deleteMemoryNote, deleteMemoryFact, getVoices, getLanguage, setJarvisVoice, setLanguage, previewVoice, type LanguageOption, type MemoryFact, type Voice } from '../lib/jarvis';
+import { getMemory, addMemoryNote, deleteMemoryNote, deleteMemoryFact, getVoices, getLanguage, getChats, getChat, setJarvisVoice, setLanguage, previewVoice, type ChatLine, type ChatSummary, type LanguageOption, type MemoryFact, type Voice } from '../lib/jarvis';
 
 const Head = ({ children }: { children: ReactNode }) => (
   <FadeIn><h2 className="hero-heading font-black uppercase leading-none tracking-tight text-center mb-10 sm:mb-14" style={{ fontSize: 'clamp(3rem, 12vw, 160px)' }}>{children}</h2></FadeIn>
@@ -17,13 +17,28 @@ function Memory() {
   const [facts, setFacts] = useState<MemoryFact[]>([]);
   const [offline, setOffline] = useState(false);
   const [t, setT] = useState('');
+  const [chats, setChats] = useState<ChatSummary[]>([]);
+  const [openChat, setOpenChat] = useState(0);
+  const [lines, setLines] = useState<Record<number, ChatLine[]>>({});
 
   const load = async () => {
     const m = await getMemory();
+    const c = await getChats();
+    if (c) setChats(c);
     if (!m) { setOffline(true); return; }
     setOffline(false); setNotes(m.notes); setFacts(m.facts);
   };
   usePolling(load, 20000);
+
+  // Old conversations: the list is cheap, the messages load when opened.
+  const open = async (id: number) => {
+    if (openChat === id) { setOpenChat(0); return; }
+    setOpenChat(id);
+    if (!lines[id]) {
+      const messages = await getChat(id);
+      if (messages) setLines((current) => ({ ...current, [id]: messages }));
+    }
+  };
 
   const add = async () => {
     const text = t.trim(); if (!text) return;
@@ -61,6 +76,30 @@ function Memory() {
             <span>{n}</span><button aria-label="Forget" onClick={() => forgetNote(i)} className="bg-transparent border-0 text-[#D7E2EA] cursor-pointer hover:opacity-70"><Trash2 size={16} /></button>
           </div>
         ))}
+
+        <div className="mt-6">
+          <p className="font-medium uppercase tracking-widest text-xs opacity-50 mb-2">Past chats</p>
+          {chats.length === 0 && <p className="font-light opacity-60">No earlier conversations yet.</p>}
+          {chats.map((c) => (
+            <div key={c.id} className="border-t border-[#D7E2EA]/15">
+              <button onClick={() => open(c.id)} className="w-full flex justify-between items-center gap-3 py-3 bg-transparent border-0 text-left font-light cursor-pointer hover:opacity-70">
+                <span className="break-words"><span className="opacity-60">{c.date} — </span>{c.title}</span>
+                <span className="text-xs opacity-50 shrink-0">{c.messages} msgs</span>
+              </button>
+              {openChat === c.id && (
+                <div className="flex flex-col gap-2 pb-4 text-sm font-light">
+                  {(lines[c.id] ?? []).map((line, i) => (
+                    <p key={i} className="whitespace-pre-wrap">
+                      <span className="opacity-60 uppercase text-[10px] tracking-widest mr-2">{line.role === 'user' ? 'You' : 'Jarvis'}</span>
+                      {line.text}
+                    </p>
+                  ))}
+                  {(lines[c.id] ?? []).length === 0 && <p className="opacity-60">Loading…</p>}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
