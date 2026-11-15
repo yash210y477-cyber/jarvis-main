@@ -223,7 +223,7 @@ class Settings:
 
     SCREEN_WATCH_SPEAK = os.getenv("SCREEN_WATCH_SPEAK", "1")
 
-    # Hold Ctrl+Alt to talk, orb by the cursor (push-to-talk companion).
+    # Hold Ctrl+Alt to talk (push-to-talk companion).
     COMPANION_AUTOSTART = os.getenv("COMPANION_AUTOSTART", "1") not in (
         "0", "false", "False", "no"
     )

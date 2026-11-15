@@ -1101,14 +1101,11 @@ def render(name: str, result: dict, hinglish: bool = False) -> str:
 
         if name == "companion_status":
 
-            return (
-                f"Push-to-talk: {'on' if data.get('running') else 'off'}, "
-                f"orb: {'on' if data.get('orb') else 'off'}."
-            )
+            return f"Push-to-talk: {'on' if data.get('running') else 'off'}."
 
         return data.get("message") or data.get("error") or "Done."
 
-    if name in ("orb_start", "orb_stop", "show_card"):
+    if name == "show_card":
 
         return data.get("message") or "Done."
 

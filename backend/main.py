@@ -436,7 +436,7 @@ def start_services():
 
         pass
 
-    # Push-to-talk + orb: hold Ctrl+Alt anywhere and speak.
+    # Push-to-talk: hold Ctrl+Alt anywhere and speak.
     if settings.COMPANION_AUTOSTART:
 
         try:

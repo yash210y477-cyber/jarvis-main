@@ -2,7 +2,7 @@
 
 import json
 
-from tools import card, companion, local_intents, orb, screen_agent, screen_area, screenshot
+from tools import card, companion, local_intents, screen_agent, screen_area, screenshot
 
 
 # --------------------------------------------------------------- screenshot
@@ -110,11 +110,8 @@ def test_configure_attaches_brain_and_voice():
     assert result["speaker"] is True
 
 
-def test_a_phrase_is_answered_and_spoken(monkeypatch):
+def test_a_phrase_is_answered_and_spoken():
     said = FakeSpeaker()
-    states = []
-
-    monkeypatch.setattr(companion.orb, "set_state", lambda state, text="": states.append(state))
 
     companion.configure(handler=lambda text: {"response": f"heard {text}"}, speaker=said)
     companion.events()
@@ -122,8 +119,6 @@ def test_a_phrase_is_answered_and_spoken(monkeypatch):
     companion._respond("hello")
 
     assert said.said == ["heard hello"]
-    assert states[0] == "thinking"
-    assert states[-1] == "idle"
 
 
 def test_status_reports_the_shortcuts():
@@ -133,13 +128,13 @@ def test_status_reports_the_shortcuts():
     assert status["shortcuts"]["area"] == "Ctrl+Shift+A"
 
 
-def test_orb_state_round_trip(monkeypatch, tmp_path):
-    monkeypatch.setattr(orb, "DATA", tmp_path)
-    monkeypatch.setattr(orb, "STATE_FILE", tmp_path / "state.json")
+def test_the_orb_is_gone():
+    from tools import builtin
 
-    orb.set_state("listening", "listening")
+    names = [tool["name"] for tool in builtin.build_registry().metadata()]
 
-    assert orb.get_state()["state"] == "listening"
+    assert "orb_start" not in names
+    assert "orb_stop" not in names
 
 
 # ----------------------------------------------------------------- intents

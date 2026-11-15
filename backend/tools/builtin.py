@@ -15,7 +15,6 @@ from tools import (
     files,
     media,
     image_gen,
-    orb,
     reverse_engineer,
     screen_agent,
     screen_area,
@@ -255,7 +254,7 @@ def build_registry():
         companion.start,
         description=(
             "Turn on push-to-talk: hold Ctrl+Alt in any app and speak, Ctrl+Shift+A"
-            " asks about a dragged screen area. Shows the orb by the cursor."
+            " asks about a dragged screen area."
         ),
         category="screen",
         examples=["push to talk on karo"],
@@ -264,7 +263,7 @@ def build_registry():
     registry.register(
         "companion_stop",
         companion.stop,
-        description="Turn push-to-talk and the orb off.",
+        description="Turn push-to-talk off.",
         category="screen",
         examples=["push to talk band karo"],
     )
@@ -272,25 +271,9 @@ def build_registry():
     registry.register(
         "companion_status",
         companion.status,
-        description="Report whether push-to-talk and the orb are running.",
+        description="Report whether push-to-talk is running.",
         category="screen",
         examples=["push to talk status"],
-    )
-
-    registry.register(
-        "orb_start",
-        orb.start,
-        description="Show the small status orb that follows the cursor.",
-        category="screen",
-        examples=["orb dikhao"],
-    )
-
-    registry.register(
-        "orb_stop",
-        orb.stop,
-        description="Hide the status orb.",
-        category="screen",
-        examples=["orb hatao"],
     )
 
     registry.register(

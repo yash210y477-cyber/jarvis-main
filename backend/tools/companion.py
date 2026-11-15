@@ -1,8 +1,7 @@
 """Push-to-talk: hold Ctrl+Alt, speak, let go — JARVIS hears, answers, speaks.
 
 There is no wake word. The keys are watched with GetAsyncKeyState in one cheap
-thread, so it works from any app, and the orb shows idle / listening /
-thinking / speaking while it happens.
+thread, so it works from any app.
 
 Ctrl+Shift+A asks about one part of the screen (drag a box, it explains it).
 """
@@ -12,7 +11,7 @@ import logging
 import threading
 import time
 
-from tools import card, orb, screen_area
+from tools import card, screen_area
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +79,6 @@ def _speak(text: str) -> None:
 
     if not text:
 
-        orb.set_state("idle", "")
 
         return
 
@@ -88,13 +86,10 @@ def _speak(text: str) -> None:
 
     if speaker is None:
 
-        orb.set_state("idle", "")
 
         return
 
     try:
-
-        orb.set_state("speaking", text)
 
         speaker.speak(text)
 
@@ -102,9 +97,6 @@ def _speak(text: str) -> None:
 
         logger.info("Companion speak failed: %s", error)
 
-    finally:
-
-        orb.set_state("idle", "")
 
 
 def _respond(text: str) -> None:
@@ -115,11 +107,9 @@ def _respond(text: str) -> None:
 
         _note("error", "No chat handler is attached.")
 
-        orb.set_state("error", "no brain")
 
         return
 
-    orb.set_state("thinking", text)
 
     try:
 
@@ -131,7 +121,6 @@ def _respond(text: str) -> None:
 
         _note("error", str(error))
 
-        orb.set_state("error", "error")
 
         return
 
@@ -144,7 +133,6 @@ def _respond(text: str) -> None:
 
 def _ask_area(question: str = "") -> None:
 
-    orb.set_state("thinking", "area...")
 
     try:
 
@@ -154,7 +142,6 @@ def _ask_area(question: str = "") -> None:
 
         logger.warning("Area ask failed: %s", error)
 
-        orb.set_state("error", "area failed")
 
         return
 
@@ -210,7 +197,6 @@ def _record_while_held() -> None:
 
         _note("error", f"Microphone: {error}")
 
-        orb.set_state("error", "no mic")
 
         return
 
@@ -246,13 +232,11 @@ def _record_while_held() -> None:
 
         _note("ignored", "too short")
 
-        orb.set_state("idle", "")
 
         return
 
     audio = np.concatenate(frames, axis=0).flatten().astype("float32")
 
-    orb.set_state("thinking", "hearing...")
 
     try:
 
@@ -266,7 +250,6 @@ def _record_while_held() -> None:
 
         _note("error", str(error))
 
-        orb.set_state("error", "stt failed")
 
         return
 
@@ -276,7 +259,6 @@ def _record_while_held() -> None:
 
         _note("ignored", "nothing heard")
 
-        orb.set_state("idle", "")
 
         return
 
@@ -300,7 +282,6 @@ def _loop() -> None:
 
             _state["recording"] = True
 
-            orb.set_state("listening", "listening")
 
             _worker = threading.Thread(target=_record_while_held, daemon=True)
 
@@ -320,7 +301,6 @@ def _loop() -> None:
 
 
 def start() -> dict:
-    """Watch the shortcut keys and show the orb."""
 
     global _thread
 
@@ -338,9 +318,7 @@ def start() -> dict:
     _state["running"] = True
     _state["error"] = ""
 
-    orb.start()
 
-    orb.set_state("idle", "")
 
     _thread = threading.Thread(target=_loop, daemon=True, name="jarvis-ptt")
 
@@ -359,8 +337,6 @@ def stop() -> dict:
     _state["running"] = False
     _state["recording"] = False
 
-    orb.set_state("idle", "")
-    orb.stop()
 
     _note("stopped", "")
 
@@ -373,8 +349,6 @@ def status() -> dict:
         "success": True,
         "running": _state["running"],
         "recording": _state["recording"],
-        "orb": orb.is_running(),
-        "orb_state": orb.get_state(),
         "shortcuts": {
             "talk": "hold Ctrl+Alt",
             "area": "Ctrl+Shift+A",
