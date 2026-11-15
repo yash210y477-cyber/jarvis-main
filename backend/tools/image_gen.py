@@ -43,8 +43,11 @@ def _show(path: Path) -> None:
         log.debug("Could not open %s: %s", path, error)
 
 
-def generate_image(prompt: str, model: str = "", show: bool = True):
+def generate_image(prompt: str, model: str = "", show: bool = False):
     """Generate one image from a text prompt (OpenRouter images API)."""
+
+    # Nothing is opened or copied anywhere: the picture goes back to the chat,
+    # where the user decides whether to download it.
 
     prompt = (prompt or "").strip()
 
@@ -162,6 +165,41 @@ def generate_image(prompt: str, model: str = "", show: bool = True):
         "prompt": prompt,
         "path": str(saved[0]),
         "paths": [str(path) for path in saved],
+        "images": [f"/images/{path.name}" for path in saved],
         "count": len(saved),
-        "message": f"Image saved to `{saved[0]}`",
+        "message": f"Image ready: {saved[0].name}",
+    }
+
+
+def download_dir() -> Path:
+    """The user's Downloads/Jarvis folder, made on first use."""
+
+    home = Path.home()
+    folder = home / "Downloads" / "Jarvis"
+    folder.mkdir(parents=True, exist_ok=True)
+
+    return folder
+
+
+def save_to_downloads(name: str) -> dict:
+    """Copy one generated picture into Downloads/Jarvis (only when asked)."""
+
+    source = images_dir() / Path(str(name)).name
+
+    if not source.is_file():
+        return {"success": False, "error": "No such image."}
+
+    try:
+
+        target = download_dir() / source.name
+        target.write_bytes(source.read_bytes())
+
+    except Exception as error:
+
+        return {"success": False, "error": f"Could not save the image: {error}"}
+
+    return {
+        "success": True,
+        "path": str(target),
+        "message": f"Saved to {target}",
     }

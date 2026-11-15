@@ -1,10 +1,53 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bot, Mic, Send, User } from 'lucide-react';
+import { Bot, Download, Mic, Send, User } from 'lucide-react';
 import { FadeIn } from './ui';
 import { useJarvis } from '../state';
 import { MODES } from '../config';
+import { imageSrc, saveImage } from '../lib/jarvis';
 
 const GRAD = 'linear-gradient(123deg, #1B120A 7%, #6B3F1D 37%, #A8651F 72%, #D9963A 100%)';
+const IMAGE_MD = /!\[[^\]]*\]\(([^)]+)\)/g;
+
+// A reply can carry pictures: "![image](/images/file.png)". They are shown in
+// the chat, and only copied to Downloads/Jarvis when the button is pressed.
+function parts(text: string): { text?: string; image?: string }[] {
+  const out: { text?: string; image?: string }[] = [];
+  const re = new RegExp(IMAGE_MD.source, 'g');
+  let last = 0;
+  let found: RegExpExecArray | null;
+  while ((found = re.exec(text))) {
+    if (found.index > last) out.push({ text: text.slice(last, found.index) });
+    out.push({ image: found[1] });
+    last = found.index + found[0].length;
+  }
+  if (last < text.length) out.push({ text: text.slice(last) });
+  return out;
+}
+
+function Picture({ url }: { url: string }) {
+  const [note, setNote] = useState('');
+  const name = url.split('/').pop() || '';
+  const save = async () => { setNote('Saving…'); setNote(await saveImage(name)); };
+  return (
+    <div className="flex flex-col gap-2 my-1">
+      <img src={imageSrc(url)} alt="Jarvis image" className="rounded-2xl max-h-72 max-w-full object-contain bg-black/20" />
+      <button onClick={save} className="self-start flex items-center gap-2 rounded-full border-2 border-[#D7E2EA]/60 px-4 py-1.5 text-[11px] uppercase tracking-widest bg-transparent cursor-pointer hover:bg-[#D7E2EA]/10">
+        <Download size={13} /> Download
+      </button>
+      {note && <span className="text-[11px] opacity-70 break-all">{note}</span>}
+    </div>
+  );
+}
+
+function Bubble({ text }: { text: string }) {
+  return (
+    <>
+      {parts(text).map((part, i) => part.image
+        ? <Picture key={i} url={part.image} />
+        : <span key={i} className="whitespace-pre-wrap">{part.text}</span>)}
+    </>
+  );
+}
 
 export default function Chat() {
   const { messages, send, toggleMic, status, mode, setMode } = useJarvis();
@@ -30,7 +73,7 @@ export default function Chat() {
             {messages.map((m, i) => (
               <div key={i} className={`flex items-end gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
                 <div className="w-8 h-8 rounded-full border border-[#D7E2EA]/40 flex items-center justify-center shrink-0">{m.role === 'user' ? <User size={14} /> : <Bot size={14} />}</div>
-                <div className={`rounded-3xl px-5 py-3 max-w-[80%] font-light leading-relaxed ${m.role === 'user' ? 'text-white' : 'bg-[#D7E2EA]/10'}`} style={m.role === 'user' ? { background: GRAD } : undefined}>{m.text}</div>
+                <div className={`rounded-3xl px-5 py-3 max-w-[80%] font-light leading-relaxed ${m.role === 'user' ? 'text-white' : 'bg-[#D7E2EA]/10'}`} style={m.role === 'user' ? { background: GRAD } : undefined}><Bubble text={m.text} /></div>
               </div>
             ))}
             {status === 'thinking' && <div className="opacity-60 text-sm animate-pulse pl-10">Jarvis is thinking…</div>}

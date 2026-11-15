@@ -1159,6 +1159,14 @@ def render(name: str, result: dict, hinglish: bool = False) -> str:
 
     if name == "generate_image":
 
+        images = data.get("images") or []
+
+        if images:
+
+            head = "Image ban gayi:" if hinglish else "Here is your image:"
+
+            return head + "\n" + "\n".join(f"![image]({url})" for url in images)
+
         if hinglish:
 
             return f"Image ban gayi: `{data.get('path')}`"

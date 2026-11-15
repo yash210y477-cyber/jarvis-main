@@ -15,6 +15,20 @@ export async function askJarvis(message: string, mode: string, model: string): P
   try { const d = await post('/chat', { message, mode, model }); return d.reply ?? d.response ?? d.error ?? 'Done.'; }
   catch { return `I can't reach my backend at ${API}. Start it and try again.`; }
 }
+
+// ---- generated pictures: shown in the chat, saved only when asked ----
+export const imageSrc = (url: string) => (/^https?:/i.test(url) ? url : `${API}${url}`);
+
+export async function saveImage(name: string): Promise<string> {
+  try {
+    const r = await fetch(`${API}/images/${encodeURIComponent(name)}/download`, { method: 'POST', headers: auth() });
+    const d = await r.json();
+    return d.success ? `Saved to ${d.path}` : (d.error ?? 'Could not save the image.');
+  } catch { return 'Could not reach the backend to save the image.'; }
+}
+
+/** Message text without the image markup, for speaking aloud. */
+export const plainText = (text: string) => text.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\n{3,}/g, '\n\n').trim();
 export async function launchApp(app: string): Promise<string> {
   try { const d = await post('/launch', { app }); return d.reply ?? d.error ?? `Opening ${app}.`; }
   catch { return `Couldn't open ${app}: backend at ${API} isn't responding.`; }

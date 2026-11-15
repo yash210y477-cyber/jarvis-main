@@ -1,6 +1,6 @@
 import { createContext, useContext, useRef, useState, type ReactNode } from 'react';
 import { USER_NAME } from './config';
-import { askJarvis, say, stopSpeaking } from './lib/jarvis';
+import { askJarvis, plainText, say, stopSpeaking } from './lib/jarvis';
 
 export type Msg = { role: 'user' | 'jarvis'; text: string };
 export type Status = 'idle' | 'listening' | 'thinking' | 'speaking';
@@ -103,7 +103,7 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
     setMessages((m) => [...m, { role: 'user', text: t }]); setStatus('thinking');
     const reply = await askJarvis(t, mode, model);
     setMessages((m) => [...m, { role: 'jarvis', text: reply }]);
-    speak(reply);
+    speak(plainText(reply));
   };
 
   const toggleMic = () => {

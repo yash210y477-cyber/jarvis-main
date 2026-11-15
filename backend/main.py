@@ -13,7 +13,7 @@ from fastapi import (
 )
 from fastapi.security import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from brain.brain import Brain
 from api.voice import router as voice_router
@@ -221,6 +221,29 @@ def stats():
         return system_stats()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/images/{name}")
+def get_image(name: str):
+    """A generated picture, for the chat to show instead of opening a folder."""
+
+    from tools import image_gen
+
+    path = image_gen.images_dir() / Path(name).name
+
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="No such image")
+
+    return FileResponse(path, media_type="image/png", filename=path.name)
+
+
+@app.post("/images/{name}/download")
+def download_image(name: str):
+    """Copy a generated picture into Downloads/Jarvis, on request."""
+
+    from tools import image_gen
+
+    return image_gen.save_to_downloads(name)
 
 
 @app.get("/system-info")
