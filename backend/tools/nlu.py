@@ -33,6 +33,15 @@ VOLUME_WORDS = {"volume", "awaaz", "awaz", "sound"}
 UP_WORDS = {"up", "badhao", "badha", "zyada", "zada", "tez", "increase", "louder"}
 DOWN_WORDS = {"down", "kam", "ghatao", "ghata", "decrease", "quieter", "slow"}
 
+# "stop", "next" and "zyada" are ordinary words too, so a playback verb only
+# counts when the sentence is plainly about media ("pause music") or when the
+# verb is the whole request ("stop", "next").
+MUSIC_CONTEXT = {
+    "music", "song", "songs", "track", "tracks", "video", "playback",
+    "playlist", "audio", "gaana", "gana", "ganaa", "bajao", "baja",
+    "spotify", "youtube", "netflix", "hotstar",
+}
+
 SITES = {
     "youtube", "spotify", "google", "github", "wikipedia", "amazon", "flipkart",
     "instagram", "facebook", "twitter", "x", "reddit", "netflix", "hotstar",
@@ -42,6 +51,7 @@ SITES = {
 FILLER = {
     "jarvis", "please", "pls", "plz", "zara", "abhi", "bhai", "yaar", "na",
     "kar", "karo", "kro", "krdo", "kr", "do", "de", "dijiye", "dena", "deni",
+    "jao", "ja",
     "mera", "mere", "meri", "mujhe", "mai", "main", "me", "tum", "aap", "you",
     "the", "a", "an", "app", "application", "program", "programme", "for",
     "on", "in", "pe", "par", "se", "to", "ka", "ki", "ke", "ko", "ek", "kuch",
@@ -221,9 +231,9 @@ def interpret(message: str):
     phrase = " ".join(left)
 
     # ---- volume -------------------------------------------------------
-    if action_words & VOLUME_WORDS or (
-        site == "" and any(word in UP_WORDS | DOWN_WORDS for word in left)
-    ):
+    # Only a spoken volume word asks for the volume; "thoda zyada bata do" is
+    # a request for more detail, not for a louder speaker.
+    if (action_words | set(words)) & VOLUME_WORDS:
 
         if any(word in DOWN_WORDS for word in left):
 
@@ -240,21 +250,23 @@ def interpret(message: str):
             }
 
     # ---- music transport ----------------------------------------------
-    if action_words & PAUSE_WORDS:
+    playing = bool(set(words) & MUSIC_CONTEXT) or not left
+
+    if playing and action_words & PAUSE_WORDS:
 
         return {
             "tool": "media_control",
             "arguments": {"action": "play_pause", "steps": 1},
         }
 
-    if action_words & NEXT_WORDS:
+    if playing and action_words & NEXT_WORDS:
 
         return {
             "tool": "media_control",
             "arguments": {"action": "next", "steps": 1},
         }
 
-    if action_words & PREV_WORDS:
+    if playing and action_words & PREV_WORDS:
 
         return {
             "tool": "media_control",
