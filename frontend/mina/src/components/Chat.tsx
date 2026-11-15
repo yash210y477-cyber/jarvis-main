@@ -6,20 +6,21 @@ import { MODES } from '../config';
 import { fileHref, imageSrc, saveFile, saveImage } from '../lib/jarvis';
 
 const GRAD = 'linear-gradient(123deg, #1B120A 7%, #6B3F1D 37%, #A8651F 72%, #D9963A 100%)';
-const IMAGE_OR_FILE = /!\[[^\]]*\]\(([^)]+)\)|\[file\](\S+)/g;
+const IMAGE_OR_FILE = /!\[[^\]]*\]\(([^)]+)\)|\[file\](\S+)|\[ask\]/g;
 
 // A reply can carry pictures ("![image](/images/file.png)") and files
 // ("[file]chess.py"). Both are shown in the chat, and only copied to
 // Downloads/Jarvis when the download button is pressed.
-function parts(text: string): { text?: string; image?: string; file?: string }[] {
-  const out: { text?: string; image?: string; file?: string }[] = [];
+function parts(text: string): { text?: string; image?: string; file?: string; ask?: boolean }[] {
+  const out: { text?: string; image?: string; file?: string; ask?: boolean }[] = [];
   const re = new RegExp(IMAGE_OR_FILE.source, 'g');
   let last = 0;
   let found: RegExpExecArray | null;
   while ((found = re.exec(text))) {
     if (found.index > last) out.push({ text: text.slice(last, found.index) });
     if (found[1]) out.push({ image: found[1] });
-    else out.push({ file: found[2] });
+    else if (found[2]) out.push({ file: found[2] });
+    else out.push({ ask: true });
     last = found.index + found[0].length;
   }
   if (last < text.length) out.push({ text: text.slice(last) });
@@ -59,14 +60,27 @@ function FileCard({ path }: { path: string }) {
   );
 }
 
-function Bubble({ text }: { text: string }) {
+// A guarded action asks in plain words, and the answer is one click.
+function AskCard({ onAnswer }: { onAnswer?: (text: string) => void }) {
+  if (!onAnswer) return null;
+  return (
+    <div className="flex flex-wrap gap-2 my-2">
+      <button onClick={() => onAnswer('yes')} className="rounded-full px-5 py-1.5 text-[11px] uppercase tracking-widest cursor-pointer text-white border-0" style={{ background: GRAD }}>Allow</button>
+      <button onClick={() => onAnswer('no')} className="rounded-full border-2 border-[#D7E2EA]/60 px-5 py-1.5 text-[11px] uppercase tracking-widest bg-transparent cursor-pointer hover:bg-[#D7E2EA]/10">Cancel</button>
+    </div>
+  );
+}
+
+function Bubble({ text, onAnswer }: { text: string; onAnswer?: (text: string) => void }) {
   return (
     <>
       {parts(text).map((part, i) => part.image
         ? <Picture key={i} url={part.image} />
         : part.file
           ? <FileCard key={i} path={part.file} />
-          : <span key={i} className="whitespace-pre-wrap">{part.text}</span>)}
+          : part.ask
+            ? <AskCard key={i} onAnswer={onAnswer} />
+            : <span key={i} className="whitespace-pre-wrap">{part.text}</span>)}
     </>
   );
 }
@@ -95,7 +109,7 @@ export default function Chat() {
             {messages.map((m, i) => (
               <div key={i} className={`flex items-end gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
                 <div className="w-8 h-8 rounded-full border border-[#D7E2EA]/40 flex items-center justify-center shrink-0">{m.role === 'user' ? <User size={14} /> : <Bot size={14} />}</div>
-                <div className={`rounded-3xl px-5 py-3 max-w-[80%] font-light leading-relaxed ${m.role === 'user' ? 'text-white' : 'bg-[#D7E2EA]/10'}`} style={m.role === 'user' ? { background: GRAD } : undefined}><Bubble text={m.text} /></div>
+                <div className={`rounded-3xl px-5 py-3 max-w-[80%] font-light leading-relaxed ${m.role === 'user' ? 'text-white' : 'bg-[#D7E2EA]/10'}`} style={m.role === 'user' ? { background: GRAD } : undefined}><Bubble text={m.text} onAnswer={m.role === 'user' ? undefined : send} /></div>
               </div>
             ))}
             {status === 'thinking' && <div className="opacity-60 text-sm animate-pulse pl-10">Jarvis is thinking…</div>}

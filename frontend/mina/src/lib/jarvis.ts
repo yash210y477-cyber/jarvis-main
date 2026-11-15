@@ -39,7 +39,7 @@ export async function saveFile(path: string): Promise<string> {
 }
 
 /** Message text without the image and file markup, for speaking aloud. */
-export const plainText = (text: string) => text.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[file\]\S+/g, '').replace(/\n{3,}/g, '\n\n').trim();
+export const plainText = (text: string) => text.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[file\]\S+/g, '').replace(/\[ask\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
 
 // ---- past conversations, listed in the Memory panel ----
 export type ChatSummary = { id: number; title: string; date: string; updated: string; messages: number; preview: string };

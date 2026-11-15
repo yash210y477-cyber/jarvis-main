@@ -103,6 +103,14 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
     setMessages((m) => [...m, { role: 'user', text: t }]); setStatus('thinking');
     const reply = await askJarvis(t, mode, model);
     setMessages((m) => [...m, { role: 'jarvis', text: reply }]);
+    if (reply.includes('[ask]')) {
+      // A permission prompt is never spoken: the open mic would hear JARVIS
+      // saying "yes" and approve its own request.
+      busy.current = false;
+      setStatus('idle');
+      if (wantMic.current) scheduleRestart();
+      return;
+    }
     speak(plainText(reply));
   };
 

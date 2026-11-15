@@ -234,7 +234,7 @@ class Brain:
                     reason="This tool runs on your computer.",
                 )
 
-                return ("agent", "confirm", describe(pending))
+                return ("agent", "confirm", describe(pending, message))
 
             result = self.executor.execute(
                 intent["tool"],

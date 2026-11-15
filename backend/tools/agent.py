@@ -171,7 +171,7 @@ class AgentLoop:
                     return {
                         "success": True,
                         "provider": response.get("provider", "ai"),
-                        "response": describe(pending),
+                        "response": describe(pending, message),
                         "steps": steps,
                         "pending": pending,
                         "needs_confirmation": True,

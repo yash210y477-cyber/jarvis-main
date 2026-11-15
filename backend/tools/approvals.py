@@ -105,21 +105,87 @@ class ApprovalStore:
             self.pending = None
 
 
-def describe(pending: dict) -> str:
+# What each guarded tool would actually do, said plainly.
+PERMISSIONS = {
+    "screenshot": (
+        "Screen access",
+        "I'll capture your whole screen to an image file on this PC.",
+    ),
+    "read_screen": (
+        "Screen access",
+        "I'll look at your screen and describe what is open.",
+    ),
+    "ask_area": (
+        "Screen access",
+        "I'll capture the part of the screen you drag a box around.",
+    ),
+    "screen_task": (
+        "Screen control",
+        "I'll take control of your screen: point, click and type to finish the task.",
+    ),
+    "screen_watch_start": (
+        "Screen access",
+        "I'll keep watching your screen in the background and comment on it.",
+    ),
+    "companion_start": (
+        "Microphone + screen",
+        "Push-to-talk will listen to you and read the screen when you ask about an area.",
+    ),
+    "write_file": ("File write", "I'll write a file on this PC."),
+    "run_command": ("Command", "I'll run a command on this PC."),
+    "close_all_windows": ("Windows", "I'll close every open window."),
+    "power_action": ("Power", "I'll change the power state of this PC."),
+}
+
+ASK_WORDS = {
+    "english": {
+        "head": "Permission needed",
+        "yes": "Only if you say yes; if you say no, nothing happens.",
+    },
+    "hinglish": {
+        "head": "Permission chahiye",
+        "yes": "Sirf tab hoga jab aap haan bolo — na bolo to kuch nahi hoga.",
+    },
+}
+
+
+def describe(pending: dict, message: str = "") -> str:
+    """A clear permission prompt, not a tool dump."""
 
     if not pending:
         return ""
 
-    arguments = pending.get("arguments") or {}
+    from brain.language import reply_language
 
-    rendered = ", ".join(
-        f"{key}={value!r}" for key, value in arguments.items()
+    words = ASK_WORDS[
+        "hinglish" if reply_language(message or "") == "hinglish" else "english"
+    ]
+
+    tool = pending.get("tool", "")
+    title, what = PERMISSIONS.get(
+        tool, ("Permission needed", "I'll run a tool that changes things on this PC.")
     )
 
-    reason = pending.get("reason") or "This action can change your machine."
+    # A placeholder label says nothing to the user.
+    arguments = {
+        key: value
+        for key, value in (pending.get("arguments") or {}).items()
+        if not (key == "label" and str(value).strip().lower() in {"", "asked"})
+    }
 
-    return (
-        f"I need your confirmation before I run `{pending['tool']}`"
-        f"({rendered}).\n\n{reason}\n\n"
-        "Reply **yes** to run it, or **no** to cancel."
+    details = ", ".join(
+        f"{key}={str(value)[:80]!r}" for key, value in arguments.items()
     )
+
+    lines = [f"🔐 {words['head']} — {title}", what]
+
+    if details:
+
+        lines.append(f"Details: {details}")
+
+    lines.append(words["yes"])
+
+    # The chat draws Allow / Cancel buttons for this marker.
+    lines.append("[ask]")
+
+    return "\n".join(lines)

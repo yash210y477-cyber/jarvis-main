@@ -26,6 +26,25 @@ def test_every_screen_tool_asks_first():
         assert registry.get(name)["permission"] == "confirm", name
 
 
+def test_the_ask_says_what_the_screen_action_will_do(tmp_path, monkeypatch):
+    from tools import approvals
+
+    monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
+
+    pending = {
+        "tool": "screenshot",
+        "arguments": {"label": "asked"},
+        "reason": "",
+    }
+
+    prompt = approvals.describe(pending, "ek screenshot lo")
+
+    assert "Permission" in prompt
+    assert "capture your whole screen" in prompt
+    assert "`screenshot`" not in prompt
+    assert prompt.rstrip().endswith("[ask]")
+
+
 def test_a_generated_picture_is_never_opened_or_saved_on_its_own():
     from tools import image_gen
 
