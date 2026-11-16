@@ -583,7 +583,7 @@ _SEMANTIC = None
 _SEMANTIC_LOCK = threading.Lock()
 _READY = threading.Event()
 _LAST_SYNC = 0.0
-_SYNC_EVERY = 30.0
+_SYNC_EVERY = 300.0
 
 
 def get_semantic() -> SemanticMemory:
