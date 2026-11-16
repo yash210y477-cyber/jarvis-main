@@ -1,6 +1,6 @@
 """Native function calling for the OpenAI-compatible providers.
 
-OpenAI, Groq, Cerebras and DeepSeek all expose the same
+OpenAI, Groq, z.ai and OpenRouter all expose the same
 `client.chat.completions.create` shape, so one mixin covers them.
 """
 

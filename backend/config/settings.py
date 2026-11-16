@@ -252,20 +252,6 @@ class Settings:
         "0", "false", "False", "no"
     )
 
-    # ==========================================================
-    # CEREBRAS
-    # ==========================================================
-
-    CEREBRAS_MODEL = "gpt-oss-120b"
-
-    # ==========================================================
-    # DEEPSEEK
-    # ==========================================================
-
-    DEEPSEEK_BASE_URL = "https://api.deepseek.com"
-
-    DEEPSEEK_MODEL = "deepseek-chat"
-
 
     # ==========================================================
     # LANGUAGE + SEMANTIC MEMORY
@@ -317,10 +303,6 @@ class Settings:
 
     ENABLE_GROQ = True
 
-    ENABLE_CEREBRAS = True
-
-    ENABLE_DEEPSEEK = True
-
     ENABLE_ZAI = True
 
     # ==========================================================
@@ -334,10 +316,6 @@ class Settings:
         "openrouter",
 
         "groq",
-
-        "deepseek",
-
-        "cerebras",
 
         # Local fallback: answers when every cloud key above fails.
         "ollama"

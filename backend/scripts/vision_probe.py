@@ -18,7 +18,6 @@ CANDIDATES = [
      ["meta-llama/llama-4-scout-17b-16e-instruct", "meta-llama/llama-4-maverick-17b-128e-instruct"]),
     ("openrouter", "https://openrouter.ai/api/v1", "OPENROUTER_API_KEY",
      ["google/gemini-2.0-flash-exp:free", "qwen/qwen2.5-vl-72b-instruct:free"]),
-    ("deepseek", "https://api.deepseek.com", "DEEPSEEK_API_KEY", ["deepseek-chat"]),
 ]
 
 

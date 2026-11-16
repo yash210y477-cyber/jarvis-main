@@ -132,7 +132,7 @@ def test_ollama_is_the_last_provider_and_answers(monkeypatch):
 
     for flag in (
         "ENABLE_OPENROUTER", "ENABLE_GROQ",
-        "ENABLE_CEREBRAS", "ENABLE_DEEPSEEK", "ENABLE_ZAI",
+        "ENABLE_ZAI",
     ):
         monkeypatch.setattr(ollama_module.settings, flag, False, raising=False)
 

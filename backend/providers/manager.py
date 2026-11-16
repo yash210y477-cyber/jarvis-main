@@ -5,8 +5,6 @@ from config.settings import settings
 
 from providers.openrouter import OpenRouterProvider
 from providers.groq import GroqProvider
-from providers.cerebras import CerebrasProvider
-from providers.deepseek import DeepSeekProvider
 from providers import zai as zai_module
 from providers.zai import ZaiProvider
 from providers.ollama import OllamaProvider
@@ -37,22 +35,6 @@ class AIManager:
                 settings.ENABLE_GROQ,
 
                 GroqProvider
-
-            ),
-
-            "cerebras": (
-
-                settings.ENABLE_CEREBRAS,
-
-                CerebrasProvider
-
-            ),
-
-            "deepseek": (
-
-                settings.ENABLE_DEEPSEEK,
-
-                DeepSeekProvider
 
             ),
 
@@ -142,8 +124,8 @@ class AIManager:
 
     # Which providers are tried first for a kind of work.
     TASK_ORDER = {
-        "coding": ("groq", "openrouter", "zai", "deepseek", "cerebras"),
-        "research": ("openrouter", "groq", "zai", "deepseek"),
+        "coding": ("groq", "openrouter", "zai"),
+        "research": ("openrouter", "groq", "zai"),
     }
 
     def model_for(self, provider_name: str, task):
