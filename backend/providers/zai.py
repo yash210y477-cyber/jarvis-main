@@ -3,6 +3,7 @@
 import base64
 import logging
 import os
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -15,6 +16,95 @@ from providers.tool_call import OpenAIToolMixin
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+# z.ai answers 429 "Insufficient balance or no resource package" whenever the
+# account is out of credit. That does not fix itself between two messages, so
+# instead of buying five failed calls per reply the paid models step aside for
+# a while and the free one answers at once.
+BALANCE_COOLDOWN = 1800
+
+FREE_MODELS = ("glm-4.5-flash",)
+
+_paid_down_until = 0.0
+
+
+def _is_balance_error(error) -> bool:
+
+    text = str(error).lower()
+
+    return any(
+        word in text
+        for word in (
+            "1113",
+            "insufficient balance",
+            "no resource package",
+            "please recharge",
+        )
+    )
+
+
+def _state_file():
+    """The empty-wallet note survives a restart, so it is not re-probed."""
+
+    from memory.storage import data_dir
+
+    return data_dir() / "zai_balance.txt"
+
+
+def _paid_down() -> bool:
+
+    global _paid_down_until
+
+    if not _paid_down_until:
+
+        try:
+
+            _paid_down_until = float(_state_file().read_text(encoding="utf-8").strip() or 0)
+
+        except (OSError, ValueError):
+
+            _paid_down_until = 0.0
+
+    return time.time() < _paid_down_until
+
+
+def _mark_paid_down() -> None:
+
+    global _paid_down_until
+
+    _paid_down_until = time.time() + BALANCE_COOLDOWN
+
+    try:
+
+        _state_file().write_text(str(_paid_down_until), encoding="utf-8")
+
+    except OSError:
+
+        pass
+
+    logger.info("z.ai has no balance; paid models off for %s min", BALANCE_COOLDOWN // 60)
+
+
+def paid_down() -> bool:
+    """True while the empty wallet keeps the paid models out of the way."""
+
+    return _paid_down()
+
+
+def reset_balance_cooldown() -> None:
+    """Forget an empty wallet (used after a recharge or by tests)."""
+
+    global _paid_down_until
+
+    _paid_down_until = 0.0
+
+    try:
+
+        _state_file().unlink()
+
+    except OSError:
+
+        pass
 
 
 class ZaiProvider(OpenAIToolMixin, BaseProvider):
@@ -57,7 +147,9 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
 
     def resolve_model(self):
 
-        if self._working:
+        # The free model answers while the wallet is empty; once the cooldown
+        # is over the configured (better) model gets its chance again.
+        if self._working and (_paid_down() or self._working not in FREE_MODELS):
 
             return self._working
 
@@ -72,6 +164,11 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
         candidates = [first] + [
             name for name in self.MODELS if name != first
         ]
+
+        if _paid_down():
+
+            # Only the free model can answer while the wallet is empty.
+            candidates = [name for name in candidates if name in FREE_MODELS]
 
         last_error = None
 
@@ -101,6 +198,10 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
             except Exception as error:
 
                 last_error = error
+
+                if _is_balance_error(error):
+
+                    _mark_paid_down()
 
                 text = str(error).lower()
 
@@ -147,6 +248,15 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
                 "error": "ZAI_API_KEY is not set.",
             }
 
+        if _paid_down():
+
+            # Its vision models need credit; skip the doomed requests.
+            return {
+                "success": False,
+                "provider": self.name(),
+                "error": "z.ai vision needs a recharge, so the free fallback is used.",
+            }
+
         messages = [
             {
                 "role": "user",
@@ -191,6 +301,12 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
             except Exception as error:
 
                 last_error = error
+
+                if _is_balance_error(error):
+
+                    _mark_paid_down()
+
+                    break
 
                 text = str(error).lower()
 

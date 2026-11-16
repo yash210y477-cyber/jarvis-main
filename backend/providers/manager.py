@@ -7,6 +7,7 @@ from providers.openrouter import OpenRouterProvider
 from providers.groq import GroqProvider
 from providers.cerebras import CerebrasProvider
 from providers.deepseek import DeepSeekProvider
+from providers import zai as zai_module
 from providers.zai import ZaiProvider
 from providers.ollama import OllamaProvider
 
@@ -178,6 +179,30 @@ class AIManager:
 
         )
 
+    @staticmethod
+    def _behind_fast_keys(order):
+        """z.ai waits last while its wallet is empty.
+
+        Its paid models refuse with a 429 and the free one takes several
+        times longer than the other keys, so an empty account should not hold
+        every reply up. The order comes back untouched once balance is back.
+        """
+
+        if not zai_module.paid_down():
+
+            return order
+
+        zai = next((item for item in order if item.name() == "zai"), None)
+
+        if zai is None:
+
+            return order
+
+        rest = [item for item in order if item is not zai]
+        local = [item for item in rest if item.name() == "ollama"]
+
+        return [item for item in rest if item.name() != "ollama"] + [zai] + local
+
     def chat(self, prompt: str, provider=None, task=None):
 
         errors = []
@@ -209,6 +234,8 @@ class AIManager:
                     order = first + [
                         item for item in self.providers if item not in first
                     ]
+
+        order = self._behind_fast_keys(order)
 
         if not self.providers:
 

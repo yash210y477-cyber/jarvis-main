@@ -90,6 +90,37 @@ def test_priority_list_runs_from_cloud_to_local():
     ]
 
 
+def test_zai_waits_behind_the_fast_keys_while_its_wallet_is_empty():
+    from providers import zai
+
+    manager = AIManager.__new__(AIManager)
+
+    manager.providers = [
+        FakeProvider("zai", "zai answer"),
+        FakeProvider("groq", "groq answer"),
+        FakeProvider("ollama", "local answer"),
+    ]
+
+    try:
+
+        assert manager.chat("hello")["provider"] == "zai"
+
+        zai._mark_paid_down()
+
+        assert manager.chat("hello")["provider"] == "groq"
+
+        # The slow free model still comes before the even slower local one.
+        assert [p.name() for p in manager._behind_fast_keys(manager.providers)] == [
+            "groq",
+            "zai",
+            "ollama",
+        ]
+
+    finally:
+
+        zai.reset_balance_cooldown()
+
+
 def test_manager_keeps_the_priority_order():
     from providers.manager import AIManager
 

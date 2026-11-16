@@ -1,6 +1,18 @@
 import pytest
 
+from providers import zai
 from providers.zai import ZaiProvider
+
+
+@pytest.fixture(autouse=True)
+def empty_wallet_forgotten():
+    """A balance cooldown must never leak from one test to the next."""
+
+    zai.reset_balance_cooldown()
+
+    yield
+
+    zai.reset_balance_cooldown()
 
 
 class FakeMessage:
@@ -90,3 +102,64 @@ def test_no_model_answering_returns_the_error():
 
     assert result["success"] is False
     assert "model not available" in result["error"]
+
+
+BALANCE_429 = (
+    "Error code: 429 - {'error': {'code': '1113', 'message': "
+    "'Insufficient balance or no resource package. Please recharge.'}}"
+)
+
+
+class EmptyWalletClient(FakeClient):
+    """Paid GLM models refuse; the free one still answers."""
+
+    def __init__(self):
+        super().__init__("glm-4.5-flash")
+
+        completions = self.chat.completions
+
+        class PaidCompletions:
+            def create(self, **kwargs):
+
+                completions.outer.asked.append(kwargs["model"])
+
+                if kwargs["model"] != "glm-4.5-flash":
+                    raise RuntimeError(BALANCE_429)
+
+                return FakeReply("Free answer", kwargs["model"])
+
+        self.chat.completions = PaidCompletions()
+
+
+def test_an_empty_wallet_is_not_retried_on_every_message(monkeypatch):
+    provider = build()
+    client = EmptyWalletClient()
+    provider.client = client
+
+    first = provider.chat("hi")
+    asked_at_first = list(client.asked)
+    client.asked.clear()
+
+    second = provider.chat("hi again")
+
+    assert first["success"] is True and second["success"] is True
+    assert len(asked_at_first) > 1, "the paid models were tried while the answer was unknown"
+    assert client.asked == ["glm-4.5-flash"], "the empty wallet was tried again"
+
+
+def test_vision_skips_the_doomed_request_while_the_wallet_is_empty(tmp_path):
+    provider = build()
+    client = EmptyWalletClient()
+    provider.client = client
+
+    provider.chat("hi")
+    client.asked.clear()
+
+    image = tmp_path / "shot.png"
+    image.write_bytes(b"fake-png")
+
+    result = provider.see("what is on my screen?", str(image))
+
+    assert result["success"] is False
+    assert "recharge" in result["error"]
+    assert client.asked == []
