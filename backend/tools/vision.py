@@ -47,9 +47,13 @@ def _openrouter_see(question: str, image_path: str) -> dict:
 
         return {"success": False, "error": "OPENROUTER_API_KEY is not set."}
 
-    models = list(
-        getattr(settings, "OPENROUTER_VISION_MODELS", FALLBACK_MODELS) or FALLBACK_MODELS
-    )
+    # Measured free vision models decide the order; the configured list is the
+    # fallback when no benchmark has run yet.
+    from providers import ranking
+
+    models = [
+        model for name, model in ranking.models("vision") if name == "openrouter"
+    ] or list(getattr(settings, "OPENROUTER_VISION_MODELS", FALLBACK_MODELS) or FALLBACK_MODELS)
 
     client = OpenAI(api_key=key, base_url=OPENROUTER_URL, timeout=90)
 

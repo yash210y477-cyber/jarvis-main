@@ -5,6 +5,7 @@ from config.settings import settings
 
 from providers.openrouter import OpenRouterProvider
 from providers.groq import GroqProvider
+from providers import ranking
 from providers import zai as zai_module
 from providers.zai import ZaiProvider
 from providers.ollama import OllamaProvider
@@ -129,7 +130,7 @@ class AIManager:
     }
 
     def model_for(self, provider_name: str, task):
-        """A task-specific model id, or None to keep the provider default."""
+        """The model to ask: task specific, else the measured best one."""
 
         if task == "research" and provider_name == "openrouter":
 
@@ -140,6 +141,14 @@ class AIManager:
                 base = settings.OPENROUTER_MODEL
 
                 return base if base.endswith(":online") else base + ":online"
+
+        # The benchmark's winner for this provider, so the fastest good model
+        # is the one actually asked.
+        for name, model in ranking.models("text"):
+
+            if name == provider_name:
+
+                return model
 
         return None
 
@@ -160,6 +169,28 @@ class AIManager:
             param.kind is param.VAR_KEYWORD for param in params.values()
 
         )
+
+    @staticmethod
+    def _by_measured_speed(order, role="text"):
+        """Best measured model's provider first, the rest keep their place.
+
+        The ranking comes from scripts/rank_models.py (quality, then time), so
+        whoever answers well and quickly today gets the first try.
+        """
+
+        preferred = [
+            name
+            for name in ranking.providers(role)
+            if any(item.name() == name for item in order)
+        ]
+
+        if not preferred:
+
+            return order
+
+        ranked = [item for name in preferred for item in order if item.name() == name]
+
+        return ranked + [item for item in order if item not in ranked]
 
     @staticmethod
     def _behind_fast_keys(order):
@@ -217,7 +248,7 @@ class AIManager:
                         item for item in self.providers if item not in first
                     ]
 
-        order = self._behind_fast_keys(order)
+        order = self._behind_fast_keys(self._by_measured_speed(order))
 
         if not self.providers:
 
@@ -296,7 +327,7 @@ class AIManager:
 
         errors = []
 
-        for provider in self.providers:
+        for provider in self._by_measured_speed(list(self.providers)):
 
             if not getattr(provider, "supports_tools", False):
 
