@@ -122,7 +122,19 @@ class FakeClient:
         self.chat.completions = Completions(self)
 
 
-def build_vision_provider(tmp_path, working="glm-5v-turbo"):
+@pytest.fixture(autouse=True)
+def clean_wallet():
+    from providers import zai
+
+    zai.PROBE_ENABLED = False
+    zai.reset_balance_cooldown()
+
+    yield
+
+    zai.reset_balance_cooldown()
+
+
+def build_vision_provider(tmp_path, working="glm-4.6v-flash"):
     image = tmp_path / "shot.jpg"
     image.write_bytes(b"fake-jpeg")
 
@@ -130,7 +142,7 @@ def build_vision_provider(tmp_path, working="glm-5v-turbo"):
 
     provider.provider_name = "zai"
     provider.api_key = "test-key"
-    provider.model = "glm-4.6"
+    provider.model = "glm-4.7-flash"
     provider._working = None
     provider.client = FakeClient(working)
 
@@ -154,13 +166,33 @@ def test_see_sends_the_image_as_a_data_url(tmp_path):
     assert base64.b64decode(content[1]["image_url"]["url"].split(",", 1)[1]) == b"fake-jpeg"
 
 
-def test_see_falls_back_to_another_vision_model(tmp_path):
+def test_see_uses_the_paid_vision_model_when_the_wallet_has_credit(tmp_path):
+    from providers import zai
+
+    zai._mark_paid_ok("glm-5.3")
+
     provider, image = build_vision_provider(tmp_path, working="glm-4.6v")
 
     result = provider.see("summarize this page", image)
 
     assert result["success"] is True
     assert result["model"] == "glm-4.6v"
+
+    asked = [payload["model"] for payload in provider.client.payloads]
+
+    assert asked[0] != "glm-4.6v-flash", "the paid model goes first when it is paid for"
+
+
+def test_see_asks_only_the_free_vision_model_without_a_balance(tmp_path):
+    provider, image = build_vision_provider(tmp_path)
+
+    result = provider.see("what is on my screen?", image)
+
+    assert result["success"] is True
+
+    asked = [payload["model"] for payload in provider.client.payloads]
+
+    assert asked == ["glm-4.6v-flash"], "a paid vision model was tried without balance"
 
 
 def test_see_without_a_key_reports_it(monkeypatch, tmp_path):

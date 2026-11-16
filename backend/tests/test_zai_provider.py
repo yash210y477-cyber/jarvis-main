@@ -6,7 +6,9 @@ from providers.zai import ZaiProvider
 
 @pytest.fixture(autouse=True)
 def empty_wallet_forgotten():
-    """A balance cooldown must never leak from one test to the next."""
+    """A wallet state must never leak from one test to the next."""
+
+    zai.PROBE_ENABLED = False
 
     zai.reset_balance_cooldown()
 
@@ -54,12 +56,12 @@ class FakeClient:
         self.chat.completions = Completions(self)
 
 
-def build(working_model="glm-4.6"):
+def build(working_model="glm-4.7-flash"):
     provider = ZaiProvider.__new__(ZaiProvider)
 
     provider.provider_name = "zai"
     provider.api_key = "test-key"
-    provider.model = "glm-4.6"
+    provider.model = "glm-4.7-flash"
     provider._working = None
     provider.client = FakeClient(working_model)
 
@@ -75,17 +77,20 @@ def test_missing_key_is_reported(monkeypatch):
     assert provider.chat("hi")["success"] is False
 
 
-def test_first_model_answers():
-    provider = build("glm-4.6")
+def test_the_free_model_answers_first():
+    provider = build("glm-4.7-flash")
 
     result = provider.chat("hi")
 
     assert result["success"] is True
     assert result["provider"] == "zai"
     assert result["response"] == "Hello from GLM"
+    assert provider._working == "glm-4.7-flash"
 
 
-def test_retired_model_falls_through_to_the_next():
+def test_a_paid_model_is_used_once_the_wallet_has_credit():
+    zai._mark_paid_ok("glm-5.3")
+
     provider = build("glm-4.7")
 
     result = provider.chat("hi")
@@ -114,7 +119,7 @@ class EmptyWalletClient(FakeClient):
     """Paid GLM models refuse; the free one still answers."""
 
     def __init__(self):
-        super().__init__("glm-4.5-flash")
+        super().__init__("glm-4.7-flash")
 
         completions = self.chat.completions
 
@@ -123,7 +128,7 @@ class EmptyWalletClient(FakeClient):
 
                 completions.outer.asked.append(kwargs["model"])
 
-                if kwargs["model"] != "glm-4.5-flash":
+                if kwargs["model"] not in ("glm-4.7-flash", "glm-4.6v-flash"):
                     raise RuntimeError(BALANCE_429)
 
                 return FakeReply("Free answer", kwargs["model"])
@@ -131,35 +136,27 @@ class EmptyWalletClient(FakeClient):
         self.chat.completions = PaidCompletions()
 
 
-def test_an_empty_wallet_is_not_retried_on_every_message(monkeypatch):
+def test_paid_models_are_never_asked_without_a_balance():
     provider = build()
     client = EmptyWalletClient()
     provider.client = client
 
     first = provider.chat("hi")
-    asked_at_first = list(client.asked)
-    client.asked.clear()
-
     second = provider.chat("hi again")
 
     assert first["success"] is True and second["success"] is True
-    assert len(asked_at_first) > 1, "the paid models were tried while the answer was unknown"
-    assert client.asked == ["glm-4.5-flash"], "the empty wallet was tried again"
+    assert client.asked == ["glm-4.7-flash", "glm-4.7-flash"], "a paid model was tried"
 
 
-def test_vision_skips_the_doomed_request_while_the_wallet_is_empty(tmp_path):
+def test_the_free_vision_model_answers_while_the_wallet_is_empty(tmp_path):
     provider = build()
     client = EmptyWalletClient()
     provider.client = client
-
-    provider.chat("hi")
-    client.asked.clear()
 
     image = tmp_path / "shot.png"
     image.write_bytes(b"fake-png")
 
     result = provider.see("what is on my screen?", str(image))
 
-    assert result["success"] is False
-    assert "recharge" in result["error"]
-    assert client.asked == []
+    assert result["success"] is True
+    assert client.asked == ["glm-4.6v-flash"]

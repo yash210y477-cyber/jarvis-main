@@ -220,12 +220,17 @@ class Settings:
 
     ZAI_BASE_URL = os.getenv("ZAI_BASE_URL", "https://api.z.ai/api/paas/v4/")
 
-    ZAI_MODEL = os.getenv("ZAI_MODEL", "glm-4.6")
+    # The free model, so replies work before any top-up.
+    ZAI_MODEL = os.getenv("ZAI_MODEL", "glm-4.7-flash")
 
     ZAI_MAX_TOKENS = int(os.getenv("ZAI_MAX_TOKENS", "2048"))
 
+    # Seconds a z.ai call may take before the next provider answers instead.
+    ZAI_TIMEOUT = float(os.getenv("ZAI_TIMEOUT", "20"))
+
     # Vision: reads screenshots, including open web pages.
-    ZAI_VISION_MODEL = os.getenv("ZAI_VISION_MODEL", "glm-5v-turbo")
+    # Free vision model; the paid ones are used once the wallet has credit.
+    ZAI_VISION_MODEL = os.getenv("ZAI_VISION_MODEL", "glm-4.6v-flash")
 
     ZAI_VISION_MAX_TOKENS = int(os.getenv("ZAI_VISION_MAX_TOKENS", "900"))
 

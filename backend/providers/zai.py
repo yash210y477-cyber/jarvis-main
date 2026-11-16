@@ -1,8 +1,10 @@
 """Z.ai (Zhipu GLM) through its OpenAI-compatible endpoint."""
 
 import base64
+import json
 import logging
 import os
+import threading
 import time
 from pathlib import Path
 
@@ -17,15 +19,30 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# z.ai answers 429 "Insufficient balance or no resource package" whenever the
-# account is out of credit. That does not fix itself between two messages, so
-# instead of buying five failed calls per reply the paid models step aside for
-# a while and the free one answers at once.
+# z.ai's free models cost nothing and always answer. The paid ones need a
+# topped-up balance and reply 429 "Insufficient balance or no resource package"
+# without one, so they are only asked after a paid call really worked.
 BALANCE_COOLDOWN = 1800
 
-FREE_MODELS = ("glm-4.5-flash",)
+PAID_OK_FOR = 24 * 3600
 
-_paid_down_until = 0.0
+# One cheap paid ping every few hours notices a top-up without ever delaying
+# a reply.
+PROBE_EVERY = 6 * 3600
+
+PROBE_ENABLED = True
+
+FREE_MODELS = ("glm-4.7-flash", "glm-4.5-flash")
+
+FREE_VISION_MODELS = ("glm-4.6v-flash",)
+
+PAID_MODELS = ("glm-5.3", "glm-4.7", "glm-4.6", "glm-4.5", "glm-4.5-air")
+
+PAID_VISION_MODELS = ("glm-5v-turbo", "glm-4.6v", "glm-4.5v")
+
+_state = {"down_until": 0.0, "paid_ok_at": 0.0, "probe_at": 0.0}
+
+_loaded = False
 
 
 def _is_balance_error(error) -> bool:
@@ -44,45 +61,106 @@ def _is_balance_error(error) -> bool:
 
 
 def _state_file():
-    """The empty-wallet note survives a restart, so it is not re-probed."""
+    """The wallet note survives a restart, so nothing has to be re-probed."""
 
     from memory.storage import data_dir
 
-    return data_dir() / "zai_balance.txt"
+    return data_dir() / "zai_wallet.json"
 
 
-def _paid_down() -> bool:
+def _load() -> None:
 
-    global _paid_down_until
+    global _loaded
 
-    if not _paid_down_until:
+    if _loaded:
 
-        try:
+        return
 
-            _paid_down_until = float(_state_file().read_text(encoding="utf-8").strip() or 0)
-
-        except (OSError, ValueError):
-
-            _paid_down_until = 0.0
-
-    return time.time() < _paid_down_until
-
-
-def _mark_paid_down() -> None:
-
-    global _paid_down_until
-
-    _paid_down_until = time.time() + BALANCE_COOLDOWN
+    _loaded = True
 
     try:
 
-        _state_file().write_text(str(_paid_down_until), encoding="utf-8")
+        saved = json.loads(_state_file().read_text(encoding="utf-8"))
+
+    except (OSError, ValueError):
+
+        return
+
+    for key in _state:
+
+        try:
+
+            _state[key] = float(saved.get(key) or 0)
+
+        except (TypeError, ValueError):
+
+            _state[key] = 0.0
+
+
+def _save() -> None:
+
+    try:
+
+        _state_file().write_text(json.dumps(_state), encoding="utf-8")
 
     except OSError:
 
         pass
 
+
+def _paid_down() -> bool:
+
+    _load()
+
+    return time.time() < _state["down_until"]
+
+
+def _paid_ok() -> bool:
+    """A paid model answered recently, so the wallet has credit."""
+
+    _load()
+
+    return time.time() - _state["paid_ok_at"] < PAID_OK_FOR and not _paid_down()
+
+
+def _mark_paid_down() -> None:
+
+    _load()
+
+    _state["down_until"] = time.time() + BALANCE_COOLDOWN
+    _state["paid_ok_at"] = 0.0
+
+    _save()
+
     logger.info("z.ai has no balance; paid models off for %s min", BALANCE_COOLDOWN // 60)
+
+
+def _mark_paid_ok(model: str) -> None:
+
+    _load()
+
+    _state["paid_ok_at"] = time.time()
+    _state["down_until"] = 0.0
+
+    _save()
+
+    logger.info("z.ai paid model %s answered; balance is back", model)
+
+
+def _probe_due() -> bool:
+
+    _load()
+
+    return time.time() - _state["probe_at"] > PROBE_EVERY
+
+
+def _mark_probe() -> None:
+
+    _load()
+
+    _state["probe_at"] = time.time()
+
+    _save()
 
 
 def paid_down() -> bool:
@@ -91,20 +169,22 @@ def paid_down() -> bool:
     return _paid_down()
 
 
+def paid_ready() -> bool:
+    """A paid model answered recently, so paying for the good ones is safe."""
+
+    return _paid_ok()
+
+
 def reset_balance_cooldown() -> None:
-    """Forget an empty wallet (used after a recharge or by tests)."""
+    """Forget the wallet state (used after a recharge or by tests)."""
 
-    global _paid_down_until
+    global _loaded
 
-    _paid_down_until = 0.0
+    _load()
 
-    try:
+    _state.update({"down_until": 0.0, "paid_ok_at": 0.0, "probe_at": 0.0})
 
-        _state_file().unlink()
-
-    except OSError:
-
-        pass
+    _save()
 
 
 class ZaiProvider(OpenAIToolMixin, BaseProvider):
@@ -125,7 +205,13 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
 
         if self.api_key:
 
-            self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+            # A slow free model must not hold a reply hostage: after this the
+            # next provider gets its turn.
+            self.client = OpenAI(
+                api_key=self.api_key,
+                base_url=self.base_url,
+                timeout=float(getattr(settings, "ZAI_TIMEOUT", 20)),
+            )
 
     def name(self) -> str:
 
@@ -135,40 +221,76 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
 
         return self.client is not None
 
-    # Newest first: the account keeps whatever it can reach.
-    MODELS = (
-        "glm-5.3",
-        "glm-4.7",
-        "glm-4.6",
-        "glm-4.5",
-        "glm-4.5-air",
-        "glm-4.5-flash",
-    )
+    # Free first, then the paid ones (used only when the wallet has credit).
+    MODELS = FREE_MODELS + PAID_MODELS
 
     def resolve_model(self):
 
-        # The free model answers while the wallet is empty; once the cooldown
-        # is over the configured (better) model gets its chance again.
-        if self._working and (_paid_down() or self._working not in FREE_MODELS):
+        if _paid_ok():
 
-            return self._working
+            # Balance is there: the configured paid model does the talking.
+            if self._working and self._working not in FREE_MODELS:
 
-        return (self.model or self.MODELS[0]).strip()
+                return self._working
+
+            if self.model and self.model not in FREE_MODELS:
+
+                return self.model.strip()
+
+            return PAID_MODELS[0]
+
+        return FREE_MODELS[0]
+
+    def _candidates(self, first: str) -> list[str]:
+        """The models to ask, in order, for this wallet state."""
+
+        if _paid_ok():
+
+            return [first] + [name for name in self.MODELS if name != first]
+
+        # No known balance: only the free models are worth a request.
+        names = [name for name in (first, *FREE_MODELS) if name in FREE_MODELS]
+
+        return list(dict.fromkeys(names))
+
+    def _probe_paid(self) -> None:
+        """Ask one paid model in the background so a top-up is noticed."""
+
+        if not PROBE_ENABLED or self.client is None or _paid_ok() or not _probe_due():
+
+            return
+
+        _mark_probe()
+
+        model = PAID_MODELS[0]
+
+        def work():
+
+            try:
+
+                self.client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": "ping"}],
+                    max_tokens=1,
+                )
+
+                _mark_paid_ok(model)
+
+            except Exception as error:
+
+                if _is_balance_error(error):
+
+                    _mark_paid_down()
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _ask(self, messages, tools=None, model=None):
 
-        """Ask every candidate model until one answers; remember the winner."""
+        """Ask the candidate models until one answers; remember the winner."""
 
         first = (model or self.resolve_model()).strip()
 
-        candidates = [first] + [
-            name for name in self.MODELS if name != first
-        ]
-
-        if _paid_down():
-
-            # Only the free model can answer while the wallet is empty.
-            candidates = [name for name in candidates if name in FREE_MODELS]
+        candidates = self._candidates(first)
 
         last_error = None
 
@@ -192,6 +314,15 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
                 reply = self.client.chat.completions.create(**payload)
 
                 self._working = model
+
+                if model in FREE_MODELS:
+
+                    # Free answered, so nothing was learned about the balance.
+                    self._probe_paid()
+
+                else:
+
+                    _mark_paid_ok(model)
 
                 return reply
 
@@ -217,12 +348,9 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
 
         raise last_error
 
-    # Vision models, best first: these read a screenshot.
-    VISION_MODELS = (
-        "glm-5v-turbo",
-        "glm-4.6v",
-        "glm-4.5v",
-    )
+    # The free vision model reads screenshots without a recharge; the paid
+    # ones are added only when the wallet has credit.
+    VISION_MODELS = FREE_VISION_MODELS + PAID_VISION_MODELS
 
     def _image_url(self, image_path: str) -> str:
         """A data URL the OpenAI-style vision API accepts."""
@@ -248,15 +376,6 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
                 "error": "ZAI_API_KEY is not set.",
             }
 
-        if _paid_down():
-
-            # Its vision models need credit; skip the doomed requests.
-            return {
-                "success": False,
-                "provider": self.name(),
-                "error": "z.ai vision needs a recharge, so the free fallback is used.",
-            }
-
         messages = [
             {
                 "role": "user",
@@ -272,9 +391,24 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
 
         first = (settings.ZAI_VISION_MODEL or self.VISION_MODELS[0]).strip()
 
-        candidates = [first] + [
-            name for name in self.VISION_MODELS if name != first
-        ]
+        if _paid_ok():
+
+            paid_first = (
+                PAID_VISION_MODELS[0]
+                if first in FREE_VISION_MODELS
+                else first
+            )
+
+            candidates = [paid_first] + [
+                name for name in self.VISION_MODELS if name != paid_first
+            ]
+
+        else:
+
+            # Only the free vision model works without a balance.
+            names = [name for name in (first, *FREE_VISION_MODELS) if name in FREE_VISION_MODELS]
+
+            candidates = list(dict.fromkeys(names))
 
         last_error = None
 
@@ -290,6 +424,10 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
                 )
 
                 content = reply.choices[0].message.content
+
+                if model not in FREE_VISION_MODELS:
+
+                    _mark_paid_ok(model)
 
                 return {
                     "success": True,

@@ -181,14 +181,14 @@ class AIManager:
 
     @staticmethod
     def _behind_fast_keys(order):
-        """z.ai waits last while its wallet is empty.
+        """z.ai waits behind the fast keys until its balance is confirmed.
 
-        Its paid models refuse with a 429 and the free one takes several
-        times longer than the other keys, so an empty account should not hold
-        every reply up. The order comes back untouched once balance is back.
+        Without credit only its free models run, and those take far longer
+        than the other keys, so the account should not hold every reply up.
+        The order comes back untouched once a paid model has answered.
         """
 
-        if not zai_module.paid_down():
+        if zai_module.paid_ready():
 
             return order
 
