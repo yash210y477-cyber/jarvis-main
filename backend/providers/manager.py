@@ -194,14 +194,13 @@ class AIManager:
 
     @staticmethod
     def _behind_fast_keys(order):
-        """z.ai waits behind the fast keys only while its free models lag.
+        """z.ai waits behind the fast keys while its free models lag.
 
-        It keeps its place while it answers at a normal speed, or once a paid
-        model works; when the free ones take longer than a reply should, the
-        quick keys answer first for half an hour.
+        When the free models take longer than a reply should, the quick keys
+        answer first for half an hour instead of every reply waiting on it.
         """
 
-        if zai_module.paid_ready() or not zai_module.slow():
+        if not zai_module.slow():
 
             return order
 

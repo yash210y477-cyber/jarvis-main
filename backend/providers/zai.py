@@ -1,10 +1,13 @@
-"""Z.ai (Zhipu GLM) through its OpenAI-compatible endpoint."""
+"""Z.ai (Zhipu GLM) through its OpenAI-compatible endpoint.
+
+Free models only: the project runs without any paid balance, so the paid GLM
+models are never asked and no wallet is tracked.
+"""
 
 import base64
 import json
 import logging
 import os
-import threading
 import time
 from pathlib import Path
 
@@ -19,26 +22,9 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# z.ai's free models cost nothing and always answer. The paid ones need a
-# topped-up balance and reply 429 "Insufficient balance or no resource package"
-# without one, so they are only asked after a paid call really worked.
-BALANCE_COOLDOWN = 1800
-
-PAID_OK_FOR = 24 * 3600
-
-# One cheap paid ping every few hours notices a top-up without ever delaying
-# a reply.
-PROBE_EVERY = 6 * 3600
-
-PROBE_ENABLED = True
-
 FREE_MODELS = ("glm-4.7-flash", "glm-4.5-flash")
 
 FREE_VISION_MODELS = ("glm-4.6v-flash",)
-
-PAID_MODELS = ("glm-5.3", "glm-4.7", "glm-4.6", "glm-4.5", "glm-4.5-air")
-
-PAID_VISION_MODELS = ("glm-5v-turbo", "glm-4.6v", "glm-4.5v")
 
 # A free model that takes longer than this is treated as slow: the fast keys
 # then answer first for a while instead of every reply waiting on it.
@@ -47,9 +33,6 @@ SLOW_SECONDS = 8
 SLOW_COOLDOWN = 1800
 
 _state = {
-    "down_until": 0.0,
-    "paid_ok_at": 0.0,
-    "probe_at": 0.0,
     "slow_until": 0.0,
 }
 
@@ -63,27 +46,12 @@ def _is_timeout(error) -> bool:
     return "timeout" in text or "timed out" in text or "Timeout" in type(error).__name__
 
 
-def _is_balance_error(error) -> bool:
-
-    text = str(error).lower()
-
-    return any(
-        word in text
-        for word in (
-            "1113",
-            "insufficient balance",
-            "no resource package",
-            "please recharge",
-        )
-    )
-
-
 def _state_file():
-    """The wallet note survives a restart, so nothing has to be re-probed."""
+    """The slow note survives a restart, so nothing is measured twice."""
 
     from memory.storage import data_dir
 
-    return data_dir() / "zai_wallet.json"
+    return data_dir() / "zai_slow.json"
 
 
 def _load() -> None:
@@ -126,73 +94,6 @@ def _save() -> None:
         pass
 
 
-def _paid_down() -> bool:
-
-    _load()
-
-    return time.time() < _state["down_until"]
-
-
-def _paid_ok() -> bool:
-    """A paid model answered recently, so the wallet has credit."""
-
-    _load()
-
-    return time.time() - _state["paid_ok_at"] < PAID_OK_FOR and not _paid_down()
-
-
-def _mark_paid_down() -> None:
-
-    _load()
-
-    _state["down_until"] = time.time() + BALANCE_COOLDOWN
-    _state["paid_ok_at"] = 0.0
-
-    _save()
-
-    logger.info("z.ai has no balance; paid models off for %s min", BALANCE_COOLDOWN // 60)
-
-
-def _mark_paid_ok(model: str) -> None:
-
-    _load()
-
-    _state["paid_ok_at"] = time.time()
-    _state["down_until"] = 0.0
-
-    _save()
-
-    logger.info("z.ai paid model %s answered; balance is back", model)
-
-
-def _probe_due() -> bool:
-
-    _load()
-
-    return time.time() - _state["probe_at"] > PROBE_EVERY
-
-
-def _mark_probe() -> None:
-
-    _load()
-
-    _state["probe_at"] = time.time()
-
-    _save()
-
-
-def paid_down() -> bool:
-    """True while the empty wallet keeps the paid models out of the way."""
-
-    return _paid_down()
-
-
-def paid_ready() -> bool:
-    """A paid model answered recently, so it is quick."""
-
-    return _paid_ok()
-
-
 def slow() -> bool:
     """The free models recently took longer than a reply should."""
 
@@ -216,16 +117,14 @@ def _mark_slow() -> None:
     logger.info("z.ai free models are slow right now; fast keys go first")
 
 
-def reset_balance_cooldown() -> None:
-    """Forget the wallet state (used after a recharge or by tests)."""
+def reset_state() -> None:
+    """Forget the slow note (used by tests)."""
 
     global _loaded
 
-    _load()
+    _loaded = True
 
-    _state.update(
-        {"down_until": 0.0, "paid_ok_at": 0.0, "probe_at": 0.0, "slow_until": 0.0}
-    )
+    _state["slow_until"] = 0.0
 
     _save()
 
@@ -264,61 +163,22 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
 
         return self.client is not None
 
-    # Free first, then the paid ones.
-    MODELS = FREE_MODELS + PAID_MODELS
+    MODELS = FREE_MODELS
 
     def resolve_model(self):
 
         return FREE_MODELS[0]
 
     def _candidates(self, first: str) -> list[str]:
-        """Free models first, then the paid ones when they may have credit."""
+        """The free models, starting with the one asked for."""
 
-        free = [
+        return [
             name for name in dict.fromkeys((first, *FREE_MODELS)) if name in FREE_MODELS
         ]
 
-        if _paid_down():
-
-            # Nothing to buy with an empty wallet.
-            return free
-
-        return free + [name for name in PAID_MODELS if name not in free]
-
-    def _probe_paid(self) -> None:
-        """Ask one paid model in the background so a top-up is noticed."""
-
-        if not PROBE_ENABLED or self.client is None or _paid_ok() or not _probe_due():
-
-            return
-
-        _mark_probe()
-
-        model = PAID_MODELS[0]
-
-        def work():
-
-            try:
-
-                self.client.chat.completions.create(
-                    model=model,
-                    messages=[{"role": "user", "content": "ping"}],
-                    max_tokens=1,
-                )
-
-                _mark_paid_ok(model)
-
-            except Exception as error:
-
-                if _is_balance_error(error):
-
-                    _mark_paid_down()
-
-        threading.Thread(target=work, daemon=True).start()
-
     def _ask(self, messages, tools=None, model=None):
 
-        """Ask the candidate models until one answers; remember the winner."""
+        """Ask the free models until one answers; remember the winner."""
 
         first = (model or self.resolve_model()).strip()
 
@@ -351,18 +211,9 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
 
                 self._working = model
 
-                if model in FREE_MODELS:
+                if took > SLOW_SECONDS:
 
-                    # Free answered, so nothing was learned about the balance.
-                    if took > SLOW_SECONDS:
-
-                        _mark_slow()
-
-                    self._probe_paid()
-
-                else:
-
-                    _mark_paid_ok(model)
+                    _mark_slow()
 
                 return reply
 
@@ -370,17 +221,13 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
 
                 last_error = error
 
-                if _is_timeout(error) and model in FREE_MODELS:
+                if _is_timeout(error):
 
                     # A free model that times out is slow right now; the next
                     # provider should answer instead of another long wait.
                     _mark_slow()
 
                     raise
-
-                if _is_balance_error(error):
-
-                    _mark_paid_down()
 
                 text = str(error).lower()
 
@@ -396,25 +243,21 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
 
         raise last_error
 
-    # The free vision model reads screenshots without a recharge; the paid
-    # ones are added only when the wallet has credit.
-    VISION_MODELS = FREE_VISION_MODELS + PAID_VISION_MODELS
+    # The free vision model reads screenshots with no balance needed.
+    VISION_MODELS = FREE_VISION_MODELS
 
     def _image_url(self, image_path: str) -> str:
         """A data URL the OpenAI-style vision API accepts."""
 
         path = Path(image_path)
-
         data = base64.b64encode(path.read_bytes()).decode("ascii")
-
         suffix = path.suffix.lower().lstrip(".") or "png"
-
         mime = "jpeg" if suffix in ("jpg", "jpeg") else suffix
 
         return f"data:image/{mime};base64,{data}"
 
     def see(self, question: str, image_path: str) -> dict:
-        """Ask the vision model about a screenshot."""
+        """Ask the free vision model about a screenshot."""
 
         if not self.health():
 
@@ -437,19 +280,9 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
             }
         ]
 
-        # glm-4.6v-flash reads screenshots for free, so it goes first and the
-        # paid vision models are only a fallback.
-        first = FREE_VISION_MODELS[0]
-
-        candidates = [first]
-
-        if not _paid_down():
-
-            candidates += [name for name in PAID_VISION_MODELS if name != first]
-
         last_error = None
 
-        for model in candidates:
+        for model in FREE_VISION_MODELS:
 
             try:
 
@@ -462,10 +295,6 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
 
                 content = reply.choices[0].message.content
 
-                if model not in FREE_VISION_MODELS:
-
-                    _mark_paid_ok(model)
-
                 return {
                     "success": True,
                     "provider": self.name(),
@@ -476,12 +305,6 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
             except Exception as error:
 
                 last_error = error
-
-                if _is_balance_error(error):
-
-                    _mark_paid_down()
-
-                    break
 
                 text = str(error).lower()
 

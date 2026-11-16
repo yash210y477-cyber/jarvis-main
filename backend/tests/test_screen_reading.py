@@ -64,7 +64,7 @@ def test_read_screen_returns_the_answer(monkeypatch, tmp_path):
     def fake_see(question, image_path):
         seen["question"] = question
         seen["image"] = image_path
-        return {"success": True, "model": "glm-5v-turbo", "answer": "A browser page."}
+        return {"success": True, "model": "glm-4.6v-flash", "answer": "A browser page."}
 
     monkeypatch.setattr(screen_reader.vision, "see", fake_see)
 
@@ -126,12 +126,11 @@ class FakeClient:
 def clean_wallet():
     from providers import zai
 
-    zai.PROBE_ENABLED = False
-    zai.reset_balance_cooldown()
+    zai.reset_state()
 
     yield
 
-    zai.reset_balance_cooldown()
+    zai.reset_state()
 
 
 def build_vision_provider(tmp_path, working="glm-4.6v-flash"):
@@ -166,20 +165,19 @@ def test_see_sends_the_image_as_a_data_url(tmp_path):
     assert base64.b64decode(content[1]["image_url"]["url"].split(",", 1)[1]) == b"fake-jpeg"
 
 
-def test_see_falls_back_to_a_paid_vision_model_only_after_the_free_one(tmp_path):
+def test_see_never_falls_back_to_a_paid_vision_model(tmp_path):
     provider, image = build_vision_provider(tmp_path, working="glm-4.6v")
 
     result = provider.see("summarize this page", image)
 
-    assert result["success"] is True
-    assert result["model"] == "glm-4.6v"
+    assert result["success"] is False
 
     asked = [payload["model"] for payload in provider.client.payloads]
 
-    assert asked[0] == "glm-4.6v-flash", "the free vision model must go first"
+    assert asked == ["glm-4.6v-flash"], "a paid vision model was asked"
 
 
-def test_see_asks_only_the_free_vision_model_without_a_balance(tmp_path):
+def test_see_asks_only_the_free_vision_model(tmp_path):
     provider, image = build_vision_provider(tmp_path)
 
     result = provider.see("what is on my screen?", image)
@@ -188,7 +186,7 @@ def test_see_asks_only_the_free_vision_model_without_a_balance(tmp_path):
 
     asked = [payload["model"] for payload in provider.client.payloads]
 
-    assert asked == ["glm-4.6v-flash"], "a paid vision model was tried without balance"
+    assert asked == ["glm-4.6v-flash"]
 
 
 def test_see_without_a_key_reports_it(monkeypatch, tmp_path):
@@ -200,7 +198,7 @@ def test_see_without_a_key_reports_it(monkeypatch, tmp_path):
     assert provider.see("hi", str(tmp_path / "x.png"))["success"] is False
 
 
-def test_empty_wallet_says_so_plainly(monkeypatch, tmp_path):
+def test_a_failed_vision_model_says_so_plainly(monkeypatch, tmp_path):
     shot = tmp_path / "shot.png"
 
     from PIL import Image
@@ -225,4 +223,4 @@ def test_empty_wallet_says_so_plainly(monkeypatch, tmp_path):
     result = screen_reader.read_screen("summarize this page")
 
     assert result["success"] is False
-    assert "recharge" in result["error"].lower()
+    assert "no free vision model" in result["error"].lower()

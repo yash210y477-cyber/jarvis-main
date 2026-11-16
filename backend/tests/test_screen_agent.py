@@ -22,7 +22,7 @@ class ScriptedVision:
         reply = ScriptedVision.replies.pop(0)
 
         if isinstance(reply, dict):
-            return {"success": True, "model": "glm-5v-turbo", "answer": json.dumps(reply)}
+            return {"success": True, "model": "glm-4.6v-flash", "answer": json.dumps(reply)}
 
         return {"success": False, "error": reply}
 
@@ -112,7 +112,7 @@ def test_answer_only_goal_returns_the_answer(monkeypatch, tmp_path):
     assert "docs page" in result["answer"]
 
 
-def test_wallet_error_is_explained(monkeypatch, tmp_path):
+def test_a_dead_vision_model_is_explained(monkeypatch, tmp_path):
     patch_environment(
         monkeypatch,
         ["Error code: 429 - {'message': 'Insufficient balance'}"],
@@ -122,7 +122,7 @@ def test_wallet_error_is_explained(monkeypatch, tmp_path):
     result = screen_agent.run_task("click login")
 
     assert result["success"] is False
-    assert "Recharge z.ai" in result["error"]
+    assert "no free vision model" in result["error"].lower()
 
 
 def test_narration_lists_each_step():

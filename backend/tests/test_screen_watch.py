@@ -117,7 +117,7 @@ def test_stop_reports_the_count(monkeypatch, tmp_path):
     assert "Stopped" in result["message"]
 
 
-def test_a_dead_wallet_stops_the_watcher(monkeypatch, tmp_path):
+def test_a_dead_vision_model_stops_the_watcher(monkeypatch, tmp_path):
     watcher = build(monkeypatch, tmp_path)
 
     monkeypatch.setattr(
@@ -148,4 +148,4 @@ def test_a_dead_wallet_stops_the_watcher(monkeypatch, tmp_path):
 
     assert watcher._ask("what is this", tmp_path / "x.jpg") == ""
     assert watcher.running is False
-    assert "Recharge z.ai" in watcher.error
+    assert "no free vision model" in watcher.error.lower()

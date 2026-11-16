@@ -88,7 +88,7 @@ def test_priority_list_runs_from_cloud_to_local():
     ]
 
 
-def test_zai_waits_behind_the_fast_keys_while_its_wallet_is_empty():
+def test_zai_waits_behind_the_fast_keys_while_its_free_model_lags():
     from providers import zai
 
     manager = AIManager.__new__(AIManager)
@@ -117,7 +117,7 @@ def test_zai_waits_behind_the_fast_keys_while_its_wallet_is_empty():
 
     finally:
 
-        zai.reset_balance_cooldown()
+        zai.reset_state()
 
 
 def test_manager_keeps_the_priority_order():

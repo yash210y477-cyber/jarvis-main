@@ -5,16 +5,14 @@ from providers.zai import ZaiProvider
 
 
 @pytest.fixture(autouse=True)
-def empty_wallet_forgotten():
-    """A wallet state must never leak from one test to the next."""
+def slow_note_forgotten():
+    """A slow note must never leak from one test to the next."""
 
-    zai.PROBE_ENABLED = False
-
-    zai.reset_balance_cooldown()
+    zai.reset_state()
 
     yield
 
-    zai.reset_balance_cooldown()
+    zai.reset_state()
 
 
 class FakeMessage:
@@ -88,15 +86,14 @@ def test_the_free_model_answers_first():
     assert provider._working == "glm-4.7-flash"
 
 
-def test_the_free_model_is_tried_before_a_paid_one():
+def test_only_free_models_are_ever_asked():
     provider = build("glm-4.7")
 
     result = provider.chat("hi")
 
-    assert result["success"] is True
-    assert result["model"] == "glm-4.7"
-    assert provider.client.asked[0] == "glm-4.7-flash", "a paid model went first"
-    assert "glm-4.7" in provider.client.asked[1:], "the paid fallback was never asked"
+    assert result["success"] is False
+    assert set(provider.client.asked) <= set(zai.FREE_MODELS), "a paid model was asked"
+    assert provider.client.asked == list(zai.FREE_MODELS)
 
 
 def test_no_model_answering_returns_the_error():
@@ -108,39 +105,10 @@ def test_no_model_answering_returns_the_error():
     assert "model not available" in result["error"]
 
 
-BALANCE_429 = (
-    "Error code: 429 - {'error': {'code': '1113', 'message': "
-    "'Insufficient balance or no resource package. Please recharge.'}}"
-)
-
-
-class EmptyWalletClient(FakeClient):
-    """Paid GLM models refuse; the free one still answers."""
-
-    def __init__(self):
-        super().__init__("glm-4.7-flash")
-
-        completions = self.chat.completions
-
-        class PaidCompletions:
-            def create(self, **kwargs):
-
-                completions.outer.asked.append(kwargs["model"])
-
-                if kwargs["model"] not in ("glm-4.7-flash", "glm-4.6v-flash"):
-                    raise RuntimeError(BALANCE_429)
-
-                return FakeReply("Free answer", kwargs["model"])
-
-        self.chat.completions = PaidCompletions()
-
-
 def test_a_timed_out_free_model_marks_zai_slow():
     class SlowClient(FakeClient):
         def __init__(self):
             super().__init__("nothing")
-
-            completions = self.chat.completions
 
             class Timeout:
                 def create(self, **kwargs):
@@ -159,21 +127,9 @@ def test_a_timed_out_free_model_marks_zai_slow():
     assert zai.slow() is True, "the next reply would wait on a slow model again"
 
 
-def test_paid_models_are_never_asked_without_a_balance():
+def test_the_free_vision_model_is_the_only_one_asked(tmp_path):
     provider = build()
-    client = EmptyWalletClient()
-    provider.client = client
-
-    first = provider.chat("hi")
-    second = provider.chat("hi again")
-
-    assert first["success"] is True and second["success"] is True
-    assert client.asked == ["glm-4.7-flash", "glm-4.7-flash"], "a paid model was tried"
-
-
-def test_the_free_vision_model_answers_while_the_wallet_is_empty(tmp_path):
-    provider = build()
-    client = EmptyWalletClient()
+    client = FakeClient("glm-4.6v-flash")
     provider.client = client
 
     image = tmp_path / "shot.png"
@@ -183,3 +139,4 @@ def test_the_free_vision_model_answers_while_the_wallet_is_empty(tmp_path):
 
     assert result["success"] is True
     assert client.asked == ["glm-4.6v-flash"]
+    assert provider.VISION_MODELS == zai.FREE_VISION_MODELS

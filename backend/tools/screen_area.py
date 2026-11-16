@@ -219,8 +219,8 @@ def ask_area(question: str = "") -> dict:
         if any(word in error.lower() for word in ("insufficient", "balance", "402", "429")):
 
             error = (
-                "The z.ai account has no balance for the vision model. "
-                "Recharge z.ai and ask again."
+                "No free vision model answered (z.ai and the OpenRouter "
+                "fallback both failed). Check ZAI_API_KEY and ask again."
             )
 
         return {"success": False, "error": error, "image": str(area), "rect": rect}

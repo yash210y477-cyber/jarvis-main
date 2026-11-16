@@ -425,8 +425,8 @@ def run_task(
             if any(word in text for word in ("insufficient", "balance", "recharge", "402", "429")):
 
                 error = (
-                    "The z.ai account has no balance for the vision model. "
-                    "Recharge z.ai and ask again."
+                    "No free vision model answered (z.ai and the OpenRouter "
+                    "fallback both failed). Check ZAI_API_KEY and ask again."
                 )
 
             return {

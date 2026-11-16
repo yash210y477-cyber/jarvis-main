@@ -176,10 +176,10 @@ class Settings:
 
     OPENROUTER_MODEL = "openrouter/auto"
 
-    # A small cap keeps a low-balance key usable.
+    # A small cap keeps the free request under its limit.
     OPENROUTER_MAX_TOKENS = int(os.getenv("OPENROUTER_MAX_TOKENS", "512"))
 
-    # Free vision models used when z.ai has no balance for its vision models.
+    # Free vision models used when z.ai's free vision model fails.
     OPENROUTER_VISION_MODELS = tuple(
         name.strip()
         for name in os.getenv(
@@ -229,7 +229,7 @@ class Settings:
     ZAI_TIMEOUT = float(os.getenv("ZAI_TIMEOUT", "20"))
 
     # Vision: reads screenshots, including open web pages.
-    # Free vision model; the paid ones are used once the wallet has credit.
+    # Free vision model; this project never asks the paid ones.
     ZAI_VISION_MODEL = os.getenv("ZAI_VISION_MODEL", "glm-4.6v-flash")
 
     ZAI_VISION_MAX_TOKENS = int(os.getenv("ZAI_VISION_MAX_TOKENS", "900"))

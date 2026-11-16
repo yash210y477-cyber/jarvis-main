@@ -1,8 +1,7 @@
-"""Look at a picture with whichever vision model can answer right now.
+"""Look at a picture with whichever free vision model can answer right now.
 
-z.ai is preferred, but its vision models need a paid balance. When that fails
-the request falls back to the free vision models OpenRouter serves, so screen
-reading keeps working without a recharge.
+z.ai's free vision model is tried first; when it fails the request falls back
+to the free vision models OpenRouter serves. No paid model is ever asked.
 """
 
 import base64

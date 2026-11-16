@@ -257,7 +257,7 @@ class ScreenWatcher:
 
             text = self.error.lower()
 
-            # No balance or no key will not fix itself: stop instead of asking again.
+            # No key or no free quota will not fix itself: stop asking again.
             if any(
                 word in text
                 for word in ("insufficient", "balance", "recharge", "401", "402", "429")
@@ -266,8 +266,8 @@ class ScreenWatcher:
                 self.running = False
 
                 self.error = (
-                    "Screen watch stopped: the z.ai vision model has no balance. "
-                    "Recharge z.ai, then say \"watch my screen\" again."
+                    "Screen watch stopped: no free vision model could answer. "
+                    "Check ZAI_API_KEY, then say \"watch my screen\" again."
                 )
 
             return ""

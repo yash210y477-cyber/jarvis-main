@@ -91,8 +91,8 @@ def read_screen(question: str = "", label: str = "vision") -> dict:
         if any(word in text for word in ("insufficient", "balance", "recharge", "402", "429")):
 
             error = (
-                "No vision model could answer: z.ai wants a recharge and the "
-                "free fallback failed as well. Check z.ai balance or "
+                "No free vision model could answer (z.ai and the OpenRouter "
+                "fallback both failed). Check ZAI_API_KEY and "
                 "OPENROUTER_VISION_MODELS."
             )
 
