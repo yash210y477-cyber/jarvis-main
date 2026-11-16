@@ -39,8 +39,12 @@ copy .env.example .env
 Run it:
 
 ```bash
-venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload --reload-exclude "data" --reload-exclude ".venv" --reload-exclude "*.log" --reload-exclude "*.session" --reload-exclude "*.db*"
 ```
+
+Only a `.py` change restarts the server, but the reloader still watches every file
+under the working folder — including the 49,000 files in `.venv` and the bundled
+runtime in `data/tools`. The excludes keep it to the code that matters.
 
 The API is then at <http://127.0.0.1:8000> and its docs at `/docs`.
 
