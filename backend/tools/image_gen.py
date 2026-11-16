@@ -1,16 +1,16 @@
-"""Draw a picture through OpenRouter and keep it in the data folder."""
+"""Draw a picture through OpenRouter and keep it in a throwaway cache."""
 
 import base64
 import json
 import logging
 import os
+import tempfile
 import time
 from pathlib import Path
 
 import requests
 
 from config.settings import settings
-from memory.storage import data_dir
 
 log = logging.getLogger(__name__)
 
@@ -18,17 +18,44 @@ URL = "https://openrouter.ai/api/v1/images"
 MODEL = settings.IMAGE_MODEL
 
 
+CACHE_HOURS = 24
+
+
 def images_dir() -> Path:
-    folder = data_dir() / "images"
+    """Where fresh pictures wait for the Download button.
+
+    This is a throwaway cache in the temp folder, never the data folder: the
+    only copy that stays on the machine is the one saved into Downloads/Jarvis.
+    """
+
+    folder = Path(tempfile.gettempdir()) / "jarvis-images"
     folder.mkdir(parents=True, exist_ok=True)
     return folder
+
+
+def prune(hours: int = CACHE_HOURS) -> None:
+    """Drop pictures nobody downloaded, so the cache never grows forever."""
+
+    cutoff = time.time() - hours * 3600
+
+    for path in images_dir().glob("*.png"):
+
+        try:
+
+            if path.stat().st_mtime < cutoff:
+
+                path.unlink()
+
+        except OSError:
+
+            pass
 
 
 def generate_image(prompt: str, model: str = ""):
     """Generate one image from a text prompt (OpenRouter images API)."""
 
-    # Nothing is opened or copied anywhere: the picture stays in the data
-    # folder and goes back to the chat, where the user decides whether to
+    # Nothing is opened or copied anywhere: the picture waits in the temp
+    # cache and goes back to the chat, where the user decides whether to
     # download it.
 
     prompt = (prompt or "").strip()
@@ -80,6 +107,8 @@ def generate_image(prompt: str, model: str = ""):
     except Exception as error:
 
         return {"success": False, "error": f"Unreadable OpenRouter reply: {error}"}
+
+    prune()
 
     saved = []
 

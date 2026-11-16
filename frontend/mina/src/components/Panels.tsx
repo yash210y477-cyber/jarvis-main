@@ -1,10 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { usePolling } from '../lib/usePolling';
-import { Brain, Trash2, Plus, Check } from 'lucide-react';
+import { Brain, Trash2, Check } from 'lucide-react';
 import { FadeIn } from './ui';
 import { useJarvis } from '../state';
 import { MODELS } from '../config';
-import { getMemory, addMemoryNote, deleteMemoryNote, deleteMemoryFact, getVoices, getLanguage, getChats, getChat, setJarvisVoice, setLanguage, previewVoice, type ChatLine, type ChatSummary, type LanguageOption, type MemoryFact, type Voice } from '../lib/jarvis';
+import { getMemory, addMemoryNote, deleteMemoryNote, deleteMemoryFact, getVoices, getLanguage, getChats, getChat, deleteChat, setJarvisVoice, setLanguage, previewVoice, type ChatLine, type ChatSummary, type LanguageOption, type MemoryFact, type Voice } from '../lib/jarvis';
 
 const Head = ({ children }: { children: ReactNode }) => (
   <FadeIn><h2 className="hero-heading font-black uppercase leading-none tracking-tight text-center mb-10 sm:mb-14" style={{ fontSize: 'clamp(3rem, 12vw, 160px)' }}>{children}</h2></FadeIn>
@@ -46,6 +46,14 @@ function Memory() {
     const next = await addMemoryNote(text);
     if (next) { setNotes(next); setOffline(false); } else setOffline(true);
   };
+  // Deleting a saved conversation removes it from the list for good.
+  const forgetChat = async (id: number) => {
+    const gone = await deleteChat(id);
+    if (!gone) return;
+    setChats((current) => current.filter((c) => c.id !== id));
+    setLines((current) => { const next = { ...current }; delete next[id]; return next; });
+    if (openChat === id) setOpenChat(0);
+  };
   const forgetNote = async (i: number) => { const next = await deleteMemoryNote(i); if (next) setNotes(next); else load(); };
   const forgetFact = async (key: string) => { const next = await deleteMemoryFact(key); if (next) setFacts(next); else load(); };
 
@@ -54,8 +62,7 @@ function Memory() {
       <Head>Memory</Head>
       <div className={box}>
         <div className="flex gap-3 mb-4">
-          <input value={t} onChange={(e) => setT(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add(); }} placeholder="Tell Jarvis something to remember..." className="flex-1 min-w-0 bg-[#D7E2EA]/10 rounded-full px-5 py-3 outline-none placeholder:text-[#D7E2EA]/50" />
-          <button className={ghost} onClick={add} aria-label="Remember"><Plus size={16} /></button>
+          <input value={t} onChange={(e) => setT(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add(); }} placeholder="Tell Jarvis something to remember, then press Enter..." className="flex-1 min-w-0 bg-[#D7E2EA]/10 rounded-full px-5 py-3 outline-none placeholder:text-[#D7E2EA]/50" />
         </div>
 
         {offline && <p className="font-light opacity-70 mb-3">Backend not reachable — memory needs it running.</p>}
@@ -82,10 +89,13 @@ function Memory() {
           {chats.length === 0 && <p className="font-light opacity-60">No earlier conversations yet.</p>}
           {chats.map((c) => (
             <div key={c.id} className="border-t border-[#D7E2EA]/15">
-              <button onClick={() => open(c.id)} className="w-full flex justify-between items-center gap-3 py-3 bg-transparent border-0 text-left font-light cursor-pointer hover:opacity-70">
-                <span className="break-words"><span className="opacity-60">{c.date} — </span>{c.title}</span>
-                <span className="text-xs opacity-50 shrink-0">{c.messages} msgs</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => open(c.id)} className="flex-1 min-w-0 flex justify-between items-center gap-3 py-3 bg-transparent border-0 text-left font-light cursor-pointer hover:opacity-70">
+                  <span className="break-words"><span className="opacity-60">{c.date} — </span>{c.title}</span>
+                  <span className="text-xs opacity-50 shrink-0">{c.messages} msgs</span>
+                </button>
+                <button aria-label={`Delete chat ${c.title}`} onClick={() => forgetChat(c.id)} className="bg-transparent border-0 text-[#D7E2EA] cursor-pointer hover:opacity-70 shrink-0"><Trash2 size={16} /></button>
+              </div>
               {openChat === c.id && (
                 <div className="flex flex-col gap-2 pb-4 text-sm font-light">
                   {(lines[c.id] ?? []).map((line, i) => (

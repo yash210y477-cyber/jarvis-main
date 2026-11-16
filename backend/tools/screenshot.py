@@ -17,7 +17,8 @@ from config.settings import settings
 def shots_dir() -> Path:
     """Where a screenshot the user asked for belongs.
 
-    Downloads/jarvis_screenshot, unless SCREENSHOT_DIR points somewhere else.
+    Downloads/Jarvis, the one folder JARVIS saves into, unless SCREENSHOT_DIR
+    points somewhere else. No second folder is ever created next to it.
     """
 
     custom = (getattr(settings, "SCREENSHOT_DIR", "") or "").strip()
@@ -25,7 +26,10 @@ def shots_dir() -> Path:
     if custom:
         return Path(custom).expanduser()
 
-    return Path.home() / "Downloads" / "jarvis_screenshot"
+    folder = Path.home() / "Downloads" / "Jarvis"
+    folder.mkdir(parents=True, exist_ok=True)
+
+    return folder
 
 
 def scratch_dir() -> Path:

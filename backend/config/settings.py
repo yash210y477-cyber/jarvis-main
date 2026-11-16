@@ -123,7 +123,7 @@ class Settings:
     )
 
     # Where the screenshots the user asked for are kept. Empty means
-    # Downloads/jarvis_screenshot.
+    # Downloads/Jarvis, the same folder every saved file goes to.
     SCREENSHOT_DIR = os.getenv("SCREENSHOT_DIR", "")
 
     # Windows speech keeps call replies instant; edge sounds natural but

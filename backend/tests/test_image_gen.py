@@ -21,6 +21,37 @@ def png_b64():
     return base64.b64encode(b"\x89PNG\r\n\x1a\nfake-bytes").decode()
 
 
+def test_pictures_never_land_in_the_data_folder():
+    """Only the Download button may leave a picture on the machine."""
+
+    from memory.storage import data_dir
+
+    folder = image_gen.images_dir()
+
+    assert folder != data_dir() / "images"
+    assert data_dir() not in folder.parents
+
+
+def test_the_cache_drops_pictures_nobody_downloaded(tmp_path, monkeypatch):
+    monkeypatch.setattr(image_gen, "images_dir", lambda: tmp_path)
+
+    old = tmp_path / "old.png"
+    old.write_bytes(b"x")
+    fresh = tmp_path / "fresh.png"
+    fresh.write_bytes(b"y")
+
+    stale = 1700000000
+
+    import os
+
+    os.utime(old, (stale, stale))
+
+    image_gen.prune(hours=1)
+
+    assert not old.exists()
+    assert fresh.exists()
+
+
 def test_image_is_saved_from_the_openrouter_reply(tmp_path, monkeypatch, png_b64):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     monkeypatch.setattr(image_gen, "images_dir", lambda: tmp_path)

@@ -55,6 +55,14 @@ export async function getChat(id: number): Promise<ChatLine[] | null> {
   catch { return null; }
 }
 
+export async function deleteChat(id: number): Promise<boolean> {
+  try {
+    const r = await fetch(`${API}/chats/${id}`, { method: 'DELETE', headers: auth() });
+    const d = await r.json();
+    return !!d.success;
+  } catch { return false; }
+}
+
 // ---- reply language: english, hinglish, or auto (match the user) ----
 export type LanguageOption = { id: string; label: string };
 
