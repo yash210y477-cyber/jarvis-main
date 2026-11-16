@@ -8,12 +8,33 @@ from tools import image_gen
 
 class FakeResponse:
     status_code = 200
+    headers = {"content-type": "application/json"}
+    text = ""
 
-    def __init__(self, payload):
+    def __init__(self, payload, status_code=200, text=""):
         self._payload = payload
+        self.status_code = status_code
+        self.text = text
 
     def json(self):
         return self._payload
+
+
+class FakePicture:
+    """An image reply from the keyless fallback service."""
+
+    status_code = 200
+    headers = {"content-type": "image/jpeg"}
+
+    def __init__(self, content):
+        self.content = content
+
+
+QUOTA_TEXT = (
+    '{"error":{"message":"Rate limit exceeded: free-models-per-day","code":429,'
+    '"metadata":{"headers":{"X-RateLimit-Limit":"50","X-RateLimit-Remaining":"0",'
+    '"X-RateLimit-Reset":"1794873600000"}}}}'
+)
 
 
 @pytest.fixture
@@ -146,3 +167,81 @@ def test_a_webp_reply_is_stored_as_real_png(tmp_path, monkeypatch):
 
     with Image.open(saved) as picture:
         assert picture.format == "PNG"
+
+
+def test_a_spent_free_quota_still_draws_through_the_keyless_service(tmp_path, monkeypatch):
+    """The 50-a-day free limit must not make the drawing tool fail for the day."""
+
+    import io
+
+    from PIL import Image
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.delenv("IMAGE_FALLBACK", raising=False)
+    monkeypatch.setattr(image_gen, "images_dir", lambda: tmp_path)
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (8, 8), "red").save(buffer, format="JPEG")
+
+    asked = {}
+
+    def fake_post(url, headers=None, data=None, timeout=None):
+        return FakeResponse({}, status_code=429, text=QUOTA_TEXT)
+
+    def fake_get(url, timeout=None):
+        asked["url"] = url
+        return FakePicture(buffer.getvalue())
+
+    monkeypatch.setattr(image_gen.requests, "post", fake_post)
+    monkeypatch.setattr(image_gen.requests, "get", fake_get)
+
+    result = image_gen.generate_image("a red square")
+
+    assert result["success"] is True
+    assert result["provider"].startswith("pollinations/")
+    assert "fallback" in result["message"]
+    assert "flux" in asked["url"]
+
+    saved = tmp_path / Path(result["paths"][0]).name
+
+    with Image.open(saved) as picture:
+        assert picture.format == "PNG"
+
+
+def test_the_quota_error_names_the_reset_time(monkeypatch, tmp_path):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setenv("IMAGE_FALLBACK", "0")
+    monkeypatch.setattr(image_gen, "images_dir", lambda: tmp_path)
+
+    def fake_post(url, headers=None, data=None, timeout=None):
+        return FakeResponse({}, status_code=429, text=QUOTA_TEXT)
+
+    monkeypatch.setattr(image_gen.requests, "post", fake_post)
+
+    result = image_gen.generate_image("a red square")
+
+    assert result["success"] is False
+    assert "quota returns at" in result["error"]
+
+
+def test_the_fallback_can_be_switched_off(monkeypatch, tmp_path):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setenv("IMAGE_FALLBACK", "0")
+    monkeypatch.setattr(image_gen, "images_dir", lambda: tmp_path)
+
+    def fake_post(url, headers=None, data=None, timeout=None):
+        return FakeResponse({}, status_code=429, text=QUOTA_TEXT)
+
+    called = {"get": False}
+
+    def fake_get(url, timeout=None):
+        called["get"] = True
+        return FakePicture(b"")
+
+    monkeypatch.setattr(image_gen.requests, "post", fake_post)
+    monkeypatch.setattr(image_gen.requests, "get", fake_get)
+
+    result = image_gen.generate_image("a red square")
+
+    assert result["success"] is False
+    assert called["get"] is False

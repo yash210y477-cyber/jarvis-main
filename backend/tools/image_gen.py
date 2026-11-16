@@ -17,6 +17,12 @@ log = logging.getLogger(__name__)
 URL = "https://openrouter.ai/api/v1/images"
 MODEL = settings.IMAGE_MODEL
 
+# OpenRouter gives 50 free requests a day across every free model, and drawing
+# is the first thing to hit that wall. This keyless service keeps the drawing
+# tool working until the quota returns; IMAGE_FALLBACK=0 turns it off.
+FALLBACK_URL = "https://image.pollinations.ai/prompt"
+FALLBACK_MODEL = "flux"
+
 
 CACHE_HOURS = 24
 
@@ -31,6 +37,103 @@ def images_dir() -> Path:
     folder = Path(tempfile.gettempdir()) / "jarvis-images"
     folder.mkdir(parents=True, exist_ok=True)
     return folder
+
+
+def _fallback_enabled() -> bool:
+    return (os.getenv("IMAGE_FALLBACK", "1") or "1").strip().lower() not in (
+        "0",
+        "off",
+        "false",
+        "no",
+    )
+
+
+def _quota_reset_hint(detail: str) -> str:
+    """The local time the free daily quota comes back, when the reply says so."""
+
+    try:
+
+        payload = json.loads(detail or "{}")
+
+    except Exception:
+
+        return ""
+
+    try:
+
+        reset = payload["error"]["metadata"]["headers"]["X-RateLimit-Reset"]
+
+        when = time.strftime("%d %b %H:%M", time.localtime(int(reset) / 1000))
+
+        return f" The free image quota returns at {when}."
+
+    except Exception:
+
+        return ""
+
+
+def _fallback_image(prompt: str):
+    """Draw with the keyless service used when the free quota is spent."""
+
+    if not _fallback_enabled():
+
+        return None
+
+    import urllib.parse
+
+    base = (os.getenv("IMAGE_FALLBACK_URL") or FALLBACK_URL).rstrip("/")
+    model = (os.getenv("IMAGE_FALLBACK_MODEL") or FALLBACK_MODEL).strip()
+
+    url = (
+        f"{base}/{urllib.parse.quote(prompt)}"
+        f"?width=1024&height=1024&nologo=true&model={model}"
+    )
+
+    try:
+
+        response = requests.get(url, timeout=240)
+
+    except Exception as error:
+
+        return {"success": False, "error": f"Fallback image service unreachable: {error}"}
+
+    if response.status_code != 200 or not (response.headers.get("content-type") or "").startswith("image"):
+
+        detail = (response.text or "").strip().replace("\n", " ")[:200]
+
+        return {
+            "success": False,
+            "error": f"Fallback image service returned {response.status_code}: {detail}",
+        }
+
+    prune()
+
+    path = images_dir() / f"{time.strftime('%Y%m%d-%H%M%S')}-1.png"
+
+    try:
+
+        import io
+
+        from PIL import Image
+
+        picture = Image.open(io.BytesIO(response.content))
+        picture.convert("RGB").save(path, format="PNG")
+
+    except Exception as error:
+
+        return {"success": False, "error": f"Fallback picture could not be saved: {error}"}
+
+    return {
+        "success": True,
+        "action": "generate_image",
+        "prompt": prompt,
+        "path": str(path),
+        "paths": [str(path)],
+        "images": [f"/images/{path.name}"],
+        "count": 1,
+        "provider": f"pollinations/{model}",
+        "message": f"Image ready: {path.name} (fallback: {model}, free quota spent)",
+    }
 
 
 def prune(hours: int = CACHE_HOURS) -> None:
@@ -94,6 +197,24 @@ def generate_image(prompt: str, model: str = ""):
     if response.status_code != 200:
 
         detail = (response.text or "").strip().replace("\n", " ")[:200]
+
+        # A spent free quota is not a broken model: draw through the keyless
+        # service and say why, so the tool still does its job today.
+        if response.status_code in (402, 429):
+
+            drawn = _fallback_image(prompt)
+
+            if drawn is not None:
+
+                return drawn
+
+            return {
+                "success": False,
+                "error": (
+                    f"OpenRouter returned {response.status_code}: {detail}"
+                    + _quota_reset_hint(detail)
+                ),
+            }
 
         return {
             "success": False,
