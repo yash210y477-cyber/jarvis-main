@@ -12,8 +12,6 @@ import re
 from collections import Counter
 
 import numpy as np
-from faster_whisper import WhisperModel
-from faster_whisper.audio import decode_audio
 
 from config.settings import settings
 from voice import speech
@@ -95,6 +93,10 @@ def looks_broken(text: str) -> bool:
 class SpeechToText:
 
     def __init__(self):
+
+        # The model is a download and a few hundred megabytes of weights; it is
+        # opened when the first clip is transcribed, not when Jarvis starts.
+        from faster_whisper import WhisperModel
 
         self.name = model_name()
 
@@ -211,6 +213,8 @@ class SpeechToText:
 
             audio = np.ascontiguousarray(audio, dtype=np.float32)
         else:
+
+            from faster_whisper.audio import decode_audio
 
             audio = decode_audio(audio, sampling_rate=16000)
 

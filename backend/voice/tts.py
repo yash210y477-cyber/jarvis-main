@@ -8,9 +8,30 @@ import time
 from pathlib import Path
 
 import edge_tts
-import pygame
 
 from voice import speech
+
+# pygame opens the sound card and pulls in SDL; it is imported the first time a
+# sentence is actually spoken.
+pygame = None
+
+
+def _pygame():
+    """The pygame module, imported once on the first spoken sentence."""
+
+    global pygame
+
+    if pygame is None:
+
+        # The banner is noise in the log; the message itself still comes through.
+        os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
+
+        import pygame as module
+
+        pygame = module
+
+    return pygame
+
 
 
 BACKEND = Path(__file__).resolve().parents[1]
@@ -49,7 +70,7 @@ class TextToSpeech:
 
         try:
 
-            pygame.mixer.init()
+            _pygame().mixer.init()
 
             self.initialized = True
 
@@ -157,9 +178,9 @@ class TextToSpeech:
 
             if cached and cached.exists() and cached.stat().st_size > 1024:
 
-                pygame.mixer.music.load(str(cached))
+                _pygame().mixer.music.load(str(cached))
 
-                pygame.mixer.music.play()
+                _pygame().mixer.music.play()
 
                 self._wait_until_done()
 
@@ -200,16 +221,16 @@ class TextToSpeech:
 
                 pass
 
-            pygame.mixer.music.load(filename)
+            _pygame().mixer.music.load(filename)
 
-            pygame.mixer.music.play()
+            _pygame().mixer.music.play()
 
             # Wait while audio is playing
-            while pygame.mixer.music.get_busy():
+            while _pygame().mixer.music.get_busy():
 
                 if self.stop_requested:
 
-                    pygame.mixer.music.stop()
+                    _pygame().mixer.music.stop()
 
                     break
 
@@ -223,7 +244,7 @@ class TextToSpeech:
 
             try:
 
-                pygame.mixer.music.stop()
+                _pygame().mixer.music.stop()
 
             except Exception:
 
@@ -251,11 +272,11 @@ class TextToSpeech:
 
     def _wait_until_done(self):
 
-        while pygame.mixer.music.get_busy():
+        while _pygame().mixer.music.get_busy():
 
             if self.stop_requested:
 
-                pygame.mixer.music.stop()
+                _pygame().mixer.music.stop()
 
                 break
 
@@ -275,7 +296,7 @@ class TextToSpeech:
 
             if self.initialized:
 
-                pygame.mixer.music.stop()
+                _pygame().mixer.music.stop()
 
         except Exception as e:
 
@@ -296,7 +317,7 @@ class TextToSpeech:
 
             if self.initialized:
 
-                pygame.mixer.quit()
+                _pygame().mixer.quit()
 
                 self.initialized = False
 

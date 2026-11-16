@@ -1,10 +1,16 @@
 import logging
 
-import torch
-from silero_vad import load_silero_vad
 
 
 log = logging.getLogger(__name__)
+
+
+def _torch():
+    """torch on first use: the detector is only built when voice is used."""
+
+    import torch
+
+    return torch
 
 
 class VoiceActivityDetector:
@@ -18,6 +24,8 @@ class VoiceActivityDetector:
     window = 512
 
     def __init__(self):
+
+        from silero_vad import load_silero_vad
 
         self.model = load_silero_vad()
 
@@ -48,7 +56,7 @@ class VoiceActivityDetector:
 
                 return False
 
-            waveform = audio if isinstance(audio, torch.Tensor) else torch.tensor(audio)
+            waveform = audio if isinstance(audio, _torch().Tensor) else _torch().tensor(audio)
 
             waveform = waveform.float()
 
@@ -70,10 +78,10 @@ class VoiceActivityDetector:
 
             log.debug("VAD error, falling back to a volume gate: %s", error)
 
-        data = audio.detach().numpy() if isinstance(audio, torch.Tensor) else audio
+        data = audio.detach().numpy() if isinstance(audio, _torch().Tensor) else audio
 
         if data is None or len(data) == 0:
 
             return False
 
-        return float(torch.tensor(data).float().pow(2).mean().sqrt()) > 0.02
+        return float(_torch().tensor(data).float().pow(2).mean().sqrt()) > 0.02

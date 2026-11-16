@@ -4,13 +4,20 @@ import wave
 
 import numpy as np
 import sounddevice as sd
-import torch
 
 from voice.vad import VoiceActivityDetector
 from voice.audio import AudioProcessor
 
 
 logger = logging.getLogger(__name__)
+
+
+def _torch():
+    """torch on first use, so importing the recorder stays cheap."""
+
+    import torch
+
+    return torch
 
 
 class Recorder:
@@ -122,7 +129,7 @@ class Recorder:
                 / 32768.0
             )
 
-            waveform = torch.from_numpy(
+            waveform = _torch().from_numpy(
                 vad_audio
             )
 
