@@ -101,22 +101,17 @@ def test_zai_waits_behind_the_fast_keys_while_its_wallet_is_empty():
 
     try:
 
-        # With no confirmed balance the free, slow model waits behind the fast keys.
+        # Normally z.ai keeps the top spot; its free model answers first.
+        assert manager.chat("hello")["provider"] == "zai"
+
+        # Once its free models are known to lag, the fast keys go first.
+        zai._mark_slow()
+
         assert manager.chat("hello")["provider"] == "groq"
 
         assert [p.name() for p in manager._behind_fast_keys(manager.providers)] == [
             "groq",
             "zai",
-            "ollama",
-        ]
-
-        zai._mark_paid_ok("glm-5.3")
-
-        assert manager.chat("hello")["provider"] == "zai"
-
-        assert [p.name() for p in manager._behind_fast_keys(manager.providers)] == [
-            "zai",
-            "groq",
             "ollama",
         ]
 

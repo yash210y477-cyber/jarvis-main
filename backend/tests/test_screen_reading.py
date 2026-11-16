@@ -166,11 +166,7 @@ def test_see_sends_the_image_as_a_data_url(tmp_path):
     assert base64.b64decode(content[1]["image_url"]["url"].split(",", 1)[1]) == b"fake-jpeg"
 
 
-def test_see_uses_the_paid_vision_model_when_the_wallet_has_credit(tmp_path):
-    from providers import zai
-
-    zai._mark_paid_ok("glm-5.3")
-
+def test_see_falls_back_to_a_paid_vision_model_only_after_the_free_one(tmp_path):
     provider, image = build_vision_provider(tmp_path, working="glm-4.6v")
 
     result = provider.see("summarize this page", image)
@@ -180,7 +176,7 @@ def test_see_uses_the_paid_vision_model_when_the_wallet_has_credit(tmp_path):
 
     asked = [payload["model"] for payload in provider.client.payloads]
 
-    assert asked[0] != "glm-4.6v-flash", "the paid model goes first when it is paid for"
+    assert asked[0] == "glm-4.6v-flash", "the free vision model must go first"
 
 
 def test_see_asks_only_the_free_vision_model_without_a_balance(tmp_path):

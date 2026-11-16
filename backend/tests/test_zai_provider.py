@@ -88,16 +88,15 @@ def test_the_free_model_answers_first():
     assert provider._working == "glm-4.7-flash"
 
 
-def test_a_paid_model_is_used_once_the_wallet_has_credit():
-    zai._mark_paid_ok("glm-5.3")
-
+def test_the_free_model_is_tried_before_a_paid_one():
     provider = build("glm-4.7")
 
     result = provider.chat("hi")
 
     assert result["success"] is True
     assert result["model"] == "glm-4.7"
-    assert provider._working == "glm-4.7"
+    assert provider.client.asked[0] == "glm-4.7-flash", "a paid model went first"
+    assert "glm-4.7" in provider.client.asked[1:], "the paid fallback was never asked"
 
 
 def test_no_model_answering_returns_the_error():
@@ -134,6 +133,30 @@ class EmptyWalletClient(FakeClient):
                 return FakeReply("Free answer", kwargs["model"])
 
         self.chat.completions = PaidCompletions()
+
+
+def test_a_timed_out_free_model_marks_zai_slow():
+    class SlowClient(FakeClient):
+        def __init__(self):
+            super().__init__("nothing")
+
+            completions = self.chat.completions
+
+            class Timeout:
+                def create(self, **kwargs):
+                    raise TimeoutError("Request timed out.")
+
+            self.chat.completions = Timeout()
+
+    provider = build()
+    provider.client = SlowClient()
+
+    assert zai.slow() is False
+
+    result = provider.chat("hi")
+
+    assert result["success"] is False
+    assert zai.slow() is True, "the next reply would wait on a slow model again"
 
 
 def test_paid_models_are_never_asked_without_a_balance():
