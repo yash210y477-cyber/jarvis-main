@@ -200,20 +200,16 @@ class AIManager:
         answer first for half an hour instead of every reply waiting on it.
         """
 
-        if not zai_module.slow():
-
-            return order
-
         zai = next((item for item in order if item.name() == "zai"), None)
 
-        if zai is None:
+        if zai is None or not zai_module.slow():
 
             return order
 
         rest = [item for item in order if item is not zai]
         local = [item for item in rest if item.name() == "ollama"]
 
-        return [item for item in rest if item.name() != "ollama"] + [zai] + local
+        return [item for item in rest if item not in local] + [zai] + local
 
     def chat(self, prompt: str, provider=None, task=None):
 

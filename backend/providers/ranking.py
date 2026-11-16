@@ -75,13 +75,3 @@ def providers(role: str = "text") -> list:
             order.append(provider)
 
     return order
-
-
-def broken(role: str = "text") -> list:
-    """(provider, model) pairs that failed, so nothing needs to ask them."""
-
-    return [
-        (row["provider"], row["model"])
-        for row in _rows(role)
-        if row.get("error")
-    ]

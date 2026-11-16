@@ -45,7 +45,6 @@ def test_the_best_quality_then_the_fastest_comes_first(measured):
 
 def test_a_model_that_errored_is_never_offered(measured):
     assert ("openrouter", "google/gemma-4-31b-it:free") not in ranking.models("text")
-    assert ranking.broken("text") == [("openrouter", "google/gemma-4-31b-it:free")]
 
 
 def test_providers_follow_their_best_model(measured):

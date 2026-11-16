@@ -123,7 +123,7 @@ class FakeClient:
 
 
 @pytest.fixture(autouse=True)
-def clean_wallet():
+def clean_slow_note():
     from providers import zai
 
     zai.reset_state()
@@ -142,7 +142,6 @@ def build_vision_provider(tmp_path, working="glm-4.6v-flash"):
     provider.provider_name = "zai"
     provider.api_key = "test-key"
     provider.model = "glm-4.7-flash"
-    provider._working = None
     provider.client = FakeClient(working)
 
     return provider, str(image)

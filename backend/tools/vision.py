@@ -12,17 +12,12 @@ from pathlib import Path
 from openai import OpenAI
 
 from config.settings import settings
+from providers import ranking
 from providers.zai import ZaiProvider
 
 logger = logging.getLogger(__name__)
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1"
-
-FALLBACK_MODELS = (
-    "inclusionai/ling-3.2-flash:free",
-    "nvidia/nemotron-3.5-super-vl:free",
-    "particle-ai/particle-1:free",
-)
 
 
 def _data_url(image_path: str) -> str:
@@ -48,11 +43,9 @@ def _openrouter_see(question: str, image_path: str) -> dict:
 
     # Measured free vision models decide the order; the configured list is the
     # fallback when no benchmark has run yet.
-    from providers import ranking
-
     models = [
         model for name, model in ranking.models("vision") if name == "openrouter"
-    ] or list(getattr(settings, "OPENROUTER_VISION_MODELS", FALLBACK_MODELS) or FALLBACK_MODELS)
+    ] or list(settings.OPENROUTER_VISION_MODELS)
 
     client = OpenAI(api_key=key, base_url=OPENROUTER_URL, timeout=90)
 

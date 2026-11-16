@@ -60,7 +60,6 @@ def build(working_model="glm-4.7-flash"):
     provider.provider_name = "zai"
     provider.api_key = "test-key"
     provider.model = "glm-4.7-flash"
-    provider._working = None
     provider.client = FakeClient(working_model)
 
     return provider
@@ -83,7 +82,7 @@ def test_the_free_model_answers_first():
     assert result["success"] is True
     assert result["provider"] == "zai"
     assert result["response"] == "Hello from GLM"
-    assert provider._working == "glm-4.7-flash"
+    assert result["model"] == "glm-4.7-flash"
 
 
 def test_only_free_models_are_ever_asked():
@@ -139,4 +138,3 @@ def test_the_free_vision_model_is_the_only_one_asked(tmp_path):
 
     assert result["success"] is True
     assert client.asked == ["glm-4.6v-flash"]
-    assert provider.VISION_MODELS == zai.FREE_VISION_MODELS

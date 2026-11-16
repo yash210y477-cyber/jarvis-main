@@ -220,7 +220,7 @@ class Settings:
 
     ZAI_BASE_URL = os.getenv("ZAI_BASE_URL", "https://api.z.ai/api/paas/v4/")
 
-    # The free model, so replies work before any top-up.
+    # The free model the provider answers with.
     ZAI_MODEL = os.getenv("ZAI_MODEL", "glm-4.7-flash")
 
     ZAI_MAX_TOKENS = int(os.getenv("ZAI_MAX_TOKENS", "2048"))
@@ -229,9 +229,6 @@ class Settings:
     ZAI_TIMEOUT = float(os.getenv("ZAI_TIMEOUT", "20"))
 
     # Vision: reads screenshots, including open web pages.
-    # Free vision model; this project never asks the paid ones.
-    ZAI_VISION_MODEL = os.getenv("ZAI_VISION_MODEL", "glm-4.6v-flash")
-
     ZAI_VISION_MAX_TOKENS = int(os.getenv("ZAI_VISION_MAX_TOKENS", "900"))
 
     # Screen watching: explain pages and pointed-at things without a command.

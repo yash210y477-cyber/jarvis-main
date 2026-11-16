@@ -5,7 +5,6 @@ models are never asked and no wallet is tracked.
 """
 
 import base64
-import json
 import logging
 import os
 import time
@@ -32,11 +31,7 @@ SLOW_SECONDS = 8
 
 SLOW_COOLDOWN = 1800
 
-_state = {
-    "slow_until": 0.0,
-}
-
-_loaded = False
+_slow_until = 0.0
 
 
 def _is_timeout(error) -> bool:
@@ -46,73 +41,21 @@ def _is_timeout(error) -> bool:
     return "timeout" in text or "timed out" in text or "Timeout" in type(error).__name__
 
 
-def _state_file():
-    """The slow note survives a restart, so nothing is measured twice."""
-
-    from memory.storage import data_dir
-
-    return data_dir() / "zai_slow.json"
-
-
-def _load() -> None:
-
-    global _loaded
-
-    if _loaded:
-
-        return
-
-    _loaded = True
-
-    try:
-
-        saved = json.loads(_state_file().read_text(encoding="utf-8"))
-
-    except (OSError, ValueError):
-
-        return
-
-    for key in _state:
-
-        try:
-
-            _state[key] = float(saved.get(key) or 0)
-
-        except (TypeError, ValueError):
-
-            _state[key] = 0.0
-
-
-def _save() -> None:
-
-    try:
-
-        _state_file().write_text(json.dumps(_state), encoding="utf-8")
-
-    except OSError:
-
-        pass
-
-
 def slow() -> bool:
     """The free models recently took longer than a reply should."""
 
-    _load()
-
-    return time.time() < _state["slow_until"]
+    return time.time() < _slow_until
 
 
 def _mark_slow() -> None:
 
-    _load()
+    global _slow_until
 
-    if time.time() < _state["slow_until"]:
+    if slow():
 
         return
 
-    _state["slow_until"] = time.time() + SLOW_COOLDOWN
-
-    _save()
+    _slow_until = time.time() + SLOW_COOLDOWN
 
     logger.info("z.ai free models are slow right now; fast keys go first")
 
@@ -120,13 +63,9 @@ def _mark_slow() -> None:
 def reset_state() -> None:
     """Forget the slow note (used by tests)."""
 
-    global _loaded
+    global _slow_until
 
-    _loaded = True
-
-    _state["slow_until"] = 0.0
-
-    _save()
+    _slow_until = 0.0
 
 
 class ZaiProvider(OpenAIToolMixin, BaseProvider):
@@ -137,13 +76,9 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
 
         self.api_key = (os.getenv("ZAI_API_KEY") or "").strip()
 
-        self.base_url = settings.ZAI_BASE_URL
-
         self.model = settings.ZAI_MODEL
 
         self.client = None
-
-        self._working = None
 
         if self.api_key:
 
@@ -151,8 +86,8 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
             # next provider gets its turn.
             self.client = OpenAI(
                 api_key=self.api_key,
-                base_url=self.base_url,
-                timeout=float(getattr(settings, "ZAI_TIMEOUT", 20)),
+                base_url=settings.ZAI_BASE_URL,
+                timeout=float(settings.ZAI_TIMEOUT),
             )
 
     def name(self) -> str:
@@ -163,8 +98,6 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
 
         return self.client is not None
 
-    MODELS = FREE_MODELS
-
     def resolve_model(self):
 
         return FREE_MODELS[0]
@@ -173,12 +106,14 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
         """The free models, starting with the one asked for."""
 
         return [
-            name for name in dict.fromkeys((first, *FREE_MODELS)) if name in FREE_MODELS
+            name
+            for name in dict.fromkeys((first, *FREE_MODELS))
+            if name in FREE_MODELS
         ]
 
     def _ask(self, messages, tools=None, model=None):
 
-        """Ask the free models until one answers; remember the winner."""
+        """Ask the free models until one answers."""
 
         first = (model or self.resolve_model()).strip()
 
@@ -207,11 +142,7 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
 
                 reply = self.client.chat.completions.create(**payload)
 
-                took = time.time() - started
-
-                self._working = model
-
-                if took > SLOW_SECONDS:
+                if time.time() - started > SLOW_SECONDS:
 
                     _mark_slow()
 
@@ -242,9 +173,6 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
                 logger.info("Z.ai model %s did not answer: %s", model, error)
 
         raise last_error
-
-    # The free vision model reads screenshots with no balance needed.
-    VISION_MODELS = FREE_VISION_MODELS
 
     def _image_url(self, image_path: str) -> str:
         """A data URL the OpenAI-style vision API accepts."""
@@ -280,48 +208,35 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
             }
         ]
 
-        last_error = None
+        model = FREE_VISION_MODELS[0]
 
-        for model in FREE_VISION_MODELS:
+        try:
 
-            try:
+            reply = self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=int(settings.ZAI_VISION_MAX_TOKENS),
+                temperature=0.3,
+            )
 
-                reply = self.client.chat.completions.create(
-                    model=model,
-                    messages=messages,
-                    max_tokens=int(settings.ZAI_VISION_MAX_TOKENS),
-                    temperature=0.3,
-                )
+            content = reply.choices[0].message.content
 
-                content = reply.choices[0].message.content
+            return {
+                "success": True,
+                "provider": self.name(),
+                "model": getattr(reply, "model", model),
+                "answer": content if isinstance(content, str) else str(content),
+            }
 
-                return {
-                    "success": True,
-                    "provider": self.name(),
-                    "model": getattr(reply, "model", model),
-                    "answer": content if isinstance(content, str) else str(content),
-                }
+        except Exception as error:
 
-            except Exception as error:
+            logger.info("Z.ai vision model %s did not answer: %s", model, error)
 
-                last_error = error
-
-                text = str(error).lower()
-
-                if any(
-                    word in text
-                    for word in ("401", "unauthorized", "invalid api key", "authentication")
-                ):
-
-                    break
-
-                logger.info("Z.ai vision model %s did not answer: %s", model, error)
-
-        return {
-            "success": False,
-            "provider": self.name(),
-            "error": str(last_error),
-        }
+            return {
+                "success": False,
+                "provider": self.name(),
+                "error": str(error),
+            }
 
     def chat(self, prompt: str, model: str = None) -> dict:
 
@@ -407,7 +322,7 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
             return {
                 "success": True,
                 "provider": self.name(),
-                "model": getattr(reply, "model", self._working or "") or "",
+                "model": getattr(reply, "model", "") or "",
                 "message": assistant,
                 "tool_calls": calls,
                 "content": message.content or "",
