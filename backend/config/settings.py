@@ -7,6 +7,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+BACKEND = Path(__file__).resolve().parents[1]
+
+
 def _int_env(name: str, default: int) -> int:
     """Read an int from the environment, tolerating placeholder values."""
 
@@ -59,6 +62,11 @@ class Settings:
 
     # Root folder the sandboxed file/shell tools may touch.
     WORKSPACE_ROOT = str(Path(__file__).resolve().parents[2])
+
+    # Bundled Node runtime and REA. They live outside the repo when
+    # JARVIS_TOOLS_DIR is set, so editors, file watchers and virus scans never
+    # walk the 24,000 runtime files; the folder under data/ stays the default.
+    TOOLS_DIR = Path(os.getenv("JARVIS_TOOLS_DIR") or BACKEND / "data" / "tools")
 
     # ==========================================================
     # PROACTIVE + REMOTE

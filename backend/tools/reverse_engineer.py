@@ -6,7 +6,8 @@ bundles, chunk edges, route candidates, endpoint candidates and source maps.
 Everything runs read-only; the browser closes when the analysis finishes.
 
 REA needs Node 22.23.4+/24.22.1+ and a published CLI build, so the project keeps
-its own copy under backend/data/tools instead of touching the system install.
+its own copy (settings.TOOLS_DIR, backend/data/tools by default, or wherever
+JARVIS_TOOLS_DIR points) instead of touching the system install.
 """
 
 import json
@@ -20,11 +21,13 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
+from config.settings import settings
+
 logger = logging.getLogger(__name__)
 
 BACKEND = Path(__file__).resolve().parents[1]
 
-TOOLS = BACKEND / "data" / "tools"
+TOOLS: Path = Path(settings.TOOLS_DIR)
 
 NODE = TOOLS / "node-v24.22.3-win-x64" / "node.exe"
 
@@ -71,11 +74,11 @@ def _ready() -> str:
 
     if not NODE.exists():
 
-        return "The bundled Node runtime is missing (backend/data/tools)."
+        return f"The bundled Node runtime is missing ({TOOLS})."
 
     if not CLI.exists():
 
-        return "REA is not installed (backend/data/tools/rea)."
+        return f"REA is not installed ({TOOLS / 'rea'})."
 
     try:
 
