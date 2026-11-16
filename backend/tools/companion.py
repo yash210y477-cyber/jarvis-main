@@ -22,7 +22,7 @@ VK_A = 0x41
 
 SAMPLE_RATE = 16000
 MAX_SECONDS = 20
-POLL = 0.04
+POLL = 0.1
 MIN_SECONDS = 0.35
 
 _state = {
