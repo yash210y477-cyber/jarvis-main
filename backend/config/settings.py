@@ -179,6 +179,21 @@ class Settings:
     # A small cap keeps the free request under its limit.
     OPENROUTER_MAX_TOKENS = int(os.getenv("OPENROUTER_MAX_TOKENS", "512"))
 
+    # The free text models tried in order when the first one fails.
+    OPENROUTER_FREE_MODELS = tuple(
+        name.strip()
+        for name in os.getenv(
+            "OPENROUTER_FREE_MODELS",
+            "openrouter/free,google/gemma-4-31b-it:free,"
+            "google/gemma-4-26b-a4b-it:free,nvidia/nemotron-3.5-lightning:free,"
+            "nvidia/nemotron-3-ultra-550b-a55b:free,cohere/north-mini-code:free,"
+            "baidu/ernie-5.5-flash-preview:free,inclusionai/ling-3.2-flash:free,"
+            "liquid/lfm-3-1.7b:free,recursive/flint-v1.0:free,"
+            "dots-studio/dots-3-note-preview:free",
+        ).split(",")
+        if name.strip()
+    )
+
     # Free vision models used when z.ai's free vision model fails.
     OPENROUTER_VISION_MODELS = tuple(
         name.strip()

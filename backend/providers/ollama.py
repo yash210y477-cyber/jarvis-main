@@ -6,6 +6,7 @@ credit. It is listed last in the provider priority for exactly that reason.
 """
 
 import json
+import logging
 import time
 import urllib.request
 
@@ -14,6 +15,9 @@ from openai import OpenAI
 from config.settings import settings
 from providers.base import BaseProvider
 from providers.tool_call import OpenAIToolMixin
+
+
+logger = logging.getLogger(__name__)
 
 
 HEALTH_TTL_SECONDS = 15.0
@@ -166,6 +170,19 @@ class OllamaProvider(OpenAIToolMixin, BaseProvider):
 
         return head + "\n...\n" + tail
 
+    SKIP = ("embed",)
+
+    def free_models(self, first=None) -> list:
+        """The local models to try, the configured one first."""
+
+        names = [first, self.model, *self._models]
+
+        return [
+            name
+            for name in dict.fromkeys(name for name in names if name)
+            if not any(skip in name for skip in self.SKIP)
+        ] or [self.model]
+
     def chat(self, prompt: str) -> dict:
 
         if not self.health():
@@ -181,29 +198,37 @@ class OllamaProvider(OpenAIToolMixin, BaseProvider):
 
         prompt = self._trim(prompt)
 
-        try:
+        last_error = None
 
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": self._system()},
-                    {"role": "user", "content": prompt},
-                ],
-                max_tokens=int(settings.OLLAMA_MAX_TOKENS),
-                temperature=0.4,
-            )
+        for name in self.free_models():
 
-            return {
-                "success": True,
-                "provider": self.name(),
-                "model": self.model,
-                "response": response.choices[0].message.content,
-            }
+            try:
 
-        except Exception as error:
+                response = self.client.chat.completions.create(
+                    model=name,
+                    messages=[
+                        {"role": "system", "content": self._system()},
+                        {"role": "user", "content": prompt},
+                    ],
+                    max_tokens=int(settings.OLLAMA_MAX_TOKENS),
+                    temperature=0.4,
+                )
 
-            return {
-                "success": False,
-                "provider": self.name(),
-                "error": str(error),
-            }
+                return {
+                    "success": True,
+                    "provider": self.name(),
+                    "model": name,
+                    "response": response.choices[0].message.content,
+                }
+
+            except Exception as error:
+
+                last_error = error
+
+                logger.info("Ollama model %s did not answer: %s", name, error)
+
+        return {
+            "success": False,
+            "provider": self.name(),
+            "error": str(last_error),
+        }

@@ -5,6 +5,7 @@ from groq import Groq
 from dotenv import load_dotenv
 
 from providers.base import BaseProvider
+from providers import ranking
 from providers.tool_call import OpenAIToolMixin
 from config.settings import settings
 
@@ -61,17 +62,61 @@ class GroqProvider(OpenAIToolMixin, BaseProvider):
 
         try:
 
-            response = self._complete(prompt, model or self.resolve_model())
+            last_error = None
+
+            for name in self.free_models(model):
+
+                try:
+
+                    response = self.client.chat.completions.create(
+
+                        model=name,
+
+                        messages=[{"role": "user", "content": prompt}],
+
+                        max_tokens=int(getattr(settings, "GROQ_MAX_TOKENS", 2048)),
+
+                        temperature=0.6,
+
+                    )
+
+                    return {
+
+                        "success": True,
+
+                        "provider": self.name(),
+
+                        "model": getattr(response, "model", name) or name,
+
+                        "response": response.choices[0].message.content
+
+                    }
+
+                except Exception as error:
+
+                    last_error = error
+
+                    text = str(error).lower()
+
+                    # A bad key never gets better by changing models.
+                    if any(
+                        word in text
+                        for word in (
+                            "401", "unauthorized", "invalid api key", "authentication"
+                        )
+                    ):
+
+                        break
+
+                    logger.info("Groq model %s did not answer: %s", name, error)
 
             return {
 
-                "success": True,
+                "success": False,
 
                 "provider": self.name(),
 
-                "model": getattr(response, "model", self.model),
-
-                "response": response.choices[0].message.content
+                "error": str(last_error)
 
             }
 
@@ -118,69 +163,41 @@ class GroqProvider(OpenAIToolMixin, BaseProvider):
 
     SKIP = ("whisper", "orpheus", "prompt-guard", "tts")
 
-    def resolve_model(self):
-        """A model id this account can actually answer with."""
+    def free_models(self, first=None):
+        """The free chat models this account can reach, best first."""
 
         available = self.known_models()
 
-        for name in (self.model, self.fallback_model, *self.PREFERENCE):
+        ranked = [name for provider, name in ranking.models("text") if provider == "groq"]
 
-            if name and (not available or name in available):
+        wanted = [first, *ranked, self.model, self.fallback_model, *self.PREFERENCE]
 
-                return name
+        chain = []
 
-        # Nothing preferred is reachable: take any chat model on the account.
-        for name in sorted(available):
+        for name in wanted:
 
-            if not any(skip in name for skip in self.SKIP):
+            if not name or name in chain or any(skip in name for skip in self.SKIP):
 
-                return name
+                continue
 
-        return self.model
+            # Groq accounts differ in what they can reach.
+            if available and name not in available:
 
-    def _complete(self, prompt: str, model: str):
-        """One answer from Groq, retried on the fallback model if needed."""
+                continue
 
-        try:
+            chain.append(name)
 
-            return self.client.chat.completions.create(
+        if chain:
 
-                model=model,
+            return chain
 
-                messages=[{"role": "user", "content": prompt}],
+        # Nothing preferred is reachable: any chat model on the account.
+        return [
+            name for name in sorted(available) if not any(s in name for s in self.SKIP)
+        ][:1] or [self.model]
 
-                max_tokens=int(getattr(settings, "GROQ_MAX_TOKENS", 2048)),
+    def resolve_model(self):
+        """A model id this account can actually answer with."""
 
-                temperature=0.6,
+        return (self.free_models() or [self.model])[0]
 
-            )
-
-        except Exception as error:
-
-            # A retired model id answers 400/404; the fallback still replies.
-            text = str(error).lower()
-
-            gone = any(
-                word in text
-                for word in ("model", "not found", "decommission", "does not exist")
-            )
-
-            if (
-                model != self.fallback_model
-                and gone
-                and self.fallback_model
-            ):
-
-                return self.client.chat.completions.create(
-
-                    model=self.fallback_model,
-
-                    messages=[{"role": "user", "content": prompt}],
-
-                    max_tokens=int(getattr(settings, "GROQ_MAX_TOKENS", 2048)),
-
-                    temperature=0.6,
-
-                )
-
-            raise

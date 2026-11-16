@@ -87,6 +87,45 @@ def test_the_best_measured_model_is_the_one_asked(measured):
     assert manager.model_for("zai", "general") == "glm-4.7-flash"
 
 
+def test_priority_lists_every_task_and_its_free_models(measured):
+    class Fake:
+        def __init__(self, name, models):
+            self._name = name
+            self._models = models
+
+        def name(self):
+            return self._name
+
+        def free_models(self, first=None):
+            return list(dict.fromkeys([first, *self._models])) if first else list(self._models)
+
+    manager = AIManager.__new__(AIManager)
+    manager.providers = [
+        Fake("ollama", ["qwen2.5:3b"]),
+        Fake("openrouter", ["openrouter/free", "google/gemma-4-31b-it:free"]),
+        Fake("groq", ["openai/gpt-oss-120b", "qwen/qwen3.8-27b"]),
+        Fake("zai", ["glm-4.7-flash"]),
+    ]
+
+    tasks = manager.priority()["tasks"]
+
+    assert set(tasks) == {"chat", "coding", "research", "vision"}
+    # Coding starts at the measured winner; the rest of its free models follow.
+    assert tasks["coding"][0] == {"provider": "groq", "model": "openai/gpt-oss-120b"}
+    assert {"provider": "groq", "model": "qwen/qwen3.8-27b"} in tasks["coding"]
+    # Research still asks OpenRouter's web-aware model, in its measured place.
+    assert {
+        "provider": "openrouter",
+        "model": "openrouter/auto:online",
+    } in tasks["research"]
+    # Vision is the free z.ai model, then the free OpenRouter ones.
+    assert tasks["vision"][0] == {"provider": "zai", "model": "glm-4.6v-flash"}
+    assert {
+        "provider": "openrouter",
+        "model": "inclusionai/ling-3.2-flash:free",
+    } in tasks["vision"]
+
+
 def test_the_manager_puts_the_measured_winner_first(measured):
     class Fake:
         def __init__(self, name):

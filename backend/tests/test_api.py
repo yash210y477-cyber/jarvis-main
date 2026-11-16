@@ -34,6 +34,19 @@ def test_system_info_always_returns_numbers():
     assert "network" in body
 
 
+def test_priority_endpoint_returns_the_task_lists(monkeypatch):
+
+    plan = {"success": True, "tasks": {"chat": [{"provider": "groq", "model": "qwen/qwen3.8-27b"}]}}
+
+    monkeypatch.setattr(app_module.brain.ai, "priority", lambda: plan)
+
+    response = client.get("/models/priority")
+
+    assert response.status_code == 200
+
+    assert response.json() == plan
+
+
 def test_capabilities_lists_websocket_and_modes():
 
     body = client.get("/capabilities").json()

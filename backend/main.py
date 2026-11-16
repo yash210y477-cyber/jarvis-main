@@ -212,6 +212,13 @@ def models():
     }
 
 
+@app.get("/models/priority")
+def models_priority():
+    """Every free model, in the order chat, coding, research and vision ask it."""
+
+    return brain.ai.priority()
+
+
 @app.post("/chat")
 def chat(data: dict):
     message = (data.get("message") or "").strip()

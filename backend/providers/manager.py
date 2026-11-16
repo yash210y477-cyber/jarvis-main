@@ -211,17 +211,12 @@ class AIManager:
 
         return [item for item in rest if item not in local] + [zai] + local
 
-    def chat(self, prompt: str, provider=None, task=None):
-
-        errors = []
-
-        chosen = self.find(provider) if isinstance(provider, str) else provider
+    def _order_for(self, task=None, chosen=None):
+        """The providers tried for a kind of work, best measured first."""
 
         if chosen is not None:
 
-            order = [chosen] + [
-                item for item in self.providers if item is not chosen
-            ]
+            order = [chosen] + [item for item in self.providers if item is not chosen]
 
         else:
 
@@ -243,7 +238,55 @@ class AIManager:
                         item for item in self.providers if item not in first
                     ]
 
-        order = self._behind_fast_keys(self._by_measured_speed(order))
+        return self._behind_fast_keys(self._by_measured_speed(order))
+
+    def priority(self):
+        """Every free model, in the order each kind of work asks it."""
+
+        tasks = {}
+
+        for task in ("chat", "coding", "research"):
+
+            tasks[task] = [
+                {"provider": provider.name(), "model": model}
+                for provider in self._order_for(task)
+                for model in self._models_for(provider, task)
+                if model
+            ]
+
+        tasks["vision"] = [
+            {"provider": "zai", "model": model}
+            for model in zai_module.FREE_VISION_MODELS
+        ] + [
+            {"provider": "openrouter", "model": model}
+            for model in [
+                name
+                for provider, name in ranking.models("vision")
+                if provider == "openrouter"
+            ]
+            or list(settings.OPENROUTER_VISION_MODELS)
+        ]
+
+        return {"success": True, "slow_zai": zai_module.slow(), "tasks": tasks}
+
+    def _models_for(self, provider, task):
+        """The provider's free models, the one picked for the task first."""
+
+        wanted = self.model_for(provider.name(), task)
+
+        if hasattr(provider, "free_models"):
+
+            return provider.free_models(wanted)
+
+        return [wanted or getattr(provider, "model", None)]
+
+    def chat(self, prompt: str, provider=None, task=None):
+
+        errors = []
+
+        chosen = self.find(provider) if isinstance(provider, str) else provider
+
+        order = self._order_for(task, chosen)
 
         if not self.providers:
 

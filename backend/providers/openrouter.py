@@ -6,6 +6,7 @@ import requests
 from dotenv import load_dotenv
 
 from providers.base import BaseProvider
+from providers import ranking
 from config.settings import settings
 
 
@@ -33,6 +34,17 @@ class OpenRouterProvider(BaseProvider):
     def health(self) -> bool:
 
         return bool(self.api_key)
+
+    def free_models(self, first=None):
+        """The free text models to try, best measured first."""
+
+        ranked = [
+            name for provider, name in ranking.models("text") if provider == "openrouter"
+        ]
+
+        wanted = [first, *ranked, *settings.OPENROUTER_FREE_MODELS]
+
+        return list(dict.fromkeys(name for name in wanted if name))
 
     def chat(self, prompt: str, model: str = None) -> dict:
 
@@ -62,61 +74,73 @@ class OpenRouterProvider(BaseProvider):
 
             }
 
-            payload = {
+            last_error = None
 
-                "model": (model or self.model),
+            for name in self.free_models(model):
 
-                "max_tokens": max(64, int(getattr(settings, "OPENROUTER_MAX_TOKENS", 512))),
+                payload = {
 
-                "max_tokens": max(64, int(getattr(settings, "OPENROUTER_MAX_TOKENS", 512))),
+                    "model": name,
 
-                "messages": [
+                    "max_tokens": max(
+                        64, int(getattr(settings, "OPENROUTER_MAX_TOKENS", 512))
+                    ),
 
-                    {
+                    "messages": [
 
-                        "role": "user",
+                        {
 
-                        "content": prompt
+                            "role": "user",
 
-                    }
+                            "content": prompt
 
-                ]
+                        }
 
-            }
-
-            response = requests.post(
-
-                self.url,
-
-                headers=headers,
-
-                json=payload,
-
-                timeout=self.timeout
-
-            )
-
-            data = response.json()
-
-            if response.status_code != 200:
-
-                return {
-
-                    "success": False,
-
-                    "provider": self.name(),
-
-                    "error": data
+                    ]
 
                 }
 
+                response = requests.post(
+
+                    self.url,
+
+                    headers=headers,
+
+                    json=payload,
+
+                    timeout=self.timeout
+
+                )
+
+                data = response.json()
+
+                if response.status_code == 200:
+
+                    return {
+
+                        "success": True,
+
+                        "provider": self.name(),
+
+                        "model": name,
+
+                        "response": data["choices"][0]["message"]["content"]
+
+                    }
+
+                last_error = data
+
+                if response.status_code in (401, 403):
+
+                    break
+
             return {
 
-                "success": True,
+                "success": False,
 
                 "provider": self.name(),
 
-                "response": data["choices"][0]["message"]["content"]
+                "error": last_error
 
             }
 

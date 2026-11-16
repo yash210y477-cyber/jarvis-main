@@ -125,6 +125,44 @@ def test_chat_error_is_reported(monkeypatch):
     assert "connection reset" in result["error"]
 
 
+def test_chat_tries_the_next_installed_model(monkeypatch):
+
+    monkeypatch.setattr(ollama_module.settings, "OLLAMA_MODEL", "qwen2.5:3b")
+    fake_models(monkeypatch, ["qwen2.5:3b", "llama3.2:1b"])
+
+    provider = OllamaProvider()
+
+    asked = []
+
+    def create(**kwargs):
+
+        asked.append(kwargs["model"])
+
+        if kwargs["model"] == "qwen2.5:3b":
+
+            raise RuntimeError("model crashed")
+
+        return SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(content="Second local model.", tool_calls=None)
+                )
+            ]
+        )
+
+    provider.client = SimpleNamespace(
+        chat=SimpleNamespace(completions=SimpleNamespace(create=create))
+    )
+
+    result = provider.chat("hello")
+
+    assert result["success"] is True
+
+    assert result["model"] == "llama3.2:1b"
+
+    assert asked == ["qwen2.5:3b", "llama3.2:1b"]
+
+
 def test_ollama_is_the_last_provider_and_answers(monkeypatch):
     """Cloud providers disabled -> the manager still answers from Ollama."""
 

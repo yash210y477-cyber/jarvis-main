@@ -24,6 +24,7 @@ load_dotenv(find_dotenv(), override=True)
 
 from openai import OpenAI  # noqa: E402
 
+from config.settings import settings  # noqa: E402
 from memory.storage import data_dir  # noqa: E402
 
 OUT = data_dir() / "model_ranking.json"
@@ -60,19 +61,12 @@ TEXT = (
         "qwen/qwen3.8-27b",
         "allam-2-7b",
     ]),
-    ("openrouter", "https://openrouter.ai/api/v1", "OPENROUTER_API_KEY", [
-        "openrouter/free",
-        "google/gemma-4-31b-it:free",
-        "google/gemma-4-26b-a4b-it:free",
-        "nvidia/nemotron-3.5-lightning:free",
-        "nvidia/nemotron-3-ultra-550b-a55b:free",
-        "cohere/north-mini-code:free",
-        "baidu/ernie-5.5-flash-preview:free",
-        "inclusionai/ling-3.2-flash:free",
-        "liquid/lfm-3-1.7b:free",
-        "recursive/flint-v1.0:free",
-        "dots-studio/dots-3-note-preview:free",
-    ]),
+    (
+        "openrouter",
+        "https://openrouter.ai/api/v1",
+        "OPENROUTER_API_KEY",
+        list(settings.OPENROUTER_FREE_MODELS),
+    ),
     ("zai", "https://api.z.ai/api/paas/v4/", "ZAI_API_KEY", [
         "glm-4.7-flash",
         "glm-4.5-flash",
