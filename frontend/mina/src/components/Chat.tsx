@@ -60,18 +60,11 @@ function FileCard({ path }: { path: string }) {
   );
 }
 
-// The picker may fall through to another provider, so every reply says which
-// one really answered it.
-const PICKED = (picked: string) => (picked === 'llama3 (local)' ? 'ollama' : picked.trim().toLowerCase());
-
-function Who({ answered, model, picked }: { answered: string; model?: string; picked: string }) {
-  const chosen = PICKED(picked);
-  // A local reply never went to a provider, so there is nothing to compare.
-  const fellBack = chosen !== 'auto' && answered !== 'local' && chosen !== answered.toLowerCase();
+// Every reply says which provider and model really answered it.
+function Who({ answered, model }: { answered: string; model?: string }) {
   return (
-    <div className="mt-2 text-[10px] tracking-wide opacity-50 flex flex-wrap gap-x-2">
-      <span>via {answered}{model ? ` · ${model}` : ''}</span>
-      {fellBack && <span className="text-amber-300/80">asked {picked}</span>}
+    <div className="mt-2 text-[10px] tracking-wide opacity-50">
+      via {answered}{model ? ` · ${model}` : ''}
     </div>
   );
 }
@@ -127,7 +120,7 @@ export default function Chat() {
                 <div className="w-8 h-8 rounded-full border border-[#D7E2EA]/40 flex items-center justify-center shrink-0">{m.role === 'user' ? <User size={14} /> : <Bot size={14} />}</div>
                 <div className={`rounded-3xl px-5 py-3 max-w-[80%] font-light leading-relaxed ${m.role === 'user' ? 'text-white' : 'bg-[#D7E2EA]/10'}`} style={m.role === 'user' ? { background: GRAD } : undefined}>
                   <Bubble text={m.text} onAnswer={m.role === 'user' ? undefined : send} />
-                  {m.role === 'jarvis' && m.provider && <Who answered={m.provider} model={m.model} picked={model} />}
+                  {m.role === 'jarvis' && m.provider && <Who answered={m.provider} model={m.model} />}
                 </div>
               </div>
             ))}
