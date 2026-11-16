@@ -11,9 +11,19 @@ const post = async (path: string, body: unknown) => {
   return r.json();
 };
 
-export async function askJarvis(message: string, mode: string, model: string): Promise<string> {
-  try { const d = await post('/chat', { message, mode, model }); return d.reply ?? d.response ?? d.error ?? 'Done.'; }
-  catch { return `I can't reach my backend at ${API}. Start it and try again.`; }
+/** Who answered: the picker may fall through to another provider, and the
+ *  chat shows the one that really replied. */
+export type Asked = { text: string; provider?: string; model?: string };
+
+export async function askJarvis(message: string, mode: string, model: string): Promise<Asked> {
+  try {
+    const d = await post('/chat', { message, mode, model });
+    return {
+      text: d.reply ?? d.response ?? d.error ?? 'Done.',
+      provider: d.provider || undefined,
+      model: d.model || undefined,
+    };
+  } catch { return { text: `I can't reach my backend at ${API}. Start it and try again.` }; }
 }
 
 // ---- generated pictures: shown in the chat, saved only when asked ----

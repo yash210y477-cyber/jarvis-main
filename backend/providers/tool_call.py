@@ -105,6 +105,7 @@ class OpenAIToolMixin:
         return {
             "success": True,
             "provider": self.name(),
+            "model": getattr(response, "model", "") or "",
             "message": assistant_message(message),
             "tool_calls": parsed_calls(message),
             "content": message.content or "",

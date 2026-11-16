@@ -2,7 +2,7 @@ import { createContext, useContext, useRef, useState, type ReactNode } from 'rea
 import { USER_NAME } from './config';
 import { askJarvis, plainText, say, stopSpeaking } from './lib/jarvis';
 
-export type Msg = { role: 'user' | 'jarvis'; text: string };
+export type Msg = { role: 'user' | 'jarvis'; text: string; provider?: string; model?: string };
 export type Status = 'idle' | 'listening' | 'thinking' | 'speaking';
 type Ctx = {
   messages: Msg[]; status: Status; model: string; setModel: (m: string) => void; mode: string; setMode: (m: string) => void;
@@ -102,8 +102,8 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
     busy.current = true;
     setMessages((m) => [...m, { role: 'user', text: t }]); setStatus('thinking');
     const reply = await askJarvis(t, mode, model);
-    setMessages((m) => [...m, { role: 'jarvis', text: reply }]);
-    if (reply.includes('[ask]')) {
+    setMessages((m) => [...m, { role: 'jarvis', text: reply.text, provider: reply.provider, model: reply.model }]);
+    if (reply.text.includes('[ask]')) {
       // A permission prompt is never spoken: the open mic would hear JARVIS
       // saying "yes" and approve its own request.
       busy.current = false;
@@ -111,7 +111,7 @@ export function JarvisProvider({ children }: { children: ReactNode }) {
       if (wantMic.current) scheduleRestart();
       return;
     }
-    speak(plainText(reply));
+    speak(plainText(reply.text));
   };
 
   const toggleMic = () => {

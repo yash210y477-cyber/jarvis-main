@@ -435,6 +435,7 @@ class Brain:
             return {
                 "success": True,
                 "provider": agent_result.get("provider", "ai"),
+                "model": agent_result.get("model", ""),
                 "action": (
                     "tool" if agent_result.get("steps") else "chat"
                 ),
@@ -487,6 +488,7 @@ class Brain:
             return {
                 "success": True,
                 "provider": ai_response.get("provider", "ai"),
+                "model": ai_response.get("model", ""),
                 "action": "chat",
                 "response": text
             }

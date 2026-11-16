@@ -547,6 +547,7 @@ class ZaiProvider(OpenAIToolMixin, BaseProvider):
             return {
                 "success": True,
                 "provider": self.name(),
+                "model": getattr(reply, "model", self._working or "") or "",
                 "message": assistant,
                 "tool_calls": calls,
                 "content": message.content or "",

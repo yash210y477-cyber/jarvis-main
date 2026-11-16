@@ -133,6 +133,7 @@ class AgentLoop:
                 return {
                     "success": True,
                     "provider": response.get("provider", "ai"),
+                    "model": response.get("model", ""),
                     "response": content,
                     "steps": steps,
                     "needs_confirmation": False,
@@ -171,6 +172,7 @@ class AgentLoop:
                     return {
                         "success": True,
                         "provider": response.get("provider", "ai"),
+                        "model": response.get("model", ""),
                         "response": describe(pending, message),
                         "steps": steps,
                         "pending": pending,

@@ -60,6 +60,22 @@ function FileCard({ path }: { path: string }) {
   );
 }
 
+// The picker may fall through to another provider, so every reply says which
+// one really answered it.
+const PICKED = (picked: string) => (picked === 'llama3 (local)' ? 'ollama' : picked.trim().toLowerCase());
+
+function Who({ answered, model, picked }: { answered: string; model?: string; picked: string }) {
+  const chosen = PICKED(picked);
+  // A local reply never went to a provider, so there is nothing to compare.
+  const fellBack = chosen !== 'auto' && answered !== 'local' && chosen !== answered.toLowerCase();
+  return (
+    <div className="mt-2 text-[10px] tracking-wide opacity-50 flex flex-wrap gap-x-2">
+      <span>via {answered}{model ? ` · ${model}` : ''}</span>
+      {fellBack && <span className="text-amber-300/80">asked {picked}</span>}
+    </div>
+  );
+}
+
 // A guarded action asks in plain words, and the answer is one click.
 function AskCard({ onAnswer }: { onAnswer?: (text: string) => void }) {
   if (!onAnswer) return null;
@@ -86,7 +102,7 @@ function Bubble({ text, onAnswer }: { text: string; onAnswer?: (text: string) =>
 }
 
 export default function Chat() {
-  const { messages, send, toggleMic, status, mode, setMode } = useJarvis();
+  const { messages, send, toggleMic, status, mode, setMode, model } = useJarvis();
   const [text, setText] = useState('');
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => { end.current?.parentElement?.scrollTo({ top: 1e6, behavior: 'smooth' }); }, [messages, status]);
@@ -109,7 +125,10 @@ export default function Chat() {
             {messages.map((m, i) => (
               <div key={i} className={`flex items-end gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
                 <div className="w-8 h-8 rounded-full border border-[#D7E2EA]/40 flex items-center justify-center shrink-0">{m.role === 'user' ? <User size={14} /> : <Bot size={14} />}</div>
-                <div className={`rounded-3xl px-5 py-3 max-w-[80%] font-light leading-relaxed ${m.role === 'user' ? 'text-white' : 'bg-[#D7E2EA]/10'}`} style={m.role === 'user' ? { background: GRAD } : undefined}><Bubble text={m.text} onAnswer={m.role === 'user' ? undefined : send} /></div>
+                <div className={`rounded-3xl px-5 py-3 max-w-[80%] font-light leading-relaxed ${m.role === 'user' ? 'text-white' : 'bg-[#D7E2EA]/10'}`} style={m.role === 'user' ? { background: GRAD } : undefined}>
+                  <Bubble text={m.text} onAnswer={m.role === 'user' ? undefined : send} />
+                  {m.role === 'jarvis' && m.provider && <Who answered={m.provider} model={m.model} picked={model} />}
+                </div>
               </div>
             ))}
             {status === 'thinking' && <div className="opacity-60 text-sm animate-pulse pl-10">Jarvis is thinking…</div>}
