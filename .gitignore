@@ -13,3 +13,10 @@ check-ports.sh
 frontend/mina/dist
 
 data/
+
+# Scratch area for one-off experiments and manual checks (never committed)
+scratch/
+tmp/
+*.tmp
+*.bak
+debug_*
