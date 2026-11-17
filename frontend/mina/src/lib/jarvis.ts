@@ -29,23 +29,29 @@ export async function askJarvis(message: string, mode: string, model: string): P
 // ---- generated pictures: shown in the chat, saved only when asked ----
 export const imageSrc = (url: string) => (/^https?:/i.test(url) ? url : `${API}${url}`);
 
+// The Download button must not leave a second copy. It used to copy the file
+// into Downloads/Jarvis through the API, so the same click made one file in the
+// browser's Downloads and another one in Downloads/Jarvis. The button now hands
+// the file to the browser, so there is exactly one copy, in Downloads.
+function browserSave(href: string, name: string): string {
+  const link = document.createElement('a');
+  link.href = href;
+  link.download = name || 'download';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  return 'Saved to your Downloads folder';
+}
+
 export async function saveImage(name: string): Promise<string> {
-  try {
-    const r = await fetch(`${API}/images/${encodeURIComponent(name)}/download`, { method: 'POST', headers: auth() });
-    const d = await r.json();
-    return d.success ? `Saved to ${d.path}` : (d.error ?? 'Could not save the image.');
-  } catch { return 'Could not reach the backend to save the image.'; }
+  return browserSave(`${API}/images/${encodeURIComponent(name)}`, name);
 }
 
 // ---- generated files: same idea, saved only when the button is pressed ----
 export const fileHref = (path: string) => (/^https?:/i.test(path) ? path : `${API}/files/${path}`);
 
 export async function saveFile(path: string): Promise<string> {
-  try {
-    const r = await fetch(`${API}/files/${path}/download`, { method: 'POST', headers: auth() });
-    const d = await r.json();
-    return d.success ? `Saved to ${d.path}` : (d.error ?? 'Could not save the file.');
-  } catch { return 'Could not reach the backend to save the file.'; }
+  return browserSave(fileHref(path), decodeURIComponent(path.split('/').pop() || 'file'));
 }
 
 /** Message text without the image and file markup, for speaking aloud. */
