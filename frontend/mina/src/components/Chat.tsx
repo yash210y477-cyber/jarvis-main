@@ -9,8 +9,8 @@ const GRAD = 'linear-gradient(123deg, #1B120A 7%, #6B3F1D 37%, #A8651F 72%, #D99
 const IMAGE_OR_FILE = /!\[[^\]]*\]\(([^)]+)\)|\[file\](\S+)|\[ask\]/g;
 
 // A reply can carry pictures ("![image](/images/file.png)") and files
-// ("[file]chess.py"). Both are shown in the chat, and only copied to
-// Downloads/Jarvis when the download button is pressed.
+// ("[file]chess.py"). Both are shown in the chat, and the download button
+// hands them to the browser, so one press leaves one copy in Downloads.
 function parts(text: string): { text?: string; image?: string; file?: string; ask?: boolean }[] {
   const out: { text?: string; image?: string; file?: string; ask?: boolean }[] = [];
   const re = new RegExp(IMAGE_OR_FILE.source, 'g');
@@ -29,8 +29,9 @@ function parts(text: string): { text?: string; image?: string; file?: string; as
 
 function Picture({ url }: { url: string }) {
   const [note, setNote] = useState('');
-  const name = url.split('/').pop() || '';
-  const save = async () => { setNote('Saving…'); setNote(await saveImage(name)); };
+  // The whole URL decides where the picture lives; a remote picture saved by
+  // its file name alone asked the backend for a file it never had.
+  const save = async () => { setNote('Saving…'); setNote(await saveImage(url)); };
   return (
     <div className="flex flex-col gap-2 my-1">
       <img src={imageSrc(url)} alt="Jarvis image" className="rounded-2xl max-h-72 max-w-full object-contain bg-black/20" />

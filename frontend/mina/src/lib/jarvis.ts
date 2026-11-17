@@ -43,8 +43,21 @@ function browserSave(href: string, name: string): string {
   return 'Saved to your Downloads folder';
 }
 
-export async function saveImage(name: string): Promise<string> {
-  return browserSave(`${API}/images/${encodeURIComponent(name)}`, name);
+export async function saveImage(nameOrUrl: string): Promise<string> {
+  // A picture may be a local file (/images/x.png) or a full URL from the image
+  // provider; asking the backend for the URL's file name only ever gave a 404.
+  if (/^https?:/i.test(nameOrUrl)) {
+    const name = decodeURIComponent((nameOrUrl.split('?')[0].split('/').pop() || 'image.png'));
+    try {
+      const r = await fetch(nameOrUrl);
+      if (!r.ok) return 'Could not download that picture.';
+      const url = URL.createObjectURL(await r.blob());
+      const note = browserSave(url, name);
+      window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+      return note;
+    } catch { return 'Could not download that picture.'; }
+  }
+  return browserSave(`${API}/images/${encodeURIComponent(nameOrUrl)}`, nameOrUrl);
 }
 
 // ---- generated files: same idea, saved only when the button is pressed ----
