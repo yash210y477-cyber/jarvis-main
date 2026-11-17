@@ -177,6 +177,28 @@ class Settings:
 ]
 
     # ==========================================================
+    # EMAIL (SMTP to send, IMAP to read; the user's own mailbox)
+    # ==========================================================
+
+    SMTP_HOST = os.getenv("SMTP_HOST", "")
+
+    SMTP_PORT = _int_env("SMTP_PORT", 465)
+
+    SMTP_USER = os.getenv("SMTP_USER", "")
+
+    SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+
+    # Defaults to the login address when empty.
+    SMTP_FROM = os.getenv("SMTP_FROM", "")
+
+    # True: SSL from the first byte (port 465). False: STARTTLS (port 587).
+    SMTP_SSL = os.getenv("SMTP_SSL", "1") not in ("0", "false", "False", "no")
+
+    IMAP_HOST = os.getenv("IMAP_HOST", "")
+
+    IMAP_PORT = _int_env("IMAP_PORT", 993)
+
+    # ==========================================================
     # OPENROUTER
     # ==========================================================
 

@@ -4,6 +4,7 @@ from tools.registry import CONFIRM, ToolRegistry
 from tools.executor import ActionExecutor
 
 from tools import (
+    agenda,
     apps,
     browser,
     browser_control,
@@ -16,6 +17,7 @@ from tools import (
     media,
     messaging,
     image_gen,
+    mail,
     reverse_engineer,
     screen_agent,
     screen_area,
@@ -357,6 +359,90 @@ def build_registry():
         ),
         category="analysis",
         examples=["reverse engineer https://www.igloo.inc/"],
+    )
+
+    # -----------------------------
+    # Email (the user's own mailbox)
+    # -----------------------------
+
+    registry.register(
+        "send_email",
+        mail.send_email,
+        description=(
+            "Send a plain-text email from the user's mailbox. Ask before using"
+            " it; nothing is sent without their approval."
+        ),
+        schema=_schema(
+            {
+                "to": {"type": "string", "description": "Recipient address."},
+                "subject": {"type": "string", "description": "Subject line."},
+                "body": {"type": "string", "description": "Message text."},
+                "cc": {"type": "string", "description": "Optional cc address."},
+            },
+            ["to", "body"],
+        ),
+        permission=CONFIRM,
+        category="email",
+        examples=["mail mom about dinner", "email the report to my teacher"],
+    )
+
+    registry.register(
+        "read_inbox",
+        mail.read_inbox,
+        description=(
+            "List the newest emails in the inbox: sender, subject and date. Only"
+            " when the user asks what is in their mail."
+        ),
+        schema=_schema(
+            {
+                "limit": {"type": "integer", "description": "How many, max 25."},
+                "unread_only": {"type": "boolean", "description": "Only unread mail."},
+            },
+        ),
+        permission=CONFIRM,
+        category="email",
+        examples=["any new mail", "check my inbox"],
+    )
+
+    # -----------------------------
+    # Calendar (standard .ics files)
+    # -----------------------------
+
+    registry.register(
+        "add_event",
+        agenda.add_event,
+        description=(
+            "Add a calendar event and save it as an .ics file the user can open"
+            " in any calendar app."
+        ),
+        schema=_schema(
+            {
+                "title": {"type": "string", "description": "Event title."},
+                "when": {
+                    "type": "string",
+                    "description": "Like \"tomorrow at 9\" or \"in 2 hours\".",
+                },
+                "duration_minutes": {
+                    "type": "integer",
+                    "description": "How long, default 60.",
+                },
+                "location": {"type": "string", "description": "Optional place."},
+            },
+            ["title", "when"],
+        ),
+        category="calendar",
+        examples=["add a meeting tomorrow at 9", "calendar me dentist 5 baje"],
+    )
+
+    registry.register(
+        "list_events",
+        agenda.list_events,
+        description="Show the upcoming calendar events.",
+        schema=_schema(
+            {"days": {"type": "integer", "description": "Look ahead this many days."}},
+        ),
+        category="calendar",
+        examples=["what's on my calendar this week"],
     )
 
     # -----------------------------
