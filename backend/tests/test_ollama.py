@@ -3,7 +3,6 @@
 import json
 from types import SimpleNamespace
 
-import pytest
 
 from providers import ollama as ollama_module
 from providers.ollama import OllamaProvider

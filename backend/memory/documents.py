@@ -63,7 +63,7 @@ def extract_text(path: Path) -> str:
 
         except Exception as error:
 
-            raise RuntimeError(f"PDF support needs pypdf ({error})")
+            raise RuntimeError(f"PDF support needs pypdf ({error})") from error
 
         reader = PdfReader(str(path))
 
@@ -83,7 +83,7 @@ def extract_text(path: Path) -> str:
 
         except Exception as error:
 
-            raise RuntimeError(f"DOCX support needs python-docx ({error})")
+            raise RuntimeError(f"DOCX support needs python-docx ({error})") from error
 
         document = docx.Document(str(path))
 

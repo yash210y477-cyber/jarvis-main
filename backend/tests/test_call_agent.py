@@ -370,7 +370,8 @@ def test_call_noise_is_not_treated_as_a_request():
     for noise in ("Thank you.", "Thanks for watching!", " . "):
 
         conversation._stt = type(
-            "FakeSTT", (), {"transcribe": lambda self, audio, language=None: noise}
+            "FakeSTT", (),
+            {"transcribe": lambda self, audio, language=None, noise=noise: noise},
         )()
 
         assert conversation._transcribe(bytes(4800)) == ""

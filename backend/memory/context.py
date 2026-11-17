@@ -1,4 +1,3 @@
-from config.settings import settings
 from memory.manager import MemoryManager
 from memory.semantic import search_memory
 from brain.summary_manager import SummaryManager

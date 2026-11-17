@@ -11,7 +11,6 @@ import re
 import threading
 import time
 from difflib import SequenceMatcher
-from pathlib import Path
 
 from memory.storage import data_dir
 
@@ -32,8 +31,7 @@ _COMMON = {
     "open", "close", "play", "pause", "search", "start", "stop", "next",
     "previous", "volume", "mute", "music", "song", "songs", "video", "please",
     "jarvis", "what", "when", "where", "which", "hello", "thanks", "thank",
-    "kholo", "band", "bajao", "gaana", "karo", "kya", "hai", "music",
-    "chrome", "youtube", "spotify", "google", "notepad", "calculator",
+    "kholo", "band", "bajao", "gaana", "karo", "kya", "hai", "chrome", "youtube", "spotify", "google", "notepad", "calculator",
 }
 
 

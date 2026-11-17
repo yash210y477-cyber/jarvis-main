@@ -29,7 +29,7 @@ def _target(name: str) -> Path:
     try:
         path = store._resolve(name)
     except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error))
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
     if not path.is_file():
         raise HTTPException(status_code=404, detail="No such file")

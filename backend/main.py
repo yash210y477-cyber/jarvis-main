@@ -7,11 +7,9 @@ import psutil
 from fastapi import (
     FastAPI,
     HTTPException,
-    Security,
     WebSocket,
     WebSocketDisconnect,
 )
-from fastapi.security import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
@@ -235,7 +233,7 @@ def stats():
     try:
         return system_stats()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/images/{name}")
@@ -326,7 +324,7 @@ def open_app(app_name: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/memory")

@@ -9,7 +9,6 @@ import io
 import logging
 from pathlib import Path
 
-from config.settings import settings
 from tools import screenshot, vision
 
 logger = logging.getLogger(__name__)

@@ -1,4 +1,3 @@
-from types import SimpleNamespace
 
 from brain import tasks
 from providers.manager import AIManager

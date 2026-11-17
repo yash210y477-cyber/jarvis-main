@@ -1,4 +1,3 @@
-from pathlib import Path
 
 from PIL import Image
 
@@ -129,8 +128,6 @@ def test_a_dead_vision_model_stops_the_watcher(monkeypatch, tmp_path):
     )
 
     watcher.running = True
-
-    image = Image.new("RGB", (100, 60), "white")
 
     # The ask helper is replaced, so drive the real one through a fake provider.
     from tools import screen_watch as module

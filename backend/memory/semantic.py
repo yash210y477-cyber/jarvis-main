@@ -61,7 +61,7 @@ class HashingEmbedder:
 
                     self._add(vector, token[start:start + size], 0.4)
 
-        for first, second in zip(tokens, tokens[1:]):
+        for first, second in zip(tokens, tokens[1:], strict=False):
 
             self._add(vector, f"{first} {second}", 0.7)
 
@@ -299,7 +299,7 @@ class SemanticMemory:
 
         vectors = self.embedder.encode([item[3] for item in pending])
 
-        for (digest, source, ref, text), vector in zip(pending, vectors):
+        for (digest, source, ref, text), vector in zip(pending, vectors, strict=False):
 
             self.conn.execute(
                 "INSERT INTO semantic_docs (hash, source, ref, text) "

@@ -8,7 +8,6 @@ or an API key: they are answered here, before any network call.
 import datetime
 import re
 
-from brain.language import is_hinglish
 
 GREETINGS = (
     "hi",
