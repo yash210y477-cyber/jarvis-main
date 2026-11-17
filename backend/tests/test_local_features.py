@@ -269,6 +269,10 @@ def test_set_a_reminder_and_volume_changes_are_understood():
 
     assert li.detect("what's the volume")["tool"] == "get_volume"
 
+    # The calendar tools work without a provider too, at least for reading.
+    assert li.detect("what's on my calendar")["tool"] == "list_events"
+    assert li.detect("calendar dikhao")["tool"] == "list_events"
+
 
 def test_brain_answers_instantly_without_providers(monkeypatch):
     from brain.brain import FALLBACK_REPLY, Brain

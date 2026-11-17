@@ -427,6 +427,21 @@ def detect(message: str):
             return messaged
 
     # -----------------------------
+    # Calendar
+    # -----------------------------
+
+    if (
+        any(word in text for word in ("calendar", "agenda", "schedule"))
+        and any(
+            word in text
+            for word in ("what", "show", "list", "dikhao", "kya", "upcoming", "events")
+        )
+        and not any(word in text for word in ("add ", "create ", "jana", "daalo"))
+    ):
+
+        return {"tool": "list_events", "arguments": {}}
+
+    # -----------------------------
     # Reminders (checked before timers)
     # -----------------------------
 
