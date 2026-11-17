@@ -4,8 +4,15 @@ import json
 import os
 import shutil
 import subprocess
-import winreg
 from pathlib import Path
+
+# winreg exists only on Windows. Keeping it out of the module top-level (like
+# winsound in tools/timer.py) lets the rest of the backend be imported, and
+# tested, on other platforms.
+try:
+    import winreg
+except ImportError:
+    winreg = None
 
 from tools import windows
 
@@ -181,6 +188,9 @@ class WindowsLauncher:
         return None
 
     def search_registry(self, app):
+
+        if winreg is None:
+            return None
 
         roots = [winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER]
 
