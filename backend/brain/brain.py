@@ -299,7 +299,7 @@ class Brain:
 
         if len(parts) > 1:
 
-            results = [self._chat_single(part) for part in parts]
+            results = [self._chat_single(part, model=model) for part in parts]
 
             lines = [
                 f"- {part}: {(result.get('response') or '').strip()}"

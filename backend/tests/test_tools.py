@@ -98,6 +98,15 @@ def test_approval_store_round_trip():
     assert not is_approval("what is my name")
 
 
+def test_a_command_starting_with_cancel_is_not_a_rejection():
+    """"cancel timer 2" dismissed a parked approval instead of the timer."""
+
+    assert not is_rejection("cancel timer 2")
+    assert not is_rejection("cancel my reminder")
+    assert not is_rejection("stop music")
+    assert is_rejection("cancel")
+
+
 def test_local_intents_for_tools_without_ai():
 
     assert local_intents.detect("take a screenshot")["tool"] == "screenshot"

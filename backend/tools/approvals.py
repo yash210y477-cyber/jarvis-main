@@ -23,9 +23,36 @@ AFFIRMATIVE_PREFIXES = ("yes", "ok", "okay", "sure", "haan")
 NEGATIVE_PREFIXES = ("no", "cancel", "nahi", "stop")
 
 
+def _is_command(text: str) -> bool:
+    """True when the message asks for something instead of answering.
+
+    "cancel" and "stop" answer a permission prompt, but "cancel timer 2" is a
+    command of its own: answering the parked tool with it cleared the approval
+    and never touched the timer. A message JARVIS can parse as a command is
+    therefore never an approval or a rejection.
+    """
+
+    try:
+
+        from brain import local_clock
+        from tools import local_intents
+
+        return (
+            local_intents.detect(text) is not None
+            or local_clock.detect(text) is not None
+        )
+
+    except Exception:
+
+        return False
+
+
 def is_approval(message: str) -> bool:
 
     text = (message or "").strip().lower().rstrip("!.")
+
+    if _is_command(text):
+        return False
 
     if text in APPROVALS:
         return True
@@ -36,6 +63,9 @@ def is_approval(message: str) -> bool:
 def is_rejection(message: str) -> bool:
 
     text = (message or "").strip().lower().rstrip("!.")
+
+    if _is_command(text):
+        return False
 
     if text in REJECTIONS:
         return True

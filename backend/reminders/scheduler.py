@@ -25,6 +25,12 @@ except Exception:
     BackgroundScheduler = None
 
 
+# A reminder that came due while JARVIS was closed can still fire within this
+# window; anything older was missed for good and is dropped on load instead of
+# sitting in the list forever with nothing left to do.
+MISFIRE_GRACE_SECONDS = 3600
+
+
 NUMBER_WORDS = {
     "a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
     "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "fifteen": 15,
@@ -185,10 +191,31 @@ class ReminderScheduler:
 
             return
 
-        self.reminders = [
-            item for item in data.get("reminders", [])
-            if isinstance(item, dict) and item.get("due")
-        ]
+        now = datetime.datetime.now()
+
+        alive = []
+
+        for item in data.get("reminders", []):
+
+            if not isinstance(item, dict) or not item.get("due"):
+
+                continue
+
+            try:
+
+                due = datetime.datetime.fromisoformat(item["due"])
+
+            except ValueError:
+
+                continue
+
+            if (now - due).total_seconds() > MISFIRE_GRACE_SECONDS:
+
+                continue
+
+            alive.append(item)
+
+        self.reminders = alive
 
     def save(self):
 
@@ -288,7 +315,8 @@ class ReminderScheduler:
 
     def add(self, text, when="", seconds=None):
 
-        if seconds:
+        # `0` is a real delay (fire now); only a missing value means "use when".
+        if seconds is not None:
 
             due = datetime.datetime.now() + datetime.timedelta(seconds=float(seconds))
 

@@ -103,6 +103,40 @@ def test_parse_when_relative_and_absolute():
     assert parse_when("whenever", now) is None
 
 
+def test_a_reminder_with_no_delay_still_fires(tmp_path):
+    """seconds=0 is a real delay; it used to be read as "no time given"."""
+
+    scheduler = ReminderScheduler(tmp_path / "reminders.json")
+
+    added = scheduler.add("stretch now", seconds=0)
+
+    assert added["success"] is True
+    assert added["in_seconds"] == 0
+
+
+def test_missed_reminders_older_than_the_grace_window_are_dropped(tmp_path):
+    """APScheduler can no longer fire them, so they must not stay listed."""
+
+    import json
+
+    path = tmp_path / "reminders.json"
+
+    old = (datetime.datetime.now() - datetime.timedelta(days=2)).isoformat(timespec="seconds")
+    fresh = (datetime.datetime.now() + datetime.timedelta(minutes=5)).isoformat(timespec="seconds")
+
+    path.write_text(
+        json.dumps({"reminders": [
+            {"id": "old1", "text": "two days ago", "due": old, "created": old},
+            {"id": "new1", "text": "in five minutes", "due": fresh, "created": fresh},
+        ]}),
+        encoding="utf-8",
+    )
+
+    scheduler = ReminderScheduler(path)
+
+    assert [item["id"] for item in scheduler.list()] == ["new1"]
+
+
 def test_reminder_lifecycle(tmp_path):
 
     scheduler = ReminderScheduler(tmp_path / "reminders.json")
