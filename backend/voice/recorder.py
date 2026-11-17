@@ -3,7 +3,6 @@ import tempfile
 import wave
 
 import numpy as np
-import sounddevice as sd
 
 from voice.vad import VoiceActivityDetector
 from voice.audio import AudioProcessor
@@ -18,6 +17,19 @@ def _torch():
     import torch
 
     return torch
+
+
+def _sounddevice():
+    """sounddevice, and the PortAudio library behind it, on first use.
+
+    Importing it eagerly broke the whole backend on machines without PortAudio
+    (Linux CI, headless servers): the import itself raises OSError there, even
+    when nobody ever touches the microphone.
+    """
+
+    import sounddevice
+
+    return sounddevice
 
 
 class Recorder:
@@ -87,6 +99,8 @@ class Recorder:
             # -----------------------------
 
             try:
+
+                sd = _sounddevice()
 
                 audio = sd.rec(
                     samples_per_chunk,

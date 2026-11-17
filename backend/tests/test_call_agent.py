@@ -1,12 +1,21 @@
 """Phase B: the Telegram call conversation pipeline, tested without Telegram."""
 
 import asyncio
+import sys
 import wave
 
 import numpy as np
 import pytest
 
 from remote import call_agent
+
+# The tests below turn text into speech with Windows SAPI and push the wav back
+# through whisper or the silero VAD, so they need a Windows host with the voice
+# installed. CI runs on Linux, where SAPI cannot exist.
+needs_windows_speech = pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="speaks through Windows SAPI; needs a Windows host",
+)
 
 
 class FakeCalls:
@@ -91,6 +100,7 @@ def test_clean_for_speech_drops_markup():
     assert "opened calculator" in text
 
 
+@needs_windows_speech
 def test_speak_clip_writes_playable_wav():
 
     path = call_agent.speak_clip("Reminder, drink water.")
@@ -145,6 +155,7 @@ def test_silence_only_is_not_a_request():
     assert finished == []
 
 
+@needs_windows_speech
 def test_call_turn_thinks_and_speaks(monkeypatch):
 
     calls = FakeCalls()
@@ -189,6 +200,7 @@ def test_unheard_audio_does_not_reply(monkeypatch):
     assert conversation.turns == 0
 
 
+@needs_windows_speech
 def test_whisper_understands_generated_speech(tmp_path):
 
     """Real STT check: SAPI speech -> whisper, the exact call pipeline."""
@@ -268,6 +280,7 @@ def test_bridge_reads_the_frame_attribute():
     assert bridge.frame_bytes == len(chunk)
 
 
+@needs_windows_speech
 def test_vad_hears_speech_in_quarter_second_chunks():
 
     # get_speech_timestamps() reported silence for every 250 ms call
