@@ -5,6 +5,7 @@ allowed chat ids live in settings; when no allowed ids are configured every
 chat is answered, otherwise only the listed ones.
 """
 
+import json
 import os
 import threading
 import time
@@ -176,6 +177,61 @@ class TelegramBridge:
 
     # ------------------------------------------------------- single instance
 
+    @staticmethod
+    def _lock_owner() -> tuple:
+        """The pid and start time written in the lock file, 0 when unreadable.
+
+        A bare pid is not enough: Windows reuses pids, so a leftover lock can
+        point at some unrelated process and block the bot forever. The start
+        time tells the two apart.
+        """
+
+        try:
+
+            raw = LOCK_PATH.read_text(encoding="utf-8").strip()
+
+        except OSError:
+
+            return 0, 0.0
+
+        try:
+
+            data = json.loads(raw)
+
+            return int(data.get("pid") or 0), float(data.get("started") or 0)
+
+        except (ValueError, TypeError, AttributeError):
+
+            pass
+
+        try:
+
+            return int(raw or 0), 0.0
+
+        except ValueError:
+
+            return 0, 0.0
+
+    @staticmethod
+    def _owner_is_running(pid: int, started: float) -> bool:
+
+        if not pid or not psutil.pid_exists(pid):
+
+            return False
+
+        if not started:
+
+            # Old lock file: a live pid is the best evidence available.
+            return True
+
+        try:
+
+            return abs(psutil.Process(pid).create_time() - started) < 2.0
+
+        except Exception:
+
+            return False
+
     def _acquire_lock(self) -> bool:
 
         try:
@@ -188,17 +244,9 @@ class TelegramBridge:
 
         except FileExistsError:
 
-            pid = 0
+            pid, started = self._lock_owner()
 
-            try:
-
-                pid = int(LOCK_PATH.read_text(encoding="utf-8").strip() or 0)
-
-            except (OSError, ValueError):
-
-                pid = 0
-
-            if pid and pid != os.getpid() and psutil.pid_exists(pid):
+            if pid and pid != os.getpid() and self._owner_is_running(pid, started):
 
                 self.last_error = (
                     f"Another JARVIS is already reading this bot (pid {pid}); "
@@ -229,7 +277,12 @@ class TelegramBridge:
 
         try:
 
-            os.write(handle, str(os.getpid()).encode())
+            stamp = json.dumps({
+                "pid": os.getpid(),
+                "started": psutil.Process().create_time(),
+            })
+
+            os.write(handle, stamp.encode())
 
         finally:
 
