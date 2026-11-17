@@ -458,3 +458,52 @@ def test_call_words_are_repaired_from_the_users_own_chat(tmp_path, monkeypatch):
     assert vocabulary.repair("open postman") == "open postman"
 
     assert vocabulary.repair("") == ""
+
+
+def test_a_failed_tool_shows_its_own_message_not_unknown_error():
+    """close_app reports a message, and that message used to be dropped."""
+
+    from tools import local_intents
+
+    text = local_intents.render(
+        "close_app",
+        {"success": False, "message": "chrome is not running."},
+    )
+
+    assert "chrome is not running" in text
+    assert "unknown error" not in text
+
+
+def test_close_app_says_when_windows_refused_the_kill(monkeypatch):
+    """Access denied is not the same as \"not running\"."""
+
+    from tools import launcher
+
+    class Refused:
+        returncode = 128
+        stdout = ""
+        stderr = "ERROR: The process could not be terminated. Reason: Access is denied."
+
+    monkeypatch.setattr(launcher.subprocess, "run", lambda *a, **k: Refused())
+
+    closed, message = launcher.WindowsLauncher().close("chrome")
+
+    assert closed is False
+    assert "access denied" in message.lower()
+    assert "not running" not in message.lower()
+
+
+def test_close_app_reports_a_missing_app_as_not_running(monkeypatch):
+    from tools import launcher
+
+    class Missing:
+        returncode = 128
+        stdout = ""
+        stderr = "ERROR: The process \"chrome.exe\" not found."
+
+    monkeypatch.setattr(launcher.subprocess, "run", lambda *a, **k: Missing())
+
+    closed, message = launcher.WindowsLauncher().close("chrome")
+
+    assert closed is False
+    assert "not running" in message.lower()

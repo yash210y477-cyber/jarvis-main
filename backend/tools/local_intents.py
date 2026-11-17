@@ -1167,8 +1167,14 @@ def render(name: str, result: dict, hinglish: bool = False) -> str:
 
     if not result.get("success") or inner.get("success") is False:
 
+        # Tools such as close_app report a plain message, not an error key;
+        # without it the user saw "unknown error" and thought nothing happened.
         error = (
-            result.get('error') or inner.get('error') or 'unknown error'
+            result.get('error')
+            or inner.get('error')
+            or result.get('message')
+            or inner.get('message')
+            or 'unknown error'
         ).strip().rstrip('.')
 
         if hinglish:

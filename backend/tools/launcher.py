@@ -370,6 +370,24 @@ class WindowsLauncher:
             return False, str(error)
 
         if result.returncode == 0:
+
             return True, f"{app} closed successfully."
 
-        return False, f"{app} is not running."
+        # taskkill fails for very different reasons, and "not running" was
+        # shown even when Windows had refused the kill.
+        detail = (result.stderr or result.stdout or "").strip()
+
+        lowered = detail.lower()
+
+        if "access is denied" in lowered or "zugriff verweigert" in lowered:
+
+            return False, (
+                f"{app} is running but Windows refused to close it (access denied). "
+                "Try closing it yourself or run JARVIS as administrator."
+            )
+
+        if not detail or "not found" in lowered or "no process" in lowered:
+
+            return False, f"{app} is not running."
+
+        return False, f"{app} could not be closed: {detail}"
