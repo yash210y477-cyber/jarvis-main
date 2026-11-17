@@ -345,6 +345,61 @@ def _message_intent(message: str):
     return None
 
 
+REMINDER_PREFIX = re.compile(
+    r"^(?:jarvis[,\s]+)?(?:please\s+)?"
+    r"(?:set\s+(?:a\s+|an\s+)?reminder|reminder|remind\s+me)"
+    r"(?:\s+(?:to|for|that|about))?\s*",
+    re.I,
+)
+
+RELATIVE_WHEN = re.compile(
+    r"^\d+(?:\.\d+)?\s*"
+    r"(?:second|seconds|sec|secs|minute|minutes|min|mins|hour|hours|hr|hrs)\s*$",
+    re.I,
+)
+
+
+def _reminder_parts(message: str):
+    """(text, when) for "set a reminder to call mom at 7" and its variants."""
+
+    body = REMINDER_PREFIX.sub("", (message or "").strip(), count=1).strip(" .,")
+
+    if not body:
+
+        return None
+
+    # "remind me at 7:30" carries no body: the reminder is the time itself.
+    if re.match(r"^(?:at|in|after)\s+", body, re.I):
+
+        when = body
+
+        if re.match(r"^(?:in|after)\s+\d", when, re.I):
+
+            return ("reminder", when)
+
+        return ("reminder", when.replace("at ", "", 1).strip(" ."))
+
+    split = re.match(r"^(.*?)\s+(?:at|in|after)\s+(.+)$", body, re.I)
+
+    if not split:
+
+        return (body, "")
+
+    text_part = split.group(1).strip(" .,")
+    when = split.group(2).strip(" .,")
+
+    if not text_part:
+
+        return ("reminder", when)
+
+    # "2 minutes" without a leading "in" must stay relative.
+    if RELATIVE_WHEN.match(when):
+
+        when = "in " + when
+
+    return (text_part, when)
+
+
 def detect(message: str):
 
     text = (message or "").strip().lower()
@@ -502,7 +557,22 @@ def detect(message: str):
     # Volume: exact level
     # -----------------------------
 
-    if not any(word in text for word in ("mute", "unmute")):
+    # "volume up 10" is a change, not a request for exactly 10%; only a message
+    # without an up/down word sets an exact level.
+    changing_volume = bool(
+        re.search(
+            r"\b(up|down|increase|decrease|louder|quieter|badha|badhao|zada|zyada|"
+            r"tez|kam|ghata)\b",
+            text,
+        )
+    )
+
+    # "volume down to 10" names a level; only a change without "to <n>" steps.
+    if re.search(r"\b(?:to|at)\s+\d{1,3}\b", text):
+
+        changing_volume = False
+
+    if not any(word in text for word in ("mute", "unmute")) and not changing_volume:
 
         volume_target = re.search(
             r"(?:volume|awaaz|awaz|sound)\D{0,25}?(\d{1,3})\s*%?",
@@ -534,9 +604,22 @@ def detect(message: str):
                 "arguments": {"action": "volume_up", "steps": _number(text) or 1},
             }
 
-    if text.strip() in (
-        "what is the volume", "volume kitna hai", "current volume",
-        "how loud is it", "volume level",
+    # A short question about the volume, not a longer sentence that happens to
+    # mention the word ("... volume kitna hai ye mat batao, mood kharab hai").
+    if (
+        re.search(r"\b(volume|awaaz|awaz|sound)\b", text)
+        and len(text.split()) <= 8
+        and not re.search(r"\b(mat|matt|don't|dont|do not)\b", text)
+        and (
+            any(
+                word in text
+                for word in (
+                    "what", "get", "show", "tell", "current", "level", "status",
+                    "kitna", "kitni", "how loud",
+                )
+            )
+            or re.search(r"\bvolume\b\s*\?", text)
+        )
     ):
 
         return {"tool": "get_volume", "arguments": {}}
@@ -674,22 +757,14 @@ def detect(message: str):
 
     if re.search(r"\b(remind me|reminder|yaad dilana|yaad rakhna)\b", text):
 
-        match = re.match(
-            r"remind me\s+(?:to\s+)?(.+?)(?:\s+(?:at|in|after)\s+(.+))?$",
-            text,
-        )
+        # "remind me to X in 5 minutes" and "set a reminder to X at 7" are the
+        # same request; the old pattern only understood the first one, so the
+        # second became a timer.
+        parsed = _reminder_parts(message.strip())
 
-        if match:
+        if parsed:
 
-            body = (match.group(1) or "reminder").strip(" .")
-            when = (match.group(2) or "").strip(" .")
-
-            # "2 minutes" without a leading "in" must stay relative
-            if when and re.match(
-                r"^\d+(\.\d+)?\s*(second|seconds|sec|secs|minute|minutes|min|mins|hour|hours|hr|hrs)\s*$",
-                when,
-            ):
-                when = "in " + when
+            body, when = parsed
 
             return {
                 "tool": "set_reminder",
@@ -1405,6 +1480,41 @@ def render(name: str, result: dict, hinglish: bool = False) -> str:
             if data.get("success")
             else f"Notification failed: {data.get('error')}"
         )
+
+    if name == "send_email":
+
+        return data.get("message") or data.get("error") or "Email sent."
+
+    if name == "read_inbox":
+
+        messages = data.get("messages") or []
+
+        if not messages:
+
+            return data.get("message") or "Nothing in the inbox."
+
+        lines = [
+            f"- {item.get('from')}: {item.get('subject')} ({item.get('date')})"
+            for item in messages
+        ]
+
+        return "Inbox:\n" + "\n".join(lines)
+
+    if name == "add_event":
+
+        return data.get("message") or data.get("error") or "Event added."
+
+    if name == "list_events":
+
+        events = data.get("events") or []
+
+        if not events:
+
+            return data.get("message") or "Nothing on the calendar."
+
+        lines = [f"- {item.get('title')} — {item.get('start')}" for item in events]
+
+        return "Calendar:\n" + "\n".join(lines)
 
     return str(data)
 

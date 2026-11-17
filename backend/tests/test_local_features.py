@@ -241,8 +241,37 @@ def test_reminder_duration_without_in_prefix_is_relative():
     assert due < datetime.datetime.now() + datetime.timedelta(minutes=5)
 
 
+def test_set_a_reminder_and_volume_changes_are_understood():
+    """"set a reminder…" used to become a timer, and "volume up 10" became 10%."""
+
+    from tools import local_intents as li
+
+    reminder = li.detect("set a reminder to call mom in 15 minutes")
+
+    assert reminder["tool"] == "set_reminder"
+    assert reminder["arguments"]["text"] == "call mom"
+    assert reminder["arguments"]["when"] == "in 15 minutes"
+
+    at_time = li.detect("set a reminder at 7:30 pm")
+
+    assert at_time["tool"] == "set_reminder"
+    assert at_time["arguments"]["when"] == "7:30 pm"
+
+    louder = li.detect("volume up 10")
+
+    assert louder["tool"] == "media_control"
+    assert louder["arguments"]["action"] == "volume_up"
+    assert louder["arguments"]["steps"] == 10
+
+    assert li.detect("set volume to 40") == {
+        "tool": "set_volume", "arguments": {"percent": 40}
+    }
+
+    assert li.detect("what's the volume")["tool"] == "get_volume"
+
+
 def test_brain_answers_instantly_without_providers(monkeypatch):
-    from brain.brain import Brain
+    from brain.brain import FALLBACK_REPLY, Brain
 
     brain = Brain()
 
@@ -256,7 +285,11 @@ def test_brain_answers_instantly_without_providers(monkeypatch):
 
     assert result["action"] == "fallback"
     assert elapsed < 5
-    assert result["response"] == "ALL AI PROVIDER FAILED"
+
+    # A plain sentence that says what to do, not a status code.
+    assert result["response"] == FALLBACK_REPLY
+    assert "No AI provider" in result["response"]
+    assert "Settings" in result["response"]
 
 
 

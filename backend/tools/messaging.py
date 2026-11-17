@@ -158,8 +158,6 @@ def _foreground() -> tuple[int, str]:
 def _window_crop(path: str, hwnd: int, title: str) -> str:
     """Screenshot of just that window, so another app cannot fake a chat box."""
 
-    from tools import screenshot as shots
-
     rect = _RECT()
 
     if not ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect)):
@@ -669,6 +667,17 @@ def cancel_send() -> dict:
     if not _title_matches(_foreground()[1], {"window": titles}):
         _focus(titles)
         time.sleep(0.4)
+
+    # Ctrl+A and Delete in whatever happens to be open would wipe the user's
+    # own text in another app, so refuse when the chat never came forward.
+    if not _title_matches(_foreground()[1], {"window": titles}):
+        return {
+            "success": False,
+            "error": (
+                f"{entry.get('platform')} is not in front, so the draft was "
+                f"left alone instead of clearing another window."
+            ),
+        }
 
     _combo(VK["ctrl"], 0x41)
     time.sleep(0.15)

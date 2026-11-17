@@ -8,7 +8,6 @@ from brain.summary_manager import SummaryManager
 from brain import tasks, vocabulary
 from brain import local_clock, memory_intent, smalltalk
 from brain import language
-from brain.language import is_hinglish
 from brain.multi import split_commands
 
 from memory.manager import MemoryManager
@@ -66,7 +65,13 @@ def shutdown_pool():
         pass
 
 
-FALLBACK_REPLY = "ALL AI PROVIDER FAILED"
+# Said instead of a stack of failed calls. It keeps the old "no ai provider"
+# wording, which the semantic memory already knows not to index, and tells the
+# user what to do next instead of shouting a status code at them.
+FALLBACK_REPLY = (
+    "No AI provider is reachable right now. Add or check a key in Settings, "
+    "or ask me something local — like \"what time is it\"."
+)
 
 
 class Brain:
@@ -303,7 +308,7 @@ class Brain:
 
             lines = [
                 f"- {part}: {(result.get('response') or '').strip()}"
-                for part, result in zip(parts, results)
+                for part, result in zip(parts, results, strict=False)
             ]
 
             return {

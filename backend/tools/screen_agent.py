@@ -13,10 +13,8 @@ import ctypes
 import json
 import logging
 import re
-import threading
 import time
 import webbrowser
-from pathlib import Path
 
 from tools import screen_reader
 
@@ -173,6 +171,18 @@ def type_text(text: str) -> dict:
 
     from tools import clipboard
 
+    # Pasting through the clipboard used to leave JARVIS's text there, wiping
+    # whatever the user had copied. Put their own text back afterwards.
+    previous = ""
+
+    try:
+
+        previous = (clipboard.get_clipboard() or {}).get("content") or ""
+
+    except Exception:
+
+        previous = ""
+
     clipboard.set_clipboard(text)
 
     time.sleep(0.1)
@@ -184,7 +194,17 @@ def type_text(text: str) -> dict:
     user32.keybd_event(0x56, 0, 0x0002, 0)
     user32.keybd_event(0x11, 0, 0x0002, 0)
 
-    time.sleep(0.15)
+    time.sleep(0.25)
+
+    if previous:
+
+        try:
+
+            clipboard.set_clipboard(previous)
+
+        except Exception:
+
+            pass
 
     return {"action": "type", "text": text}
 

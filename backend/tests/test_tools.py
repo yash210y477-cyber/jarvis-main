@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 import pytest
 
@@ -9,7 +8,7 @@ from tools import builtin, local_intents, shell
 from tools.agent import AgentLoop
 from tools.approvals import ApprovalStore, describe, is_approval, is_rejection
 from tools.executor import ActionExecutor
-from tools.registry import CONFIRM, ToolRegistry
+from tools.registry import CONFIRM
 
 
 @pytest.fixture()
