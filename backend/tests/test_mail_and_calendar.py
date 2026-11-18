@@ -128,6 +128,17 @@ def test_calendar_refuses_an_unreadable_time(monkeypatch, tmp_path):
     assert "when" in result["error"].lower()
 
 
+def test_inbox_phrases_go_to_the_mail_tool():
+    from tools import local_intents
+
+    assert local_intents.detect("read my inbox")["tool"] == "read_inbox"
+    assert local_intents.detect("any new mail?")["tool"] == "read_inbox"
+    assert local_intents.detect("show my unread email")["arguments"]["unread_only"] is True
+
+    # Reading a real file must still reach the file tool.
+    assert local_intents.detect("read backend/README.md")["tool"] == "read_file"
+
+
 def test_both_tools_are_registered():
     from tools import builtin
 

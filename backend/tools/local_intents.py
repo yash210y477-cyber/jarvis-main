@@ -928,6 +928,17 @@ def detect(message: str):
     if match:
         return {"tool": "list_files", "arguments": {"path": match.group(1).strip(" .")}}
 
+    # "read my inbox" is mail, not a file: the plain read_file pattern below
+    # would otherwise try to open a path called "my inbox".
+    if re.search(r"\b(inbox|unread|new mail|new email)\b", text) or re.match(
+        r"(?:read|check|open|show|list)\s+(?:my|the)\s*(?:e-?mail|mail|gmail|inbox)\b",
+        text,
+    ):
+        return {
+            "tool": "read_inbox",
+            "arguments": {"unread_only": bool(re.search(r"\bunread\b", text))},
+        }
+
     match = re.match(r"read (?:file )?(.+)", text)
 
     if match:
