@@ -444,9 +444,10 @@ class CallConversation:
 
             try:
 
-                from voice.stt import shared
+                # Calls prefer Groq's Whisper; the local model is the fallback.
+                from voice.stt import calls
 
-                self._stt = shared()
+                self._stt = calls()
 
             except Exception as error:
 

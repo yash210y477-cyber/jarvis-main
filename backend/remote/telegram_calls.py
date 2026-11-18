@@ -231,7 +231,15 @@ class TelegramCallBridge:
 
         try:
 
-            from voice.stt import warm_up
+            from voice.stt import network_stt, warm_up
+
+            if network_stt():
+
+                # Groq does the listening: do not spend a CPU core on a model
+                # that is only the fallback.
+                log.info("Speech-to-text uses the Groq API; local model stays cold")
+
+                return
 
             warm_up()
 

@@ -259,6 +259,14 @@ class Settings:
 
     GROQ_MAX_TOKENS = int(os.getenv("GROQ_MAX_TOKENS", "2048"))
 
+    # Speech-to-text for calls: Groq's Whisper answers in about half a second,
+    # the local model stays as the offline fallback. GROQ_STT=0 stays local.
+    GROQ_STT = os.getenv("GROQ_STT", "1") not in (
+        "0", "false", "False", "no", "off"
+    )
+    GROQ_STT_MODEL = os.getenv("GROQ_STT_MODEL", "whisper-large-v3-turbo")
+    GROQ_STT_TIMEOUT = float(os.getenv("GROQ_STT_TIMEOUT", "8"))
+
     # ==========================================================
     # Z.AI (GLM models, OpenAI-compatible endpoint)
     # ==========================================================

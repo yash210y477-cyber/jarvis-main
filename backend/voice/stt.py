@@ -7,11 +7,15 @@ rest of Jarvis cannot match against its Hinglish words, so the transcript is
 written the way people type it in chat.
 """
 
+import io
 import logging
+import os
 import re
+import wave
 from collections import Counter
 
 import numpy as np
+import requests
 
 from config.settings import settings
 from voice import speech
@@ -31,6 +35,45 @@ REPEATED_CHAR = re.compile(r"(\S)\1{4,}")
 REPEATED_WORD = re.compile(r"\b(\S+)(?:\s+\1){3,}\b", re.IGNORECASE)
 
 logger = logging.getLogger(__name__)
+
+# Fixed the same way in every transcript, whether the words came from the local
+# model or from Groq's API.
+REPLACEMENTS = {
+    "hallo": "hello",
+    "helo": "hello",
+    "hellow": "hello",
+    "helloo": "hello",
+
+    "jervis": "jarvis",
+    "jarvice": "jarvis",
+    "jarvish": "jarvis",
+    "jar vis": "jarvis",
+
+    "vs cord": "vs code",
+    "vscode": "vs code",
+    "visual studio": "visual studio code",
+
+    "good morning service": "good morning jarvis",
+    "good morning jervis": "good morning jarvis",
+}
+
+
+def finish_text(text: str) -> str:
+    """The shared tidy-up: Devanagari to Hinglish, then the usual fixes."""
+
+    cleaned = (text or "").strip()
+
+    if DEVANAGARI.search(cleaned):
+
+        cleaned = speech.to_hinglish(cleaned)
+
+    cleaned = cleaned.lower().strip()
+
+    for wrong, correct in REPLACEMENTS.items():
+
+        cleaned = cleaned.replace(wrong, correct)
+
+    return cleaned
 
 
 def model_name() -> str:
@@ -114,24 +157,7 @@ class SpeechToText:
 
         self.last_language = None
 
-        self.replacements = {
-            "hallo": "hello",
-            "helo": "hello",
-            "hellow": "hello",
-            "helloo": "hello",
-
-            "jervis": "jarvis",
-            "jarvice": "jarvis",
-            "jarvish": "jarvis",
-            "jar vis": "jarvis",
-
-            "vs cord": "vs code",
-            "vscode": "vs code",
-            "visual studio": "visual studio code",
-
-            "good morning service": "good morning jarvis",
-            "good morning jervis": "good morning jarvis",
-        }
+        self.replacements = dict(REPLACEMENTS)
 
     def clean_text(self, text: str):
 
@@ -254,6 +280,110 @@ class SpeechToText:
 
         return text
 
+class GroqSpeechToText:
+    """Whisper on Groq's servers: about half a second for a call clip.
+
+    A dropped connection, a quota error or a bad key costs one failed request
+    and then the same audio goes to the local model, so a call never goes
+    silent just because the network did.
+    """
+
+    URL = "https://api.groq.com/openai/v1/audio/transcriptions"
+
+    def __init__(self):
+
+        self.name = (settings.GROQ_STT_MODEL or "whisper-large-v3-turbo").strip()
+        self.last_language = None
+        self.last_error = ""
+        self._local = None
+
+    def _wav(self, samples) -> bytes:
+        """16 kHz mono WAV, the shape every Whisper endpoint expects."""
+
+        audio = np.ascontiguousarray(samples, dtype=np.float32)
+        pcm = (np.clip(audio, -1.0, 1.0) * 32767).astype(np.int16)
+
+        buffer = io.BytesIO()
+
+        with wave.open(buffer, "wb") as handle:
+            handle.setnchannels(1)
+            handle.setsampwidth(2)
+            handle.setframerate(16000)
+            handle.writeframes(pcm.tobytes())
+
+        return buffer.getvalue()
+
+    def transcribe(self, audio, language=None):
+
+        language = resolve_language(language)
+
+        # A path (a recorded file) only arrives from the desktop paths, which
+        # keep the local model; calls always pass float samples.
+        if not isinstance(audio, np.ndarray):
+
+            return self._fallback(audio, language)
+
+        key = (os.getenv("GROQ_API_KEY") or "").strip()
+
+        if not key:
+
+            self.last_error = "GROQ_API_KEY is not set"
+
+            return self._fallback(audio, language)
+
+        payload = {
+            "model": self.name,
+            "response_format": "json",
+            "temperature": "0",
+            "prompt": COMMAND_PROMPT,
+        }
+
+        if language:
+
+            payload["language"] = language
+
+        try:
+
+            response = requests.post(
+                self.URL,
+                headers={"Authorization": f"Bearer {key}"},
+                files={"file": ("call.wav", self._wav(audio), "audio/wav")},
+                data=payload,
+                timeout=float(settings.GROQ_STT_TIMEOUT or 8),
+            )
+
+            response.raise_for_status()
+
+            text = (response.json().get("text") or "").strip()
+
+            if text:
+
+                self.last_error = ""
+                self.last_language = language
+
+                return finish_text(text)
+
+            self.last_error = "Groq returned an empty transcript"
+
+        except Exception as error:
+
+            self.last_error = str(error)[:200]
+
+            logger.warning(
+                "Groq speech-to-text failed (%s); using the local model", error
+            )
+
+        return self._fallback(audio, language)
+
+    def _fallback(self, audio, language):
+
+        if self._local is None:
+
+            self._local = shared()
+
+        return self._local.transcribe(audio, language)
+
+
 # One model for the whole process: the second call must not reload it.
 _SHARED = None
 
@@ -268,6 +398,28 @@ def shared():
         _SHARED = SpeechToText()
 
     return _SHARED
+
+
+def network_stt() -> bool:
+    """True when calls transcribe on Groq instead of the local model."""
+
+    return bool(settings.GROQ_STT and (os.getenv("GROQ_API_KEY") or "").strip())
+
+
+# Calls get their own engine; the desktop mic keeps the local model.
+_CALLS = None
+
+
+def calls():
+    """Speech engine for phone calls: Groq when configured, local otherwise."""
+
+    global _CALLS
+
+    if _CALLS is None:
+
+        _CALLS = GroqSpeechToText() if network_stt() else shared()
+
+    return _CALLS
 
 
 def warm_up() -> bool:
