@@ -20,3 +20,8 @@ tmp/
 *.tmp
 *.bak
 debug_*
+
+# Release archives are build output, never part of the repo
+*.zip
+*.rar
+*.7z
