@@ -171,6 +171,9 @@ class SpeechToText:
             # Silence is already filtered by the call VAD, so whisper
             # does not need to run its own detector over the same audio.
             vad_filter=False,
+            # Nothing reads the timestamps, and asking for them slows the
+            # decoder down on CPU.
+            without_timestamps=True,
             initial_prompt=prompt,
             condition_on_previous_text=False,
             temperature=0,
@@ -220,6 +223,8 @@ class SpeechToText:
 
         language = resolve_language(language)
 
+        # Pass a concrete language: transcribe(language=None) re-detects on every
+        # segment, which measured slower than one detection pass here.
         if language is None:
 
             language = self.detect_language(audio)
