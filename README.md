@@ -1,136 +1,163 @@
 # JARVIS
 
-A local desktop AI assistant: a React UI (the Mina app in
-`jarvis-mina-home main/mina`) and a Python (FastAPI) core that owns everything
-privileged.
+A local desktop AI assistant. A React/Vite UI talks to a FastAPI core that owns
+everything privileged: AI providers, tools, memory, voice, messaging and the
+Windows desktop.
 
 ```
 React UI (Vite)  ──HTTP/WebSocket──▶  FastAPI core  ──▶  AI providers
       │                                   ├── SQLite memory
-                                          ├── Windows launcher
+                                          ├── tools (apps, files, mail, calendar, …)
                                           └── system monitor / voice
 ```
 
-The backend is the single source of truth. The UI only displays state;
-launching apps and reading system information happen in Python.
+The backend is the single source of truth. The UI only displays state; launching
+apps, reading files and controlling the system happen in Python.
+
+## What it does
+
+- **Chat** with a fallback chain across free and paid providers (Groq, Z.ai,
+  OpenRouter, Ollama, Anthropic) plus offline local intents that need no model.
+- **54 tools**: open/close apps, files, screenshots, screen reading and typing,
+  browser tabs, WhatsApp/Telegram messaging, reminders, email (SMTP/IMAP),
+  calendar (`.ics` files), image generation, volume/media, clipboard, shell.
+- **Memory**: SQLite conversation store, profile/facts/notes, semantic search
+  with a local embedding model, folder/document indexing.
+- **Voice**: Whisper speech-to-text, SAPI/Edge text-to-speech, push-to-talk
+  companion, Telegram voice calls.
+- **Approvals**: tools that change the machine ask first; the chat shows an
+  ALLOW/CANCEL card.
+
+## Layout
+
+```
+backend/        FastAPI app, providers, tools, memory, voice, tests
+frontend/mina/  React + TypeScript + Vite + Tailwind chat UI
+.github/        CI workflow (backend test suite)
+```
 
 ## Requirements
 
-- Windows (application launching and voice are Windows-specific)
+- Windows 10/11 for the desktop, voice and Windows-specific tools
+  (the backend still starts on Linux/macOS, minus those features)
 - Python 3.11+
-- Node.js 22+
+- Node.js 18+ (22 recommended)
 
-## Backend setup
+## Setup
 
-```bash
+### Backend
+
+```bat
 cd backend
-
-python -m venv venv
-venv\Scripts\python.exe -m pip install -r requirements.txt
-
-# Optional: microphone, Whisper STT, TTS
-venv\Scripts\python.exe -m pip install -r requirements-voice.txt
-
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
 copy .env.example .env
-# Edit .env and add the provider keys you have.
-# At least one provider key is required for general chat.
 ```
 
-Run it:
+Then edit `backend\.env` and add at least one provider key (see
+[Environment variables](#environment-variables)).
 
-```bash
-venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload --reload-exclude "data" --reload-exclude ".venv" --reload-exclude "*.log" --reload-exclude "*.session" --reload-exclude "*.db*"
+Optional extras:
+
+```bat
+.venv\Scripts\python.exe -m pip install -r requirements-dev.txt    :: pytest + httpx
+.venv\Scripts\python.exe -m pip install -r requirements-voice.txt  :: voice pipeline
 ```
 
-Only a `.py` change restarts the server, but the reloader still watches every file
-under the working folder — including the 49,000 files in `.venv` and the bundled
-runtime in `data/tools`. The excludes keep it to the code that matters.
+### Frontend
 
-The API is then at <http://127.0.0.1:8000> and its docs at `/docs`.
-
-## Frontend setup
-
-```bash
-cd "jarvis-mina-home main/mina"
+```bat
+cd frontend\mina
 npm install
-npm run dev          # http://127.0.0.1:5173
-npm run build        # production bundle in dist
+copy .env.example .env
 ```
 
-If the API lives somewhere else, set `VITE_API_URL` before building or
-running Vite.
+The frontend `.env` is optional: without it the UI calls
+`http://127.0.0.1:8080` and sends no token.
 
-## API
+## Run
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET | `/` | Health and version |
-| POST | `/chat` | `{ "message": "...", "mode": "assistant" }` |
-| GET | `/system-info` | Cached CPU / RAM / storage / network / battery |
-| POST | `/open-app/{name}` | Launch an installed app |
-| POST | `/close-app/{name}` | Ask an app to close (graceful, no force) |
-| GET | `/capabilities` | Modes, providers, apps, intents, voice |
-| GET | `/models` | Provider availability and active mode |
-| GET | `/memory` | Profile, facts, message count, summary |
-| POST | `/memory/clear` | `{ "scope": "conversation" }` or `"all"` |
-| POST | `/voice` | One microphone turn |
-| POST | `/voice/live` | Start continuous listening |
-| POST | `/voice/stop` | Stop listening |
-| GET | `/voice/status` | `{ running, available }` |
-| WS | `/ws/voice` | Live `listening` / `heard` / `reply` / `stopped` events |
+Backend (terminal 1):
 
-Prompt modes: `assistant`, `coding`, `teacher`, `research`.
+```bat
+cd backend
+.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8080
+```
 
-## Memory
+Frontend (terminal 2):
 
-Memory lives in `backend/data/jarvis.db` (SQLite, WAL mode, one shared locked
-connection). On first start an existing `backend/data/memory.json` is imported
-once and left in place.
+```bat
+cd frontend\mina
+npm run dev
+```
 
-When a conversation reaches 50 messages the core generates a rolling summary
-and keeps the 10 most recent messages. If no provider is available the raw
-messages are kept instead of being discarded.
+Open <http://127.0.0.1:5173>. API docs: <http://127.0.0.1:8080/docs>.
+
+Production frontend build:
+
+```bat
+cd frontend\mina
+npm run build      :: output in dist/
+```
+
+## Environment variables
+
+Backend variables live in `backend\.env` (start from `backend\.env.example`).
+Only the provider keys are needed for general chat; every feature degrades with a
+friendly message when its settings are missing.
+
+| Variable | Purpose |
+| --- | --- |
+| `GROQ_API_KEY`, `GROQ_MODEL`, `GROQ_FALLBACK_MODEL` | Groq provider |
+| `GROQ_STT`, `GROQ_STT_MODEL`, `GROQ_STT_TIMEOUT` | Phone calls transcribe on Groq Whisper (~0.5s), local model as fallback |
+| `OPENROUTER_API_KEY` | OpenRouter provider and image generation |
+| `ZAI_API_KEY`, `ZAI_MODEL` | Z.ai / Zhipu GLM provider |
+| `SILICONFLOW_API_KEY`, `SILICONFLOW_MODEL` | SiliconFlow provider |
+| `ANTHROPIC_API_KEY` | Final Claude fallback |
+| `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `ENABLE_OLLAMA` | Local model, no API key |
+| `JARVIS_LOCAL_TOKEN` | Require `X-Jarvis-Token` on state-changing requests |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_SSL` | Sending email |
+| `IMAP_HOST`, `IMAP_PORT` | Reading the inbox (uses `SMTP_USER`/`SMTP_PASSWORD`) |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_CHAT_IDS` | Telegram bridge |
+| `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_CALL_*` | Telegram voice calls |
+| `JARVIS_BRIEFING_HOUR`, `JARVIS_BRIEFING_MINUTE` | Morning briefing time |
+| `JARVIS_NOTIFICATIONS`, `JARVIS_LANGUAGE` | Toast notifications, reply language |
+| `SEMANTIC_MEMORY`, `SEMANTIC_MODEL`, `SEMANTIC_TOP_K`, `SEMANTIC_MIN_SCORE` | Semantic memory |
+| `TTS_ENGINE`, `TTS_SAPI_VOICE`, `TTS_VOICE` | Text-to-speech voice |
+| `IMAGE_MODEL` | Image generation model |
+| `SCREEN_WATCH_INTERVAL`, `SCREEN_WATCH_COOLDOWN`, `SCREEN_WATCH_SPEAK` | Screen watching |
+| `JARVIS_TOOLS_DIR` | Where bundled tool runtimes are stored |
+
+Frontend variables live in `frontend\mina\.env`:
+
+| Variable | Purpose |
+| --- | --- |
+| `VITE_API_URL` | Backend origin (default `http://127.0.0.1:8080`) |
+| `VITE_JARVIS_TOKEN` | Must match `JARVIS_LOCAL_TOKEN`; empty when unused |
+
+## Tests
+
+```bat
+cd backend
+.venv\Scripts\python.exe -m pytest
+```
+
+`.github/workflows/ci.yml` runs the same suite on Ubuntu for every push.
 
 ## Security
 
-- `backend/.env` is no longer tracked by git; only `.env.example` is.
-- CORS allows only the local UI origins.
-- Every state-changing request (`POST`/`PUT`/`PATCH`/`DELETE`) must come from
-  an allowed local `Origin`; `Sec-Fetch-Site: cross-site` is rejected.
-- Set `JARVIS_LOCAL_TOKEN` in `backend/.env` to additionally require an
-  `X-Jarvis-Token` header on state-changing requests.
+- `backend/.env` and `frontend/mina/.env` are not tracked and are not part of
+  this archive; only `.env.example` files are.
+- CORS allows local UI origins only, and cross-site state-changing requests are
+  rejected.
 - Provider keys never leave the backend.
-
-### Required manual actions
-
-1. **Rotate the provider keys** that were previously committed to
-   `backend/.env`. Use each provider's dashboard, then update `.env`.
-2. **Purge the old blob from git history.** Rewriting history is destructive
-   and needs a force-push, so it is intentionally not automated:
-
-   ```bash
-   # with git-filter-repo installed
-   git filter-repo --path backend/.env --invert-paths
-   git push --force-with-lease
-   ```
-
-   Rotating the keys is mandatory; purging history only removes the old values
-   from clones. Coordinate with anyone else who has the repository.
-
-## Tests and CI
-
-```bash
-cd backend
-venv\Scripts\python.exe -m pytest        # memory, intent, API, voice guard
-```
-
-`.github/workflows/ci.yml` runs the backend suite (without the heavy voice
-dependencies).
+- Set `JARVIS_LOCAL_TOKEN` if other local processes should not be able to drive
+  the assistant.
 
 ## Known limitations
 
-- Replies are not streamed token-by-token; the UI shows a typing indicator and
-  renders the complete Markdown answer.
-- Voice requires the optional dependencies and a working microphone. Without
-  them the API reports voice as unavailable instead of crashing.
+- Replies are not streamed token-by-token; the UI shows a typing indicator.
+- Voice needs the optional dependencies and a working microphone; without them
+  the API reports voice as unavailable instead of crashing.
 - No user accounts: the API binds to loopback and trusts the local machine.
+- Desktop automation (app launching, window control, TTS) is Windows-only.
