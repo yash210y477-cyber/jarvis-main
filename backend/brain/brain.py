@@ -26,7 +26,9 @@ from tools.approvals import (
 # A local Ollama model on CPU needs more than the cloud APIs did.
 AI_TIMEOUT_SECONDS = 95
 
-AGENT_TIMEOUT_SECONDS = 60
+# Writing a whole program (a game, a page) in one tool call took ~50s here,
+# so a 60s cap turned a working request into the "no provider" fallback.
+AGENT_TIMEOUT_SECONDS = 120
 
 AI_POOL = concurrent.futures.ThreadPoolExecutor(max_workers=2)
 

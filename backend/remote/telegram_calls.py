@@ -491,7 +491,26 @@ class TelegramCallBridge:
 
             reply = await asyncio.to_thread(self._answer_text, text)
 
-            await event.reply(reply)
+            from remote.telegram import file_marks
+            from tools import files as store
+
+            body, paths = file_marks(reply)
+
+            await event.reply(body or "Here is the file.")
+
+            for path in paths:
+
+                try:
+
+                    target = store._resolve(path)
+
+                    if target.is_file():
+
+                        await event.reply(file=target)
+
+                except Exception as error:
+
+                    log.warning("Sending the generated file failed: %s", error)
 
             self.messages += 1
 

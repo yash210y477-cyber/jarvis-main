@@ -7,9 +7,11 @@ chat is answered, otherwise only the listed ones.
 
 import json
 import os
+import re
 import threading
 import time
 from pathlib import Path
+from urllib.parse import unquote
 
 import psutil
 import requests
@@ -18,6 +20,32 @@ from config.settings import settings
 
 
 API = "https://api.telegram.org/bot{token}/{method}"
+
+# A tool that writes a file leaves a "[file]name" line in the reply; the chat
+# turns it into a Download button, Telegram sends the file itself.
+FILE_MARKER = re.compile(r"^\[file\](\S+)\s*$")
+
+MAX_DOCUMENT_BYTES = 49 * 1024 * 1024
+
+
+def file_marks(text: str) -> tuple[str, list[str]]:
+    """Split the reply into what to say and which files to send."""
+
+    body = []
+    paths = []
+
+    for line in (text or "").splitlines():
+
+        found = FILE_MARKER.match(line.strip())
+
+        if found:
+
+            paths.append(unquote(found.group(1)))
+        else:
+
+            body.append(line)
+
+    return "\n".join(body).strip(), paths
 
 # One poller per bot token: a second JARVIS process makes every reply arrive
 # twice and makes Telegram answer "Conflict" to both of them.
@@ -326,6 +354,42 @@ class TelegramBridge:
 
         return data.get("result")
 
+    def _send_document(self, chat_id, path: str) -> bool:
+        """Upload one generated file, if it stays inside the workspace."""
+
+        from tools import files
+
+        try:
+
+            target = files._resolve(path)
+
+        except ValueError:
+
+            return False
+
+        if not target.is_file() or target.stat().st_size > MAX_DOCUMENT_BYTES:
+
+            return False
+
+        try:
+
+            with target.open("rb") as handle:
+
+                response = requests.post(
+                    API.format(token=self.token, method="sendDocument"),
+                    data={"chat_id": chat_id},
+                    files={"document": (target.name, handle)},
+                    timeout=120,
+                )
+
+            return bool(response.json().get("ok"))
+
+        except Exception as error:
+
+            self.last_error = str(error)[:300]
+
+            return False
+
     def _loop(self):
 
         while not self.stop_event.is_set():
@@ -356,11 +420,19 @@ class TelegramBridge:
 
                     reply = self.handle(chat_id, text)
 
-                    self._call(
-                        "sendMessage",
-                        chat_id=chat_id,
-                        text=reply[:4000],
-                    )
+                    body, paths = file_marks(reply)
+
+                    if body:
+
+                        self._call(
+                            "sendMessage",
+                            chat_id=chat_id,
+                            text=body[:4000],
+                        )
+
+                    for path in paths:
+
+                        self._send_document(chat_id, path)
 
                     self.messages += 1
 
